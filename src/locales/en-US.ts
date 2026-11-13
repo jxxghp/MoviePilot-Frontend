@@ -2122,6 +2122,8 @@ export default {
     imageLoadFailed: 'Failed',
     noMatchingEvents: 'No calendar items match the current filters',
     mediaTypeFilterTitle: 'Media type filter',
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
     filterAll: 'All',
     filterMovie: 'Movie',
     filterTv: 'TV Series',

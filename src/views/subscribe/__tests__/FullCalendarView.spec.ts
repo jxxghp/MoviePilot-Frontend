@@ -15,8 +15,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getEventById: vi.fn(),
   openSharedDialog: vi.fn(),
+  previousMonth: vi.fn(),
+  nextMonth: vi.fn(),
   setExtendedProp: vi.fn(),
-  setRange: undefined as ((range: { start: Date; end: Date }) => void) | undefined,
+  setRange: undefined as ((range: { start: Date; end: Date; view?: { title: string } }) => void) | undefined,
 }))
 
 vi.mock('@/composables/useSharedDialog', () => ({
@@ -55,7 +57,7 @@ vi.mock('@fullcalendar/vue3', async () => {
         }
 
         expose({
-          getApi: () => ({ getEventById }),
+          getApi: () => ({ getEventById, prev: mocks.previousMonth, next: mocks.nextMonth }),
         })
 
         return () => {
@@ -937,6 +939,27 @@ describe('FullCalendarView', () => {
 
     await waitFor(() => expect(queryMobileCalendarEventCard('恢复后的电影')).toBeInTheDocument())
     expect(onListRequest).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the desktop month title and navigation in the media filter toolbar', async () => {
+    server.use(subscribeListHandler([]))
+    const { container } = await renderCalendar()
+    const start = new Date('2026-07-01T00:00:00+08:00')
+    const end = new Date('2026-08-01T00:00:00+08:00')
+    mocks.setRange?.({ start, end, view: { title: '2026年7月' } })
+
+    const heading = await screen.findByRole('heading', { name: '2026年7月' })
+    const toolbar = container.querySelector('.calendar-desktop-toolbar')
+    expect(toolbar).toContainElement(heading)
+    expect(toolbar).toContainElement(screen.getByRole('group', { name: '媒体类型筛选' }))
+    await fireEvent.click(screen.getByRole('button', { name: '上个月' }))
+    await fireEvent.click(screen.getByRole('button', { name: '下个月' }))
+    expect(mocks.previousMonth).toHaveBeenCalledOnce()
+    expect(mocks.nextMonth).toHaveBeenCalledOnce()
+
+    mocks.setRange?.({ start, end, view: { title: '2026年8月' } })
+    expect(await screen.findByRole('heading', { name: '2026年8月' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '2026年7月' })).not.toBeInTheDocument()
   })
 
   it('filters desktop calendar events by media type', async () => {

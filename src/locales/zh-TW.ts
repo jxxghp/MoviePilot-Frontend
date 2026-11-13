@@ -2087,6 +2087,8 @@ export default {
     imageLoadFailed: '載入失敗',
     noMatchingEvents: '暫無符合篩選條件的日曆內容',
     mediaTypeFilterTitle: '媒體類型篩選',
+    previousMonth: '上個月',
+    nextMonth: '下個月',
     filterAll: '全部',
     filterMovie: '電影',
     filterTv: '電視劇',

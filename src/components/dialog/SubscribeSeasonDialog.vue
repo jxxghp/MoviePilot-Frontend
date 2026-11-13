@@ -14,17 +14,27 @@ import {
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
 
+/** 季卡片中可选的订阅模式及显示信息。 */
 type SubscribeModeOption = {
   icon: string
   title: string
   value: SubscribeMode
 }
 
+/** 剧集组选择器使用的展示选项。 */
 type EpisodeGroupOption = {
   title: string
   subtitle: string
   value: string
   icon: string
+}
+
+/** 媒体接口提供的剧集组摘要。 */
+interface EpisodeGroupInfo {
+  id: string
+  name: string
+  group_count: number
+  episode_count: number
 }
 
 // 国际化
@@ -72,7 +82,7 @@ let disposed = false
 const missingStateStatus = ref<'loading' | 'ready' | 'error'>('loading')
 
 // 所有剧集组
-const episodeGroups = ref<{ [key: string]: any }[]>([])
+const episodeGroups = ref<EpisodeGroupInfo[]>([])
 
 // 当前选择剧集组
 const episodeGroup = ref(
@@ -167,9 +177,7 @@ const submitButtonText = computed(() => {
 
 // 剧集组选项
 const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
-  const options = (
-    episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]
-  ).map(item => {
+  const options = episodeGroups.value.map(item => {
     return {
       title: item.name,
       subtitle: `${t('dialog.subscribeSeason.seasonCount', { count: item.group_count })} • ${t(
@@ -672,7 +680,10 @@ onBeforeUnmount(() => {
               <template #append>
                 <VListItemAction start class="subscribe-season-actions">
                   <VSwitch
+                    class="subscribe-season-switch"
                     :model-value="isSeasonSelected(item.season_number ?? 0)"
+                    :aria-label="getSeasonTitle(item)"
+                    inset
                     hide-details
                     @click.stop
                     @update:model-value="setSeasonSelected(item.season_number ?? 0, $event)"
@@ -739,6 +750,13 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
   justify-items: end;
   min-inline-size: 18rem;
+}
+
+/* 固定无标签开关的宽度，避免操作区缺少模式按钮时被网格收缩，滑块偏出轨道。 */
+.subscribe-season-switch {
+  inline-size: 52px;
+  min-inline-size: 52px;
+  max-inline-size: 52px;
 }
 
 .subscribe-season-group-selector {

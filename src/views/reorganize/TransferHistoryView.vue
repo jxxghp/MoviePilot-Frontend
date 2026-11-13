@@ -57,6 +57,9 @@ const { useProgressSSE } = useBackground()
 // 按视口和框架留白限定桌面页高度，保证标题与分页留在可视区域。
 const { availableHeight, viewportHeight } = useAvailableHeight(135, 300)
 const desktopToolbarRef = ref<HTMLElement | null>(null)
+// 桌面记录在虚拟表格内部滚动，翻页时只重置当前列表的滚动容器。
+const desktopHistoryRef = ref<HTMLElement | null>(null)
+let displayedDesktopQueryKey: string | undefined
 const { top: desktopToolbarTop } = useElementBounding(desktopToolbarRef)
 // 框架预留 Dock 与页面内边距，真实起点负责兼容工具栏上方的布局高度。
 // 桌面页自身不滚动，标题、批量操作与分页占固定空间，剩余高度交给虚拟记录区。
@@ -702,6 +705,7 @@ function hasMusicAlbumGroup(items: TransferHistoryDisplayItem[]) {
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
   if (!historyViewActive) return
   const requestSeed = ++fetchDataRequestSeed
+  const queryKey = JSON.stringify([page, count, search.value ?? '', statusFilter.value])
   const shouldShowLoading = !options.silent
   if (shouldShowLoading) {
     loading.value = true
@@ -737,6 +741,13 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
       group.value = true
     }
 
+    // 等新数据和虚拟列表更新后再归零；同页刷新及 KeepAlive 返回保留阅读位置。
+    await nextTick()
+    if (historyViewActive && isDesktop.value && requestSeed === fetchDataRequestSeed) {
+      if (displayedDesktopQueryKey !== queryKey) resetDesktopHistoryScroll()
+      displayedDesktopQueryKey = queryKey
+    }
+
     return {
       list,
       total: totalItems.value,
@@ -749,6 +760,14 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
       loading.value = false
     }
   }
+}
+
+/** 重置虚拟表格自身的滚动位置，让新一页从首条记录开始显示。 */
+function resetDesktopHistoryScroll() {
+  const viewport = desktopHistoryRef.value?.querySelector<HTMLElement>(
+    '.transfer-history-desktop-virtual > .v-table__wrapper',
+  )
+  if (viewport) viewport.scrollTop = 0
 }
 
 const completedDeleteStatuses: TransferHistoryDeleteStepStatus[] = ['deleted', 'already_missing']
@@ -2204,7 +2223,12 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
 </script>
 
 <template>
-  <section v-if="isDesktop" class="transfer-history-desktop-page" :style="{ blockSize: `${desktopPageHeight}px` }">
+  <section
+    v-if="isDesktop"
+    ref="desktopHistoryRef"
+    class="transfer-history-desktop-page"
+    :style="{ blockSize: `${desktopPageHeight}px` }"
+  >
     <header ref="desktopToolbarRef" class="transfer-history-desktop-toolbar">
       <VPageContentTitle :title="t('navItems.mediaOrganize')" class="my-0" style="margin-block: 0" />
       <div class="transfer-history-desktop-tools">

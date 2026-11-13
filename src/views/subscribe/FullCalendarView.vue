@@ -43,6 +43,8 @@ const isLoaded = ref(false)
 const i18nLocale = getCurrentLocale()
 const currentLocale = i18nLocale.split('-')[0]
 
+// 标题由 FullCalendar 的当前视图提供，翻月与语言格式保持一致。
+const calendarTitle = ref('')
 const visibleRange = shallowRef<{ start: Date; end: Date }>()
 const mobileVisibleDayCount = ref(30)
 const mobileWindowEnd = shallowRef<Date>()
@@ -109,11 +111,8 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   initialView: 'dayGridMonth',
   weekends: true,
   firstDay: 1,
-  headerToolbar: {
-    left: 'prev',
-    center: 'title',
-    right: 'next',
-  },
+  // 桌面端将月份导航与媒体筛选合并为同一条 Vue 工具栏。
+  headerToolbar: false,
   // 折叠逻辑由组件自行控制，点击展开时可以直接扩展当前日期格子。
   dayMaxEvents: false,
   dayMaxEventRows: false,
@@ -126,7 +125,8 @@ const calendarOptions: Ref<CalendarOptions> = ref({
     },
   },
   events: [],
-  datesSet: ({ start, end }) => {
+  datesSet: ({ start, end, view }) => {
+    calendarTitle.value = view?.title || ''
     const changed =
       visibleRange.value?.start.getTime() !== start.getTime() || visibleRange.value?.end.getTime() !== end.getTime()
     visibleRange.value = { start, end }
@@ -139,6 +139,11 @@ const calendarOptions: Ref<CalendarOptions> = ref({
 const rawCalendarEvents = ref<CalendarEventInfo[]>([])
 const expandedDateKeys = ref(new Set<string>())
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
+
+/** 委托 FullCalendar 翻月，由 datesSet 统一同步标题、可见窗口和数据加载。 */
+function changeCalendarMonth(direction: 'prev' | 'next') {
+  calendarRef.value?.getApi()[direction]()
+}
 
 /** 统计当前日历中已加载的剧集或电影条目，和移动端总数使用同一口径。 */
 function getCalendarItemCount(events: CalendarEventInfo[]) {
@@ -978,24 +983,32 @@ onActivated(() => {
       >{{ t('common.loading') }} · {{ t('common.loadedCount', { count: loadedCalendarItemCount }) }}</span
     >
   </div>
-  <div
-    v-if="display.mdAndUp.value"
-    class="calendar-media-type-filter"
-    role="group"
-    :aria-label="t('calendar.mediaTypeFilterTitle')"
-  >
-    <button
-      v-for="option in mediaTypeFilterOptions"
-      :key="option.value"
-      type="button"
-      class="calendar-media-type-chip"
-      :class="{ 'calendar-media-type-chip--active': mediaTypeFilter === option.value }"
-      :aria-pressed="mediaTypeFilter === option.value"
-      @click="mediaTypeFilter = option.value"
-    >
-      {{ option.label }}
-    </button>
-  </div>
+  <header v-if="display.mdAndUp.value" class="calendar-desktop-toolbar">
+    <div class="calendar-media-type-filter" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
+      <button
+        v-for="option in mediaTypeFilterOptions"
+        :key="option.value"
+        type="button"
+        class="calendar-media-type-chip"
+        :class="{ 'calendar-media-type-chip--active': mediaTypeFilter === option.value }"
+        :aria-pressed="mediaTypeFilter === option.value"
+        @click="mediaTypeFilter = option.value"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+    <h2 class="calendar-desktop-toolbar__title">{{ calendarTitle }}</h2>
+    <div class="calendar-desktop-toolbar__month-actions">
+      <IconBtn size="small" :aria-label="t('calendar.previousMonth')" @click="changeCalendarMonth('prev')">
+        <VIcon icon="mdi-chevron-left" size="20" />
+        <VTooltip activator="parent" location="top">{{ t('calendar.previousMonth') }}</VTooltip>
+      </IconBtn>
+      <IconBtn size="small" :aria-label="t('calendar.nextMonth')" @click="changeCalendarMonth('next')">
+        <VIcon icon="mdi-chevron-right" size="20" />
+        <VTooltip activator="parent" location="top">{{ t('calendar.nextMonth') }}</VTooltip>
+      </IconBtn>
+    </div>
+  </header>
 
   <FullCalendar v-if="display.mdAndUp.value" ref="calendarRef" :options="calendarOptions">
     <template #eventContent="arg">
@@ -1537,31 +1550,79 @@ onActivated(() => {
   background-color: transparent !important;
 }
 
+.calendar-desktop-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-block-size: 3.5rem;
+  padding-block: 0.25rem 1rem;
+}
+
+.calendar-desktop-toolbar__month-actions {
+  display: inline-flex;
+  justify-self: end;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-field-radius);
+  background: var(--mp-muted);
+}
+
+.calendar-desktop-toolbar__title {
+  margin: 0;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .calendar-media-type-filter {
-  display: flex;
-  gap: 0.5rem;
-  margin-block-end: 0.75rem;
+  display: inline-flex;
+  justify-self: start;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-field-radius);
+  background: var(--mp-muted);
 }
 
 .calendar-media-type-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding-block: 0.4rem;
-  padding-inline: 1rem;
+  min-block-size: 2rem;
+  padding-block: 0.375rem;
+  padding-inline: 1.125rem;
   border: 0;
   border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-on-surface), 0.08);
-  color: rgba(var(--v-theme-on-surface), 0.72);
+  background: transparent;
+  color: var(--mp-muted-fg);
   cursor: pointer;
-  font-size: 0.86rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.calendar-media-type-chip:hover {
+  color: var(--mp-fg);
+}
+
+.calendar-media-type-chip:focus-visible {
+  outline: 2px solid var(--mp-ring);
+  outline-offset: 2px;
 }
 
 .calendar-media-type-chip--active {
-  background: rgba(var(--v-theme-primary), 0.14);
+  background: var(--mp-surface);
   color: rgb(var(--v-theme-primary));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
 }
 
 .calendar-event-card {

@@ -589,6 +589,70 @@ describe('TransferHistoryView', () => {
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
   })
 
+  it('returns the virtual list to the top only after the next page has loaded', async () => {
+    const nextPage = createDeferred<ReturnType<typeof historyResponse>>()
+    let historyCalls = 0
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      historyCalls += 1
+      return historyCalls === 1
+        ? Promise.resolve(historyResponse([createHistory(1, '第一页记录')], 100))
+        : nextPage.promise
+    })
+    const { container, router } = await renderHistory('/history?currentPage=1', true, true)
+    await screen.findByText('第一页记录')
+    const viewport = container.querySelector<HTMLElement>('.v-table__wrapper')!
+    viewport.scrollTop = 400
+
+    await router.push('/history?currentPage=2')
+    await waitFor(() => expect(historyCalls).toBe(2))
+    expect(viewport.scrollTop).toBe(400)
+
+    nextPage.resolve(historyResponse([createHistory(51, '第二页记录')], 100))
+    await screen.findByText('第二页记录')
+    await waitFor(() => expect(viewport.scrollTop).toBe(0))
+  })
+
+  it('preserves the virtual list position when refreshing the same page', async () => {
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([createHistory(1, '原有记录')])),
+    )
+    const { container } = await renderHistory('/history', true, true)
+    await screen.findByText('原有记录')
+    const viewport = container.querySelector<HTMLElement>('.v-table__wrapper')!
+    viewport.scrollTop = 400
+
+    await fireEvent.click(screen.getByRole('button', { name: '刷新' }))
+    await flushPromises()
+
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === 'history/transfer')).toHaveLength(2)
+    expect(viewport.scrollTop).toBe(400)
+  })
+
+  it('preserves the previous list position when a page request fails', async () => {
+    const nextPage = createDeferred<ReturnType<typeof historyResponse>>()
+    let historyCalls = 0
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      historyCalls += 1
+      return historyCalls === 1
+        ? Promise.resolve(historyResponse([createHistory(1, '保留原页记录')], 100))
+        : nextPage.promise
+    })
+    const { container, router } = await renderHistory('/history?currentPage=1', true, true)
+    await screen.findByText('保留原页记录')
+    const viewport = container.querySelector<HTMLElement>('.v-table__wrapper')!
+    viewport.scrollTop = 400
+
+    await router.push('/history?currentPage=2')
+    await waitFor(() => expect(historyCalls).toBe(2))
+    nextPage.reject(new Error('page unavailable'))
+    await flushPromises()
+
+    expect(screen.getByText('保留原页记录')).toBeInTheDocument()
+    expect(viewport.scrollTop).toBe(400)
+  })
+
   it('remembers manual grouping when returning from another route without query parameters', async () => {
     mocks.apiGet.mockImplementation((path: string) =>
       Promise.resolve(
