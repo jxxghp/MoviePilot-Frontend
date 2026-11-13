@@ -4715,6 +4715,16 @@ export default {
       artistCollectionScanFailed: '藝術家合集掃描失敗',
       musicEntityHint: '選擇專輯目錄時預設按專輯整理，單個音訊檔案預設按單曲整理',
       musicReleasePreferenceOverride: '本次覆蓋發行偏好',
+      musicTrackMatch: '本次曲目對齊方式',
+      musicTrackMatchStrict: '嚴格校驗',
+      musicTrackMatchIgnoreDuration: '忽略時長校驗',
+      musicTrackMatchSequential: '跳過對齊校驗，按檔案順序套用',
+      musicTrackMatchHint: '適用於手選專輯。可填寫專輯 ID，或在預覽中選擇專輯。忽略時長時仍需曲目唯一對位',
+      musicTrackMatchWarning:
+        '來源檔案按完整路徑自然排序（2 在 10 前）對應所選發行版曲目，數量必須一致。曲名、曲序和時長將跳過核驗，可能寫入錯誤歌曲標籤，請先核對預覽。',
+      musicTargetPath: '本次音樂最終目錄',
+      musicTargetPathHint:
+        '留空沿用目錄範本。填寫絕對路徑後僅套用檔名範本，所有曲目存入此目錄。沒有線上條目時，可留空媒體 ID，使用完整的本機標籤整理',
       musicCueEnable: '本次識別 CUE',
       musicCueEnableHint: '預設採用系統設置，僅影響本次預覽和整理。已分軌專輯附帶錯誤 CUE 時可關閉；整軌專輯請保持開啟',
       musicReleasePreferenceOverrideHint: '關閉時繼承系統設置；開啟後僅影響本次手動整理',
