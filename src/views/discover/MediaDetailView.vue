@@ -972,40 +972,21 @@ useNativePageHeader({
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
-        <div class="media-actions">
-          <VBtn v-if="hasMediaIdentity() && canSearch" variant="tonal" color="primary" class="media-action-button">
-            <template #prepend>
-              <VIcon icon="mdi-magnify" />
-            </template>
-            {{ t('media.actions.searchResource') }}
-            <VMenu activator="parent" close-on-content-click>
-              <VList>
-                <VListItem @click="clickSearch('title')">
-                  <VListItemTitle>{{ t('media.search.byTitle') }}</VListItemTitle>
-                </VListItem>
-                <VListItem @click="clickSearch('imdbid')">
-                  <VListItemTitle>{{ t('media.search.byImdb') }}</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </VBtn>
-          <VBtn
-            v-if="hasMediaIdentity() && canSearch"
-            variant="tonal"
-            color="info"
-            class="media-action-button"
-            @click="handleSubtitleSearch"
-          >
-            <template #prepend>
-              <VIcon icon="mdi-subtitles-outline" />
-            </template>
-            {{ t('media.actions.searchSubtitle') }}
-          </VBtn>
+        <div
+          v-if="
+            (canSubscribe && (mediaDetail.type === '电影' || hasMediaIdentity())) ||
+            (hasMediaIdentity() && canSearch) ||
+            existsItemId
+          "
+          class="media-actions"
+        >
           <VBtn
             v-if="canSubscribe && (mediaDetail.type === '电影' || hasMediaIdentity())"
-            class="media-action-button"
+            class="media-action-button media-action-button--primary"
             :color="getSubscribeColor"
-            variant="tonal"
+            variant="flat"
+            rounded="pill"
+            size="large"
             @click="handleSubscribe()"
           >
             <template #prepend>
@@ -1013,12 +994,59 @@ useNativePageHeader({
             </template>
             {{ getSubscribeText }}
           </VBtn>
-          <VBtn v-if="existsItemId" class="media-action-button" variant="tonal" @click="handlePlay()" color="success">
-            <template #prepend>
-              <VIcon icon="mdi-play" />
-            </template>
-            {{ t('media.actions.playOnline') }}
-          </VBtn>
+          <div v-if="(hasMediaIdentity() && canSearch) || existsItemId" class="media-action-secondary">
+            <VBtn
+              v-if="hasMediaIdentity() && canSearch"
+              variant="tonal"
+              color="primary"
+              class="media-action-button"
+              rounded="pill"
+              size="large"
+            >
+              <template #prepend>
+                <VIcon icon="mdi-magnify" />
+              </template>
+              {{ t('media.actions.searchResource') }}
+              <VMenu activator="parent" close-on-content-click>
+                <VList>
+                  <VListItem @click="clickSearch('title')">
+                    <VListItemTitle>{{ t('media.search.byTitle') }}</VListItemTitle>
+                  </VListItem>
+                  <VListItem @click="clickSearch('imdbid')">
+                    <VListItemTitle>{{ t('media.search.byImdb') }}</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </VBtn>
+            <VBtn
+              v-if="hasMediaIdentity() && canSearch"
+              variant="tonal"
+              color="info"
+              class="media-action-button"
+              rounded="pill"
+              size="large"
+              @click="handleSubtitleSearch"
+            >
+              <template #prepend>
+                <VIcon icon="mdi-subtitles-outline" />
+              </template>
+              {{ t('media.actions.searchSubtitle') }}
+            </VBtn>
+            <VBtn
+              v-if="existsItemId"
+              class="media-action-button"
+              variant="tonal"
+              color="success"
+              rounded="pill"
+              size="large"
+              @click="handlePlay()"
+            >
+              <template #prepend>
+                <VIcon icon="mdi-play" />
+              </template>
+              {{ t('media.actions.playOnline') }}
+            </VBtn>
+          </div>
         </div>
       </div>
       <div class="media-overview">
@@ -1621,7 +1649,7 @@ useNativePageHeader({
 @media (width >= 1280px) {
   .media-header {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) minmax(0, 18rem);
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 24rem);
     align-items: flex-end;
     column-gap: 1rem;
   }
@@ -1775,15 +1803,12 @@ a.crew-name {
 }
 
 .media-actions {
-  --media-action-gap: 0.75rem;
+  --media-action-gap: 0.5rem;
 
-  position: relative;
   display: grid;
-  flex-shrink: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--media-action-gap);
-  inline-size: min(100%, 22rem);
-  justify-content: center;
+  inline-size: min(100%, 24rem);
   margin-block-start: 1rem;
 }
 
@@ -1792,40 +1817,37 @@ a.crew-name {
   min-inline-size: 0;
 }
 
-.media-actions > .media-action-button:only-child,
-.media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
-  grid-column: 1 / -1;
-  inline-size: calc((100% - var(--media-action-gap)) / 2);
-  justify-self: center;
+.media-action-secondary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--media-action-gap);
+}
+
+.media-action-secondary:has(> .media-action-button:only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.media-action-secondary:has(> .media-action-button:nth-child(2):last-child) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (width >= 1280px) {
   .media-actions {
     margin-block-start: 0;
-  }
-}
-
-@media (width >= 640px) {
-  .media-actions {
-    display: flex;
-    gap: 0.5rem;
-    inline-size: auto;
-    justify-content: flex-end;
-  }
-
-  .media-action-button,
-  .media-actions > .media-action-button:only-child,
-  .media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
-    inline-size: auto;
-  }
-}
-
-@media (width >= 1280px) {
-  .media-actions {
-    flex-shrink: 1;
-    flex-wrap: wrap;
     inline-size: 100%;
-    max-inline-size: 18rem;
+    max-inline-size: 24rem;
+  }
+}
+
+@media (width < 360px) {
+  .media-action-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .media-action-secondary > .media-action-button:last-child:nth-child(odd):not(:first-child) {
+    grid-column: 1 / -1;
+    inline-size: calc((100% - var(--media-action-gap)) / 2);
+    justify-self: center;
   }
 }
 

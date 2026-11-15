@@ -521,12 +521,56 @@ describe('MediaDetailView detail and actions', () => {
   })
 
   it('hides search and subscribe actions without permissions', async () => {
-    await renderDetail({ permissions: { discovery: true, manage: false, search: false, subscribe: false } })
+    const { container } = await renderDetail({
+      permissions: { discovery: true, manage: false, search: false, subscribe: false },
+    })
 
     expect(await screen.findByRole('heading', { name: /详情测试电影/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /搜索资源/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /搜索字幕/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^订阅$/ })).not.toBeInTheDocument()
+    expect(container.querySelector('.media-actions')).toBeNull()
+  })
+
+  it('places subscription first above three auxiliary actions', async () => {
+    const { container } = await renderDetail({
+      existsResponse: { data: { item: { id: 'library-actions' } }, success: true },
+    })
+    const actions = container.querySelector('.media-actions')
+    const secondary = actions?.querySelector('.media-action-secondary')
+
+    expect(actions?.firstElementChild).toHaveClass('media-action-button--primary')
+    expect(screen.getByRole('button', { name: /^订阅$/ })).toBeVisible()
+    expect(secondary?.children).toHaveLength(3)
+    expect(secondary?.textContent).toContain('搜索资源')
+    expect(secondary?.textContent).toContain('搜索字幕')
+    expect(secondary?.textContent).toContain('在线播放')
+  })
+
+  it('keeps two available auxiliary actions in a compact group without a subscribe permission', async () => {
+    const { container } = await renderDetail({
+      permissions: { discovery: true, manage: false, search: true, subscribe: false },
+    })
+    const actions = container.querySelector('.media-actions')
+    const secondary = actions?.querySelector('.media-action-secondary')
+
+    expect(actions?.querySelector('.media-action-button--primary')).toBeNull()
+    expect(secondary?.children).toHaveLength(2)
+    expect(secondary?.textContent).toContain('搜索资源')
+    expect(secondary?.textContent).toContain('搜索字幕')
+  })
+
+  it('renders one auxiliary action when search and subscription are unavailable', async () => {
+    const { container } = await renderDetail({
+      existsResponse: { data: { item: { id: 'library-playback' } }, success: true },
+      permissions: { discovery: true, manage: false, search: false, subscribe: false },
+    })
+    const actions = container.querySelector('.media-actions')
+    const secondary = actions?.querySelector('.media-action-secondary')
+
+    expect(actions?.querySelector('.media-action-button--primary')).toBeNull()
+    expect(secondary?.children).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /在线播放/ })).toBeVisible()
   })
 
   it('routes subtitle searches directly when no sites are enabled', async () => {
