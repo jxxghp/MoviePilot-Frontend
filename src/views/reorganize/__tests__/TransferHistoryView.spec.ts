@@ -1451,6 +1451,159 @@ describe('TransferHistoryView', () => {
     }
   })
 
+  describe('calendar date displays', () => {
+    let histories: TransferHistory[]
+
+    beforeEach(() => {
+      histories = []
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+      )
+    })
+
+    it('uses natural desktop periods for past and future dates while preserving raw timestamps', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 10, 12, 21, 4))
+      const cases = [
+        ['2026-11-10 21:05:39', '前天'],
+        ['2026-09-30 23:59:00', '2个月前'],
+        ['2024-12-31 23:59:00', '2年前'],
+        ['2026-11-14 00:01:00', '后天'],
+        ['2027-01-01 00:01:00', '2个月后'],
+        ['2028-01-01 00:01:00', '2年后'],
+      ] as const
+      histories = cases.map(([date], index) => createHistory(index + 1, `自然周期记录${index}`, { date }))
+
+      const { container } = await renderHistory('/history?grouped=false')
+      await screen.findByText('自然周期记录5')
+
+      for (const [date, text] of cases) {
+        const time = container.querySelector(`time[datetime="${date}"]`)
+        expect(time?.textContent).toBe(text)
+        expect(time).toHaveAttribute('title', date)
+      }
+      expect(mocks.apiGet.mock.calls.filter(([path]) => path === 'history/transfer')).toHaveLength(1)
+    })
+
+    it.each([
+      ['2026-07-31T12:00:00', '2026-07-01 00:00:00', '30天前'],
+      ['2024-12-31T12:00:00', '2024-01-01 00:00:00', '11个月前'],
+    ] as const)(
+      'falls back from a zero calendar period for reference %s and history %s',
+      async (reference, date, text) => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date(reference))
+        histories = [createHistory(1, '零差回退记录', { date })]
+
+        const { container } = await renderHistory('/history?grouped=false')
+        await screen.findByText('零差回退记录')
+
+        expect(container.querySelector(`time[datetime="${date}"]`)?.textContent).toBe(text)
+      },
+    )
+
+    it('uses the same calendar date in a collapsed album summary', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 10, 12, 21, 4))
+      const date = '2026-11-10 21:05:39'
+      histories = [1, 2].map(id =>
+        createHistory(id, `Track ${id}`, { date, dest: `/media/Artist/Album/${id}.flac`, type: '音乐' }),
+      )
+
+      const { container } = await renderHistory('/history?grouped=true', true, true)
+      await screen.findByText('Album')
+
+      expect(container.querySelectorAll('.transfer-history-desktop-record')).toHaveLength(0)
+      expect(
+        container.querySelector(`.transfer-history-album-summary__fact[title="${date}"]`)?.textContent?.trim(),
+      ).toBe('前天')
+    })
+
+    it.each([true, false])(
+      'preserves empty and unparseable history on desktop=%s without invalid labels',
+      async desktop => {
+        mocks.desktop = desktop
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date(2026, 10, 12, 21, 4))
+        const dates = ['not a date', '2026-11-12 25:00:00', '', undefined]
+        histories = dates.map((date, index) => createHistory(index + 1, `异常时间记录${index}`, { date }))
+
+        const { container } = await renderHistory('/history?grouped=false')
+        if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+        await screen.findByText('异常时间记录3')
+
+        expect(screen.getByText('not a date')).toBeInTheDocument()
+        expect(screen.getByText('2026-11-12 25:00:00')).toBeInTheDocument()
+        expect(container).not.toHaveTextContent(/Invalid Date|今天|昨天/)
+        if (desktop) {
+          expect([...container.querySelectorAll('time')].map(time => time.textContent)).toEqual(
+            dates.map(date => date || ''),
+          )
+        } else {
+          for (const [index, date] of dates.entries()) {
+            const record = screen.getByText(`异常时间记录${index}`).closest('.transfer-history-mobile-record')
+            const meta = [...(record?.querySelectorAll('.transfer-history-mobile-record__meta > span') || [])].map(
+              item => item.textContent?.trim(),
+            )
+            expect(meta.at(-1)).toBe(date || '·')
+          }
+        }
+      },
+    )
+
+    it('formats local and offset mobile dates across midnight without refetching and releases the shared timer', async () => {
+      mocks.desktop = false
+      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+      vi.setSystemTime(new Date(2026, 10, 12, 23, 59, 30))
+      const timerCount = vi.getTimerCount()
+      const intervals = vi.spyOn(globalThis, 'setInterval')
+      const offset = new Date(2026, 10, 12, 17, 5, 44, 400).toISOString().replace('Z', '+00:00')
+      const cases = [
+        ['2026-11-12 19:10:00', '今天 19:10', '昨天 19:10'],
+        ['2026-11-11T19:10:00', '昨天 19:10', '11-11 19:10'],
+        ['2026-11-10 21:05:39', '11-10 21:05', '11-10 21:05'],
+        [offset, '今天 17:05', '昨天 17:05'],
+      ] as const
+      histories = cases.map(([date], index) => createHistory(index + 1, `移动时间记录${index}`, { date }))
+
+      const { unmount } = await renderHistory('/history?grouped=false')
+      await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await screen.findByText('移动时间记录3')
+      const dateTexts = () =>
+        cases.map(
+          (_, index) =>
+            screen
+              .getByText(`移动时间记录${index}`)
+              .closest('.transfer-history-mobile-record')
+              ?.querySelector('.transfer-history-mobile-record__meta > span:last-child')?.textContent,
+        )
+      expect(dateTexts()).toEqual(cases.map(([, text]) => text))
+      const requests = mocks.apiGet.mock.calls.length
+      expect(intervals.mock.calls.filter(([, delay]) => delay === 60000)).toHaveLength(1)
+
+      await vi.advanceTimersByTimeAsync(60000)
+
+      expect(dateTexts()).toEqual(cases.map(([, , text]) => text))
+      expect(mocks.apiGet).toHaveBeenCalledTimes(requests)
+      unmount()
+      expect(vi.getTimerCount()).toBe(timerCount)
+    })
+
+    it.runIf(Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/New_York')(
+      'allows a day-unit value of zero during the autumn DST transition',
+      async () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date(2026, 10, 1, 23, 30))
+        histories = [createHistory(1, '夏令时记录', { date: '2026-11-01 00:00:00' })]
+
+        const { container } = await renderHistory('/history?grouped=false')
+        await screen.findByText('夏令时记录')
+
+        expect(container.querySelector('time[datetime="2026-11-01 00:00:00"]')?.textContent).toBe('今天')
+      },
+    )
+  })
+
   it('renders full paths linked from source to destination and keeps status clicks independent from desktop selection', async () => {
     const item = createHistory(1, '失败记录', {
       src: '/downloads/很长的目录/文件.mkv',
