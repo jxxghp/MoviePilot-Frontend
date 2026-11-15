@@ -1720,16 +1720,38 @@ function getHistoryFailureHint(item: TransferHistory) {
   return lines.join('\n')
 }
 
-// 一次共享时钟更新所有桌面相对时间，避免为大量记录创建独立计时器。
+/**
+ * 解析展示用日期时间：无时区整理记录按浏览器本地时间解释，ISO 时区偏移与毫秒保持不变。
+ * 空值或无法解析的文本返回 null，由调用方保留原始文本。
+ */
+function parseDisplayDate(value?: string): Date | null {
+  if (!value) return null
+
+  const date = new Date(value.replace(/^(\d{4}-\d{2}-\d{2}) /, '$1T'))
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+/**
+ * 将有效日期的浏览器本地年月日编码为连续自然日序号，不受夏令时的 23/25 小时影响。
+ * Date.UTC 仅编码本地日历字段，不代表按 UTC 日期分组或计算本地零点的经过时长。
+ */
+function getLocalCalendarDay(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000
+}
+
+// 一次共享时钟更新桌面与移动端时间，避免为大量记录创建独立计时器。
 const desktopTimeNow = useNow({ interval: 60000 })
 const desktopRelativeTimeFormatter = computed(() => new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto' }))
 
 /** 桌面时间按最大适用单位显示相对值；缺失或无法解析时保留原文本。 */
 function getDesktopRelativeTime(date?: string) {
   if (!date) return ''
-  const timestamp = new Date(date.replace(' ', 'T')).getTime()
-  if (!Number.isFinite(timestamp)) return date
-  const seconds = (timestamp - desktopTimeNow.value.getTime()) / 1000
+  const recordDate = parseDisplayDate(date)
+  if (!recordDate) return date
+  const now = desktopTimeNow.value
+  const seconds = (recordDate.getTime() - now.getTime()) / 1000
+  const yearDiff = recordDate.getFullYear() - now.getFullYear()
+  const monthDiff = yearDiff * 12 + recordDate.getMonth() - now.getMonth()
   const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
     ['year', 31536000],
     ['month', 2592000],
@@ -1738,26 +1760,41 @@ function getDesktopRelativeTime(date?: string) {
     ['minute', 60],
     ['second', 1],
   ]
-  const [unit, duration] = units.find(([, length]) => Math.abs(seconds) >= length) || units.at(-1)!
-  return desktopRelativeTimeFormatter.value.format(Math.trunc(seconds / duration), unit)
+  const [unit, duration] =
+    units.find(
+      ([candidate, length]) =>
+        Math.abs(seconds) >= length &&
+        (candidate !== 'year' || yearDiff !== 0) &&
+        (candidate !== 'month' || monthDiff !== 0),
+    ) || units.at(-1)!
+  // 年、月、日文案使用自然周期差，单位门槛和更小单位仍沿用经过时长规则。
+  const value =
+    unit === 'year'
+      ? yearDiff
+      : unit === 'month'
+        ? monthDiff
+        : unit === 'day'
+          ? getLocalCalendarDay(recordDate) - getLocalCalendarDay(now)
+          : Math.trunc(seconds / duration)
+  return desktopRelativeTimeFormatter.value.format(value, unit)
 }
 
-// 将历史记录时间压缩成移动端卡片展示文本。
+// 按浏览器本地自然日压缩移动端时间，无法解析时保留原文本。
 function getHistoryDateText(date?: string) {
   if (!date) return ''
 
-  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
-  if (!match) return date
+  const recordDate = parseDisplayDate(date)
+  if (!recordDate) return date
 
-  const [, year, month, day, hour, minute] = match
-  const recordDate = new Date(Number(year), Number(month) - 1, Number(day))
-  const today = new Date()
-  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const diffDays = Math.round((todayDate.getTime() - recordDate.getTime()) / 86400000)
+  const diffDays = getLocalCalendarDay(recordDate) - getLocalCalendarDay(desktopTimeNow.value)
+  const month = String(recordDate.getMonth() + 1).padStart(2, '0')
+  const day = String(recordDate.getDate()).padStart(2, '0')
+  const hour = String(recordDate.getHours()).padStart(2, '0')
+  const minute = String(recordDate.getMinutes()).padStart(2, '0')
   const time = `${hour}:${minute}`
 
   if (diffDays === 0) return `今天 ${time}`
-  if (diffDays === 1) return `昨天 ${time}`
+  if (diffDays === -1) return `昨天 ${time}`
 
   return `${month}-${day} ${time}`
 }
