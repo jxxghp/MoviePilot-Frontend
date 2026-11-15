@@ -986,7 +986,6 @@ useNativePageHeader({
             :color="getSubscribeColor"
             variant="flat"
             rounded="pill"
-            height="44"
             @click="handleSubscribe()"
           >
             <template #prepend>
@@ -1001,7 +1000,6 @@ useNativePageHeader({
               color="primary"
               class="media-action-button"
               rounded="pill"
-              height="40"
             >
               <template #prepend>
                 <VIcon icon="mdi-magnify" />
@@ -1024,7 +1022,6 @@ useNativePageHeader({
               color="info"
               class="media-action-button"
               rounded="pill"
-              height="40"
               @click="handleSubtitleSearch"
             >
               <template #prepend>
@@ -1038,7 +1035,6 @@ useNativePageHeader({
               variant="tonal"
               color="success"
               rounded="pill"
-              height="40"
               @click="handlePlay()"
             >
               <template #prepend>

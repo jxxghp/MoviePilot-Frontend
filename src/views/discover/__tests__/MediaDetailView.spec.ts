@@ -540,10 +540,10 @@ describe('MediaDetailView detail and actions', () => {
     const secondary = actions?.querySelector('.media-action-secondary')
 
     expect(actions?.firstElementChild).toHaveClass('media-action-button--primary')
-    expect(actions?.querySelector('.media-action-button--primary')).toHaveStyle({ height: '44px' })
+    expect(actions?.querySelector('.media-action-button--primary')).not.toHaveClass('v-btn--size-large')
     expect(screen.getByRole('button', { name: /^订阅$/ })).toBeVisible()
     expect(secondary?.children).toHaveLength(3)
-    expect(secondary?.querySelector('.media-action-button')).toHaveStyle({ height: '40px' })
+    expect(secondary?.querySelector('.media-action-button')).not.toHaveClass('v-btn--size-large')
     expect(secondary?.textContent).toContain('搜索资源')
     expect(secondary?.textContent).toContain('搜索字幕')
     expect(secondary?.textContent).toContain('在线播放')
