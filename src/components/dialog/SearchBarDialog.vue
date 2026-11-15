@@ -12,6 +12,7 @@ import { buildUserPermissionContext, hasPermission, filterMenusByPermission } fr
 import { useMediaSources } from '@/composables/useMediaSources'
 import type { NativePanelEntry, NativePanelSource } from '@/native/registry'
 import { nativePanelId } from '@/native/panel'
+import { nativeChromeActive } from '@/native/layout'
 
 // 显示器宽度
 const display = useDisplay()
@@ -105,7 +106,7 @@ const searchOverlayProps = computed(() =>
 const searchWord = ref<string | null>(null)
 
 type MediaSearchSource = MediaDataSource
-type MediaSearchType = 'media' | 'music' | 'collection' | 'person'
+type MediaSearchType = 'media' | 'library' | 'music' | 'collection' | 'person'
 
 interface MediaSearchSourceOption {
   label: string
@@ -123,6 +124,7 @@ interface MediaSearchAction {
 // 各类搜索的媒体数据源可多选，为空数组时由后端按“基础设置-媒体搜索数据源”全局配置执行。
 const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource[]>>({
   media: [],
+  library: [],
   music: [],
   collection: [],
   person: [],
@@ -165,7 +167,7 @@ let isInitializingSources = false
 function initializeMediaSearchSources() {
   isInitializingSources = true
   try {
-    ;(['media', 'music', 'collection', 'person'] as const).forEach(searchType => {
+    ;(['media', 'library', 'music', 'collection', 'person'] as const).forEach(searchType => {
       const configured = configuredMediaSearchSources.value.filter(source =>
         mediaSearchSourceOptions.value[searchType].some(option => option.value === source),
       )
@@ -196,6 +198,7 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
   const personSources = new Set<MediaDataSource>(['themoviedb', 'douban', 'musicbrainz'])
   return {
     media: mediaSearchSources.value,
+    library: [],
     music: musicSearchSources.value,
     collection: mediaSearchSources.value.filter(source => source.value === 'themoviedb'),
     person: [...mediaSearchSources.value, ...musicSearchSources.value].filter(
@@ -223,6 +226,16 @@ const mediaSearchActions = computed(() => {
       title: t('dialog.searchBar.filmTV'),
       description: t('resource.title'),
     },
+    ...(nativeChromeActive.value && window.MoviePilotNative?.playbackVersion === 1
+      ? [
+          {
+            type: 'library' as const,
+            icon: 'mdi-database-search-outline',
+            title: t('dialog.searchBar.mediaLibrary'),
+            description: t('dialog.searchBar.librarySearch'),
+          },
+        ]
+      : []),
     {
       type: 'music',
       icon: 'mdi-music-note-outline',
@@ -528,6 +541,11 @@ function searchMusicTorrent() {
 function searchMedia(searchType: MediaSearchType) {
   if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
+  if (searchType === 'library') {
+    router.push({ path: '/media-library/search', query: { query: searchWord.value } })
+    closeSearch()
+    return
+  }
   if (searchType === 'music') {
     const sources = selectedMediaSearchSources.music
     router.push({

@@ -11,6 +11,8 @@ import { getMediaSubscribeId, useMediaSubscribe } from '@/composables/useMediaSu
 import { useMusicSiteSearch } from '@/composables/useMusicSiteSearch'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { canUseNativeMediaPlayback, playMusicTrack } from '@/utils/mediaPlayback'
+import { useToast } from 'vue-toastification'
 import {
   buildMusicAlbumRoute,
   buildMusicArtistRoute,
@@ -22,6 +24,7 @@ import {
 
 const { t } = useI18n()
 const router = useRouter()
+const $toast = useToast()
 
 const props = defineProps<{
   // 音乐数据源原生单曲 ID
@@ -39,6 +42,10 @@ const isRefreshed = ref(false)
 const music = ref<MediaInfo>()
 const album = ref<MusicAlbumInfo>()
 const isSubscribed = ref(false)
+const isStartingPlayback = ref(false)
+const canPlayInApp = computed(
+  () => canUseNativeMediaPlayback() && Boolean(music.value?.media_id) && music.value?.music_type !== 'album',
+)
 
 // 可点击跳转的艺术家
 const artistLinks = computed(() => getMusicArtistLinks(music.value))
@@ -128,6 +135,20 @@ async function checkSubscribeStatus() {
   }
 }
 
+/** 在媒体库中匹配这首录音，并交给 App 原生音频播放器。 */
+async function playCurrentTrack() {
+  if (!music.value || isStartingPlayback.value) return
+  isStartingPlayback.value = true
+  try {
+    await playMusicTrack(music.value)
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('music.playbackFailed'))
+  } finally {
+    isStartingPlayback.value = false
+  }
+}
+
 /** 打开所属专辑详情页。 */
 function goAlbum() {
   if (!music.value?.album_id || !props.mediaSource) return
@@ -143,6 +164,14 @@ function goArtist(artistId?: string, name?: string) {
 watch(() => [props.mediaSource, props.mediaId], loadMusicDetail, { immediate: true })
 useNativePageHeader({
   actions: computed(() => [
+    {
+      title: t('music.play'),
+      icon: 'mdi-play',
+      show: canPlayInApp.value,
+      action: () => {
+        void playCurrentTrack()
+      },
+    },
     {
       title: t('music.searchResources'),
       icon: 'mdi-magnify',
@@ -191,6 +220,17 @@ useNativePageHeader({
     </template>
 
     <template #actions>
+      <VBtn
+        v-if="canPlayInApp"
+        color="primary"
+        variant="flat"
+        prepend-icon="mdi-play"
+        :loading="isStartingPlayback"
+        :disabled="isStartingPlayback"
+        @click="playCurrentTrack"
+      >
+        {{ t('music.play') }}
+      </VBtn>
       <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="openMusicSiteSearch">
         {{ t('music.searchResources') }}
       </VBtn>

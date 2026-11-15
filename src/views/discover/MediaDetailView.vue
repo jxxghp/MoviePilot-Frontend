@@ -3,6 +3,7 @@ import { getSharedConfiguration } from '@/api/configuration'
 import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
 import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { useToast } from 'vue-toastification'
+import { nativeChromeActive } from '@/native/layout'
 import { useNativePageHeader } from '@/native/page'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
@@ -88,6 +89,14 @@ const seasonEpisodesInfo = ref({} as { [key: number]: TmdbEpisode[] })
 // 存储存在的季集
 const existsEpisodes = ref({} as { [key: number]: number[] })
 
+// 电视剧播放选择状态
+const playEpisodeDialog = ref(false)
+const playEpisodeSeason = ref<number | null>(null)
+const playEpisodeIds = ref<Record<number, Record<number, string>>>({})
+const playEpisodeIdsLoading = ref(false)
+const playEpisodeIdsFailed = ref(false)
+let playEpisodeIdsRequestId = 0
+
 // 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
@@ -120,6 +129,13 @@ interface EpisodeGroupInfo {
 
 interface EpisodeGroupOption extends EpisodeGroupInfo {
   icon: string
+}
+
+/** 媒体服务器中已入库的单集及其可播放条目标识。 */
+interface PlayableEpisode {
+  episode: number
+  itemId: string
+  name?: string
 }
 
 // 站点选择后待执行的搜索类型
@@ -378,6 +394,36 @@ const getMediaSeasons = computed(() => {
     if (b.season_number === 0) return -1
     return (a.season_number || 0) - (b.season_number || 0)
   })
+})
+
+// 播放选择器只列出媒体服务器报告可播放单集的季。
+const playEpisodeSeasonOptions = computed(() => {
+  return Object.entries(playEpisodeIds.value)
+    .filter(([, episodes]) => Object.keys(episodes).length > 0)
+    .map(([key]) => Number(key))
+    .sort((left, right) => (left === 0 ? 1 : right === 0 ? -1 : left - right))
+    .map(season => ({
+      value: season,
+      title:
+        mediaDetail.value?.season_info?.find(item => item.season_number === season)?.name ||
+        (season === 0 ? t('media.specials') : t('media.seasonNumber', { number: season })),
+    }))
+})
+
+// 按媒体服务器原生集号排序，并保留后端返回的实际单集条目标识。
+const playEpisodeOptions = computed<PlayableEpisode[]>(() => {
+  const season = playEpisodeSeason.value
+  if (season === null) return []
+  return Object.entries(playEpisodeIds.value[season] || {})
+    .map(([episode, itemId]) => ({ episode: Number(episode), itemId }))
+    .filter(item => Boolean(item.itemId))
+    .sort((left, right) => left.episode - right.episode)
+    .map(item => ({
+      ...item,
+      name: selectedEpisodeGroup.value
+        ? undefined
+        : seasonEpisodesInfo.value[season]?.find(episode => episode.episode_number === item.episode)?.name,
+    }))
 })
 
 // 查询当前媒体可用的剧集组
@@ -691,12 +737,29 @@ function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: M
   })
 }
 
-// 跳转播放页面
-async function handlePlay() {
-  // 获取播放链接地址
+// 将已解析的媒体服务器条目交给原生 App，网页继续使用兼容的媒体服务器入口。
+function requestNativePlayback(itemId: string, title: string, season?: number, episode?: number) {
+  const transport = window.MoviePilotNative
+  if (!nativeChromeActive.value || transport?.playbackVersion !== 1) return false
+  window.dispatchEvent(
+    new CustomEvent('moviepilot:playback-open', {
+      detail: {
+        itemId,
+        title,
+        ...(season !== undefined ? { season } : {}),
+        ...(episode !== undefined ? { episode } : {}),
+      },
+    }),
+  )
+  return true
+}
+
+// 打开电影或单集；只有普通网页回退到媒体服务器自身的播放页面。
+async function playMediaServerItem(itemId: string, title: string, season?: number, episode?: number) {
+  if (requestNativePlayback(itemId, title, season, episode)) return
   try {
     const result = await api.get<{ item_id: string; server_id: string; server_type: string; url: string }>(
-      `mediaserver/play/${existsItemId.value}`,
+      `mediaserver/play/${encodeURIComponent(itemId)}`,
       { feedback: 'silent' },
     )
     // 使用深度链接工具，优先跳转到APP，失败后跳转到网页
@@ -711,6 +774,77 @@ async function handlePlay() {
     const message = getApiBusinessErrorMessage(error)
     $toast.error(message ? `获取播放链接失败：${message}！` : '获取播放链接失败！')
   }
+}
+
+// 打开电视剧单集选择器，并加载媒体服务器实际可播放的季集条目。
+async function openPlayEpisodePicker() {
+  playEpisodeDialog.value = true
+  if (isNullOrEmptyObject(playEpisodeIds.value)) await loadPlayableEpisodeIds()
+  const seasons = Object.entries(playEpisodeIds.value)
+    .filter(([, episodes]) => Object.keys(episodes).length > 0)
+    .map(([season]) => Number(season))
+    .sort((left, right) => (left === 0 ? 1 : right === 0 ? -1 : left - right))
+  if (!seasons.length) {
+    playEpisodeIdsFailed.value = true
+    return
+  }
+  const preferredSeason = mediaDetail.value.season
+  const season = preferredSeason !== undefined && seasons.includes(preferredSeason) ? preferredSeason : seasons[0]
+  playEpisodeSeason.value = season
+  if (!selectedEpisodeGroup.value) void loadSeasonEpisodes(season)
+}
+
+// 一次读取媒体服务器原生季集号和对应单集 ID，避免剧集组排序造成错配。
+async function loadPlayableEpisodeIds() {
+  if (!existsItemId.value) return
+  const requestId = ++playEpisodeIdsRequestId
+  playEpisodeIdsLoading.value = true
+  playEpisodeIdsFailed.value = false
+  try {
+    const result: Record<number, Record<number, string>> = await api.get('mediaserver/episodes', {
+      feedback: 'silent',
+      params: { itemid: existsItemId.value },
+    })
+    if (requestId === playEpisodeIdsRequestId) {
+      playEpisodeIds.value = result || {}
+      playEpisodeIdsFailed.value = !Object.keys(result || {}).length
+    }
+  } catch (error) {
+    console.error(error)
+    if (requestId === playEpisodeIdsRequestId) playEpisodeIdsFailed.value = true
+  } finally {
+    if (requestId === playEpisodeIdsRequestId) playEpisodeIdsLoading.value = false
+  }
+}
+
+// 更换选择季时加载该季的 TMDB 集名（仅默认排序能与媒体服务器季号对应）。
+function changePlayEpisodeSeason(season: number | null) {
+  playEpisodeSeason.value = season
+  if (season === null || selectedEpisodeGroup.value) return
+  void loadSeasonEpisodes(season)
+}
+
+// 按所选条目标识开始播放，电视剧播放器标题带上季号和集号。
+async function playSelectedEpisode(item: PlayableEpisode) {
+  const season = playEpisodeSeason.value
+  if (season === null) return
+  playEpisodeDialog.value = false
+  const label = `S${String(season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
+  await playMediaServerItem(
+    item.itemId,
+    `${mediaDetail.value.title} · ${label}${item.name ? ` · ${item.name}` : ''}`,
+    season,
+    item.episode,
+  )
+}
+
+// 电影直接播放；电视剧必须先明确选择已入库的单集。
+async function handlePlay() {
+  if (mediaDetail.value.type === '电视剧') {
+    await openPlayEpisodePicker()
+    return
+  }
+  await playMediaServerItem(existsItemId.value, mediaDetail.value.title || mediaProps.title || '')
 }
 
 // 删除订阅处理
@@ -774,48 +908,6 @@ onUnmounted(() => {
 })
 useNativePageHeader({
   title: () => mediaDetail.value.title || mediaProps.title,
-  actions: computed(() => [
-    {
-      title: `${t('media.actions.searchResource')} · ${t('media.search.byTitle')}`,
-      icon: 'mdi-magnify',
-      permission: 'search',
-      show: hasMediaIdentity(),
-      action: () => {
-        void clickSearch('title')
-      },
-    },
-    {
-      title: `${t('media.actions.searchResource')} · ${t('media.search.byImdb')}`,
-      icon: 'mdi-magnify',
-      permission: 'search',
-      show: hasMediaIdentity(),
-      action: () => {
-        void clickSearch('imdbid')
-      },
-    },
-    {
-      title: t('media.actions.searchSubtitle'),
-      icon: 'mdi-subtitles-outline',
-      permission: 'search',
-      show: hasMediaIdentity(),
-      action: handleSubtitleSearch,
-    },
-    {
-      title: getSubscribeText.value,
-      icon: getSubscribeIcon.value,
-      permission: 'subscribe',
-      show: mediaDetail.value.type === '电影' || hasMediaIdentity(),
-      action: () => {
-        handleSubscribe()
-      },
-    },
-    {
-      title: t('media.actions.playOnline'),
-      icon: 'mdi-play',
-      show: Boolean(existsItemId.value),
-      action: handlePlay,
-    },
-  ]),
 })
 </script>
 
@@ -823,7 +915,7 @@ useNativePageHeader({
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <div
     v-if="hasMediaIdentity()"
-    class="max-w-8xl mx-auto px-4"
+    class="media-detail-root max-w-8xl mx-auto px-4"
     :class="{
       'media-detail-glass': isGlassTheme,
     }"
@@ -880,7 +972,7 @@ useNativePageHeader({
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
-        <div class="media-actions" data-native-page-actions>
+        <div class="media-actions">
           <VBtn v-if="hasMediaIdentity() && canSearch" variant="tonal" color="primary" class="media-action-button">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
@@ -1410,9 +1502,52 @@ useNativePageHeader({
     :error-title="t('media.error.title')"
     :error-description="t('media.error.noMediaInfo')"
   />
+  <VDialog v-model="playEpisodeDialog" max-width="520">
+    <VCard>
+      <VCardTitle>{{ t('media.playback.chooseEpisode') }}</VCardTitle>
+      <VCardText>
+        <VSelect
+          :model-value="playEpisodeSeason"
+          :items="playEpisodeSeasonOptions"
+          item-title="title"
+          item-value="value"
+          :label="t('media.playback.season')"
+          hide-details
+          density="comfortable"
+          @update:model-value="changePlayEpisodeSeason"
+        />
+        <VProgressLinear v-if="playEpisodeIdsLoading" class="mt-4" color="primary" indeterminate />
+        <VAlert v-else-if="playEpisodeIdsFailed" class="mt-4" type="info" variant="tonal">
+          {{ t('media.playback.noPlayableEpisodes') }}
+        </VAlert>
+        <VList v-else density="compact" class="mt-2">
+          <VListItem
+            v-for="item in playEpisodeOptions"
+            :key="item.episode"
+            :title="`S${String(playEpisodeSeason || 0).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}${item.name ? ` · ${item.name}` : ''}`"
+            rounded="sm"
+            @click="playSelectedEpisode(item)"
+          >
+            <template #prepend>
+              <VIcon icon="mdi-play-circle-outline" color="success" />
+            </template>
+          </VListItem>
+        </VList>
+      </VCardText>
+      <VCardActions>
+        <VSpacer />
+        <VBtn variant="text" @click="playEpisodeDialog = false">{{ t('common.cancel') }}</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
 
 <style lang="scss" scoped>
+:global(.page-content-container > .main-content-wrapper:has(.media-detail-root)) {
+  inline-size: 100% !important;
+  min-inline-size: 0;
+}
+
 .vue-media-back {
   --media-backdrop-edge-opacity: 1;
 
@@ -1485,8 +1620,20 @@ useNativePageHeader({
 
 @media (width >= 1280px) {
   .media-header {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 18rem);
     align-items: flex-end;
+    column-gap: 1rem;
+  }
+
+  .media-poster {
+    margin-inline-end: 0;
+  }
+
+  .media-title {
+    flex: initial;
+    min-inline-size: 0;
+    margin-inline-end: 0;
   }
 }
 
@@ -1670,6 +1817,15 @@ a.crew-name {
   .media-actions > .media-action-button:only-child,
   .media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
     inline-size: auto;
+  }
+}
+
+@media (width >= 1280px) {
+  .media-actions {
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    inline-size: 100%;
+    max-inline-size: 18rem;
   }
 }
 

@@ -789,6 +789,9 @@ export default {
     searchFromGlobal: 'Use the global search at the top to look up a song or album',
     searchDescription: 'Songs or albums',
     noResults: 'No matching music found',
+    play: 'Play',
+    playTrack: 'Play "{title}"',
+    playbackFailed: 'Unable to play this track. Check that it is in the media library.',
     searchResources: 'Search Resources',
     discographyResources: 'Discography Resources',
     discographyDescription:
@@ -1702,6 +1705,12 @@ export default {
       playOnline: 'Play Online',
       playInApp: 'Play in App',
       playInWeb: 'Play in Web',
+    },
+    playback: {
+      chooseEpisode: 'Choose an Episode',
+      season: 'Season',
+      noPlayableEpisodes: 'No playable episodes are available in the library.',
+      episodesUnavailable: 'Unable to load available episodes.',
     },
     search: {
       byTitle: 'Title',
@@ -4399,6 +4408,8 @@ export default {
     },
     searchBar: {
       filmTV: 'Movies & TV',
+      mediaLibrary: 'Media Library',
+      librarySearch: 'Series and music already in your library',
       people: 'People',
       search: 'Search',
       searchPlaceholder: 'Search movies, TV shows and more...',
@@ -5288,6 +5299,8 @@ export default {
     confirmFileDelete: 'Confirm Delete',
     upload: 'Upload',
     download: 'Download',
+    play: 'Play',
+    playbackFailed: 'Unable to play this file',
     preview: 'Preview',
     selectAll: 'Select All',
     deselectAll: 'Deselect All',
@@ -5855,7 +5868,9 @@ export default {
     aiRedoDisabled: 'Please enable the AI assistant in system settings first',
     aiRedoQueued: 'Assistant organize task submitted: {title}',
     aiRedoFailed: 'Failed to submit assistant organize task',
+    playbackFailed: 'Unable to play the file for this history record',
     actions: {
+      play: 'Play this file',
       aiRedo: 'Assistant Organize',
       aiRedoPending: 'Assistant Organizing...',
       batchAiRedo: 'Assistant Batch Organize',

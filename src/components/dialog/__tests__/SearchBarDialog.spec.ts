@@ -6,7 +6,15 @@ import { renderWithProviders } from '@tests/support/render'
 import { seedMediaSourceCatalog } from '@tests/support/msw/handlers/catalog'
 import { createSubscribe } from '@tests/support/factories/subscribe'
 import { defineComponent, h, ref, type Component } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeLayoutAdapter } from '@/native/layout'
+
+const nativeLayout = new NativeLayoutAdapter(document, window)
+
+afterEach(() => {
+  nativeLayout.setActive(false)
+  delete window.MoviePilotNative
+})
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
@@ -138,6 +146,31 @@ describe('SearchBarDialog media source selection', () => {
     expect(router.currentRoute.value.path).toBe('/')
     expect(page().search!.text).toBe('星际穿越')
     expect(page().sections.find(section => section.id === 'recent')!.items).toEqual([])
+  })
+
+  it('原生搜索分类增加媒体库，并跳转到媒体库搜索结果页', async () => {
+    nativeLayout.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: () => undefined,
+    }
+    const dialog = ref<InstanceType<typeof SearchBarDialog>>()
+    const host = defineComponent({
+      inheritAttrs: false,
+      setup: () => () => h(SearchBarDialog, { ref: dialog, modelValue: false }),
+    })
+    const { router } = await renderSearchBar({ searchPermission: true }, host)
+    const page = () => dialog.value!.nativeSearchPage()
+    page().onQuery?.('星际穿越')
+    const library = page()
+      .sections.find(section => section.id === 'media')!
+      .items.find(item => item.id === 'media-library')
+
+    expect(library?.title).toBe('媒体库')
+    await library?.children?.find(item => item.primary)?.invoke?.()
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/media-library/search'))
+    expect(router.currentRoute.value.query).toEqual({ query: '星际穿越' })
   })
 
   it('独立资源页面隔离音乐站点和普通站点，提交使用当前类型选择', async () => {

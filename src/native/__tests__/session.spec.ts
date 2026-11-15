@@ -51,7 +51,7 @@ function harness(overrides: Partial<NativeSessionOptions> = {}) {
 }
 
 /** 宿主协商和布局确认都必须经事件入口完成。 */
-async function activate(widgets = false, cache = false, cardMenus = false, standaloneMenus = false) {
+async function activate(widgets = false, cache = false, cardMenus = false, standaloneMenus = false, playback = false) {
   await send('host.configure', {
     sessionId: 'session-1',
     major: 1,
@@ -64,6 +64,7 @@ async function activate(widgets = false, cache = false, cardMenus = false, stand
       ...(cache ? ['readonly-cache.v1'] : []),
       ...(cardMenus ? ['card-menus.v1'] : []),
       ...(standaloneMenus ? ['standalone-menus.v1'] : []),
+      ...(playback ? ['playback.v1'] : []),
     ],
   })
   await send('chrome.prepare', { layoutRevision: 7 })
@@ -143,6 +144,69 @@ describe('原生独立菜单的可选协商和上下文', () => {
     await session.stop()
     expect(setContext).toHaveBeenLastCalledWith(undefined)
     expect(session.postStandaloneMenu('standaloneMenu.open', {})).toBe(false)
+  })
+})
+
+describe('原生播放器能力协商', () => {
+  it('仅在双方都声明播放能力后转发所选媒体服务器条目', async () => {
+    const messages: NativeEnvelope[] = []
+    harness({
+      transport: {
+        transportVersion: 1,
+        playbackVersion: 1,
+        postMessage: message => messages.push(message),
+      },
+    })
+    expect(messages[0].payload.capabilities).toContain('playback.v1')
+    await activate(false, false, false, false, true)
+
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'episode-17', title: '剧集 S02E05', season: 2, episode: 5 },
+      }),
+    )
+
+    expect(messages.at(-1)).toEqual(
+      expect.objectContaining({
+        type: 'playback.open',
+        sessionId: 'session-1',
+        payload: { episode: 5, itemId: 'episode-17', season: 2, title: '剧集 S02E05' },
+      }),
+    )
+    await send('host.lifecycle', { state: 'background' })
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'episode-18', title: '后台不应启动' },
+      }),
+    )
+    expect(messages.filter(message => message.type === 'playback.open')).toHaveLength(1)
+  })
+
+  it('仅接受符合受限格式的长单文件票据 ID', async () => {
+    const messages: NativeEnvelope[] = []
+    harness({
+      transport: {
+        transportVersion: 1,
+        playbackVersion: 1,
+        postMessage: message => messages.push(message),
+      },
+    })
+    await activate(false, false, false, false, true)
+    const ticket = `file.${'a'.repeat(240)}`
+
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: ticket, title: '单文件播放' },
+      }),
+    )
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'file.short', title: '无效票据' },
+      }),
+    )
+
+    expect(messages.filter(message => message.type === 'playback.open')).toHaveLength(1)
+    expect(messages.at(-1)?.payload).toEqual({ itemId: ticket, title: '单文件播放' })
   })
 })
 

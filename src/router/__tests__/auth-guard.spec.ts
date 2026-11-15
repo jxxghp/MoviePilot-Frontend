@@ -14,6 +14,15 @@ interface RouteLike {
   path: string
 }
 
+/** 用真实路由表检查新增页面接入及其权限、宿主能力边界。 */
+interface RouteDefinition {
+  path: string
+  redirect?: Redirect
+  children?: RouteDefinition[]
+  meta?: Record<string, unknown>
+  beforeEnter?: () => boolean | string
+}
+
 type NavigationGuard = (to: RouteLike, from: RouteLike, next: ReturnType<typeof vi.fn>) => Promise<void>
 type AfterEachHook = () => void
 type Redirect = () => string
@@ -23,12 +32,12 @@ const routerMocks = vi.hoisted(() => ({
   getInitializationState: vi.fn(),
   guard: undefined as NavigationGuard | undefined,
   next: vi.fn(),
-  routes: [] as Array<{ path: string; redirect?: Redirect }>,
+  routes: [] as RouteDefinition[],
   setRequestNavigatingState: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
-  createRouter: (options: { routes: Array<{ path: string; redirect?: Redirect }> }) => {
+  createRouter: (options: { routes: RouteDefinition[] }) => {
     routerMocks.routes = options.routes
     return {
       afterEach: (hook: AfterEachHook) => {
@@ -105,6 +114,20 @@ describe('authentication route guard', () => {
     expect(routerMocks.setRequestNavigatingState.mock.calls).toEqual([[true], [false]])
     expect(routerMocks.next).toHaveBeenCalledOnce()
     expect(routerMocks.next).toHaveBeenCalledWith('/login')
+  })
+
+  it('registers library search behind authentication, discovery permission and native playback', () => {
+    const library = routerMocks.routes
+      .flatMap(route => route.children || [])
+      .find(route => route.path === '/media-library/search')
+    expect(library?.meta).toEqual({ requiresAuth: true, permission: 'discovery' })
+    expect(library?.beforeEnter?.()).toBe('/apps')
+    window.MoviePilotNative = { transportVersion: 1, playbackVersion: 1, postMessage: () => undefined }
+    try {
+      expect(library?.beforeEnter?.()).toBe(true)
+    } finally {
+      delete window.MoviePilotNative
+    }
   })
 
   it('does not replace the saved business target while entering the login page', async () => {

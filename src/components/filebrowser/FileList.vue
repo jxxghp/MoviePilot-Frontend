@@ -8,7 +8,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
 import { formatBytes } from '@core/utils/formatters'
 import type { Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
-import api from '@/api'
+import api, { getApiBusinessErrorMessage } from '@/api'
 import type { DataApiClient } from '@/api'
 import { useDisplay } from 'vuetify'
 import { useResizeObserver } from '@vueuse/core'
@@ -20,6 +20,7 @@ import { vTailEllipsis } from './tailEllipsis'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useRangeSelection } from '@/composables/useRangeSelection'
+import { playLocalMediaFile } from '@/utils/mediaPlayback'
 
 // 原生滚动条宽度随系统变化，表头与可滚动列表使用同一内容宽度。
 const tableRef = ref<HTMLElement | null>(null)
@@ -598,14 +599,29 @@ function openActions(item: FileItem) {
 
 /** 单项入口共用原业务方法，移动详情先关闭，确认与失败反馈继续由原流程负责。 */
 function runAction(action: FileAction, item: FileItem) {
-  if (display.smAndDown.value) closeInspector()
   const target = normalizeItem(item)
+  if (action === 'play') {
+    closeInspector()
+    void playMediaFile(target)
+    return
+  }
+  if (display.smAndDown.value) closeInspector()
   if (action === 'recognize') void recognize(target.path || '')
   else if (action === 'scrape') showScrape(target)
   else if (action === 'rename') showRenmae(target)
   else if (action === 'reorganize') showTransfer(target)
   else if (action === 'download') void download(target)
   else void deleteItem(target)
+}
+
+/** 先关闭当前文件详情，再让已协商的 iOS 播放器打开这一个文件。 */
+async function playMediaFile(item: FileItem) {
+  try {
+    await playLocalMediaFile(item, item.name)
+  } catch (error) {
+    console.error(error)
+    $toast.error(getApiBusinessErrorMessage(error) || t('file.playbackFailed'))
+  }
 }
 
 /** 将原菜单业务枚举转换为详情面板共用的动作，不以菜单位置识别操作。 */

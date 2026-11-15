@@ -6,6 +6,7 @@ import { useToast } from 'vue-toastification'
 import api, { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api'
 import { listStorageOptions } from '@/api/storage'
 import type {
+  FileItem,
   StorageOption,
   TransferHistory,
   TransferHistoryDeleteResult,
@@ -35,6 +36,7 @@ import { getNameTail } from '@/components/filebrowser/tailEllipsis'
 import { formatMusicAudioSpecs } from '@/utils/music'
 import { useNativePageHeader } from '@/native/page'
 import { nativeChromeActive } from '@/native/layout'
+import { canUseNativeMediaPlayback, isLocalPlayableMediaFile, playLocalMediaFile } from '@/utils/mediaPlayback'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -1451,6 +1453,19 @@ function getDropdownItems(item: TransferHistory) {
       },
     },
   ]
+  const playbackFile = getHistoryPlaybackFile(item)
+  if (playbackFile && canUseNativeMediaPlayback()) {
+    items.unshift({
+      title: t('transferHistory.actions.play'),
+      value: 4,
+      props: {
+        prependIcon: 'mdi-play',
+        click: () => {
+          void playHistoryFile(item, playbackFile)
+        },
+      },
+    })
+  }
   if (item.cleanup_status === 'failed') {
     items.splice(2, 0, {
       title: t('transferHistory.actions.cleanupResolved'),
@@ -1465,6 +1480,31 @@ function getDropdownItems(item: TransferHistory) {
     })
   }
   return items
+}
+
+/** 成功记录只选择目标文件；失败记录只选择源文件，不播放目录或整季条目。 */
+function getHistoryPlaybackFile(item: TransferHistory): FileItem | undefined {
+  const storedFile = item.status ? item.dest_fileitem : item.src_fileitem
+  const path = storedFile?.path || (item.status ? item.dest : item.src)
+  if (!path) return undefined
+  const file: FileItem = {
+    ...storedFile,
+    storage: storedFile?.storage || (item.status ? item.dest_storage : item.src_storage) || 'local',
+    type: storedFile?.type || 'file',
+    name: storedFile?.name || path.split(/[\\/]/).at(-1) || path,
+    path,
+  }
+  return isLocalPlayableMediaFile(file) ? file : undefined
+}
+
+/** 为历史菜单中选中的唯一文件签发票据，并将失败反馈留在原页面。 */
+async function playHistoryFile(item: TransferHistory, file: FileItem) {
+  try {
+    await playLocalMediaFile(file, getHistoryDisplayTitle(item), item.type === '音乐' ? 'audio' : undefined)
+  } catch (error) {
+    console.error(error)
+    $toast.error(getApiBusinessErrorMessage(error) || t('transferHistory.playbackFailed'))
+  }
 }
 
 // 生成历史记录页地址，确保刷新入口和分页入口使用一致的查询参数。

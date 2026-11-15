@@ -1,7 +1,9 @@
 import {
   isNativeIdentifier,
+  isNativePlaybackItemId,
   isRecord,
   type NativeEnvelope,
+  type NativePlaybackOpenRequest,
   type NativeSnapshot,
   type NativeTransport,
 } from './protocol'
@@ -59,6 +61,7 @@ export class NativeChromeSession {
   private cacheActive = false
   private cardMenusNegotiated = false
   private standaloneMenusNegotiated = false
+  private playbackNegotiated = false
   private menusPaused = false
   private menusForeground = true
   /** 网页退出先同步通知宿主，再阻止本代次产生任何新的组件凭据。 */
@@ -67,6 +70,51 @@ export class NativeChromeSession {
     this.cancelWidgetRequest()
     this.widgetsPaused = true
     this.post('widget.logout', {})
+  }
+  /** 只把当前主文档明确选中的媒体条目交给已协商的播放器能力。 */
+  private readonly playbackOpen = (event: Event) => {
+    if (this.phase !== 'active' || !this.playbackNegotiated || this.menusPaused || !this.menusForeground) return
+    const value = (event as CustomEvent<unknown>).detail
+    if (!isRecord(value)) return
+    const itemId = value.itemId
+    const title = value.title
+    const server = value.server
+    const season = value.season
+    const episode = value.episode
+    const hasEpisode = season !== undefined || episode !== undefined
+    if (
+      !isNativePlaybackItemId(itemId) ||
+      typeof title !== 'string' ||
+      !title.trim() ||
+      title.length > 256 ||
+      Array.from(title).some(character => {
+        const code = character.charCodeAt(0)
+        return code < 0x20 || code === 0x7f
+      }) ||
+      (server !== undefined &&
+        (typeof server !== 'string' ||
+          !server.trim() ||
+          server.length > 128 ||
+          Array.from(server).some(character => {
+            const code = character.charCodeAt(0)
+            return code < 0x20 || code === 0x7f
+          }))) ||
+      (hasEpisode &&
+        (!Number.isInteger(season) ||
+          !Number.isInteger(episode) ||
+          (season as number) < 0 ||
+          (season as number) > 999 ||
+          (episode as number) < 0 ||
+          (episode as number) > 9999))
+    )
+      return
+    const request: NativePlaybackOpenRequest = {
+      itemId,
+      title: title.trim(),
+      ...(typeof server === 'string' ? { server: server.trim() } : {}),
+      ...(hasEpisode ? { season: season as number, episode: episode as number } : {}),
+    }
+    this.post('playback.open', { ...request })
   }
   private readonly listener = (event: Event) => {
     void this.receive((event as CustomEvent<unknown>).detail).catch(() => this.fail())
@@ -81,6 +129,7 @@ export class NativeChromeSession {
     this.phase = 'waiting'
     this.options.target.addEventListener('moviepilot:native-message', this.listener)
     this.options.target.addEventListener('moviepilot:widget-logout', this.widgetLogout)
+    this.options.target.addEventListener('moviepilot:playback-open', this.playbackOpen)
     this.post('web.ready', {
       majors: [1],
       capabilities: [
@@ -97,6 +146,7 @@ export class NativeChromeSession {
         ...(this.options.transport.standaloneMenusVersion === 1 && this.options.standaloneMenus
           ? ['standalone-menus.v1']
           : []),
+        ...(this.options.transport.playbackVersion === 1 ? ['playback.v1'] : []),
       ],
     })
     this.timer = setTimeout(() => {
@@ -141,6 +191,7 @@ export class NativeChromeSession {
   async stop() {
     this.cardMenusNegotiated = false
     this.standaloneMenusNegotiated = false
+    this.playbackNegotiated = false
     this.updateMenus()
     this.cacheNegotiated = false
     this.updateCache()
@@ -150,6 +201,7 @@ export class NativeChromeSession {
     clearTimeout(this.timer)
     this.options.target.removeEventListener('moviepilot:native-message', this.listener)
     this.options.target.removeEventListener('moviepilot:widget-logout', this.widgetLogout)
+    this.options.target.removeEventListener('moviepilot:playback-open', this.playbackOpen)
     this.phase = 'closed'
     await this.options.setActive(false)
     this.results.clear()
@@ -333,6 +385,9 @@ export class NativeChromeSession {
         this.options.transport.standaloneMenusVersion === 1 &&
         this.options.standaloneMenus &&
         capabilities.includes('standalone-menus.v1'),
+      )
+      this.playbackNegotiated = Boolean(
+        this.options.transport.playbackVersion === 1 && capabilities.includes('playback.v1'),
       )
       this.phase = 'configured'
       this.publish()

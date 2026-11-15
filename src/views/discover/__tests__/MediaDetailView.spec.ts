@@ -34,12 +34,18 @@ import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
 import { apiJson } from '@tests/support/msw/response'
 import { invalidateSharedData } from '@/utils/sharedDataCache'
+import { NativeLayoutAdapter } from '@/native/layout'
 import { defineComponent, h, type PropType } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 beforeEach(() => {
   invalidateSharedData()
   server.use(http.post('http://localhost/api/v1/media/status', () => new HttpResponse(null, { status: 404 })))
+})
+
+afterEach(() => {
+  new NativeLayoutAdapter(document, window).setActive(false)
+  delete window.MoviePilotNative
 })
 
 const mocks = vi.hoisted(() => ({
@@ -649,6 +655,62 @@ describe('MediaDetailView detail and actions', () => {
       }),
     )
     expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('keeps media detail actions in the page when native chrome is active', async () => {
+    new NativeLayoutAdapter(document, window).setActive(true)
+    await renderDetail({ existsResponse: { data: { item: { id: 'library-movie' } }, success: true } })
+
+    expect(await screen.findByRole('button', { name: /搜索字幕/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /订阅/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /在线播放/ })).toBeVisible()
+    expect(document.querySelector('[data-native-page-actions]')).toBeNull()
+  })
+
+  it('selects an available TV episode and sends its media server item to native playback', async () => {
+    const media = createSubscribeTv({ media_id: '9301', tmdb_id: 9301, title: '多集电视剧' })
+    const playbackOpen = vi.fn()
+    const adapter = new NativeLayoutAdapter(document, window)
+    adapter.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: vi.fn(),
+    }
+    window.addEventListener('moviepilot:playback-open', playbackOpen)
+    server.use(
+      mediaRemoteExistsHandler({ 1: [1, 2] }),
+      http.get('http://localhost/api/v1/mediaserver/episodes', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('itemid')).toBe('library-tv')
+        return apiJson({ 1: { 1: 'episode-1', 3: 'episode-3' }, 2: { 1: 'season-2-episode-1' } })
+      }),
+      tmdbSeasonEpisodesHandler(9301, 1, [
+        createTmdbEpisode({ episode_number: 1, name: '第一集', season_number: 1 }),
+        createTmdbEpisode({ episode_number: 3, name: '第三集', season_number: 1 }),
+      ]),
+    )
+    await renderDetail({
+      media,
+      existsResponse: { data: { item: { id: 'library-tv' } }, success: true },
+      type: '电视剧',
+    })
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: /在线播放/ }))
+    expect(await screen.findByText(/S01E01 · 第一集/)).toBeVisible()
+    expect(screen.getByText(/S01E03 · 第三集/)).toBeVisible()
+    expect(screen.queryByText(/S01E02/)).toBeNull()
+    await fireEvent.click(screen.getByText(/S01E03 · 第三集/))
+
+    await waitFor(() =>
+      expect(playbackOpen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail: { episode: 3, itemId: 'episode-3', season: 1, title: '多集电视剧 · S01E03 · 第三集' },
+        }),
+      ),
+    )
+    expect(mocks.openMediaServerItem).not.toHaveBeenCalled()
+    window.removeEventListener('moviepilot:playback-open', playbackOpen)
+    adapter.setActive(false)
   })
 
   it('shows the backend message for a rejected play response', async () => {

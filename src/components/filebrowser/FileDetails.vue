@@ -4,11 +4,13 @@ import type { FileAction } from './types'
 import { formatBytes } from '@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
+import { canUseNativeMediaPlayback, isLocalPlayableMediaFile } from '@/utils/mediaPlayback'
 
 const props = defineProps<{ item: FileItem; imageUrl?: string; loading?: boolean }>()
 const emit = defineEmits<{ close: []; action: [action: FileAction, item: FileItem] }>()
 const { t } = useI18n()
 const actions: { key: FileAction; icon: string }[] = [
+  { key: 'play', icon: 'mdi-play' },
   { key: 'recognize', icon: 'mdi-text-recognition' },
   { key: 'scrape', icon: 'mdi-auto-fix' },
   { key: 'rename', icon: 'mdi-rename' },
@@ -17,7 +19,12 @@ const actions: { key: FileAction; icon: string }[] = [
   { key: 'delete', icon: 'mdi-delete-outline' },
 ]
 const visibleActions = computed(() =>
-  actions.filter(action => (action.key !== 'download' || props.item.type === 'file') && action.key !== 'reorganize'),
+  actions.filter(
+    action =>
+      (action.key !== 'download' || props.item.type === 'file') &&
+      (action.key !== 'play' || (canUseNativeMediaPlayback() && isLocalPlayableMediaFile(props.item))) &&
+      action.key !== 'reorganize',
+  ),
 )
 
 /** 从后端时间戳生成与列表一致的本地化修改时间。 */

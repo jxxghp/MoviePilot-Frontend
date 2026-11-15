@@ -10,9 +10,11 @@ import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { computed, defineComponent, h, KeepAlive, nextTick, ref, unref, type PropType } from 'vue'
 import { RouterView } from 'vue-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeLayoutAdapter } from '@/native/layout'
 
 const transferHistorySource = readFileSync(resolve(cwd(), 'src/views/reorganize/TransferHistoryView.vue'), 'utf8')
+const nativeLayout = new NativeLayoutAdapter(document, window)
 
 const mocks = vi.hoisted(() => ({
   apiDelete: vi.fn(),
@@ -555,6 +557,11 @@ function getDialogCall(index = 0) {
 }
 
 describe('TransferHistoryView', () => {
+  afterEach(() => {
+    nativeLayout.setActive(false)
+    delete window.MoviePilotNative
+  })
+
   beforeEach(() => {
     stubDisplayOrder = items => items
     mocks.appMode = true
@@ -587,6 +594,90 @@ describe('TransferHistoryView', () => {
 
     expect(await screen.findByText('桌面结果')).toBeInTheDocument()
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
+  })
+
+  it('成功整理历史播放目标文件并把不含路径的票据交给原生桥', async () => {
+    nativeLayout.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: () => undefined,
+    }
+    const item = createHistory(31, '精确目标', {
+      status: true,
+      src_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '源文件.mkv',
+        path: '/downloads/源文件.mkv',
+      } as TransferHistory['src_fileitem'],
+      dest_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '目标文件.mkv',
+        path: '/library/目标文件.mkv',
+      } as TransferHistory['dest_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    const ticket = `file.${'a'.repeat(240)}`
+    mocks.apiPost.mockResolvedValue({ item_id: ticket })
+    const playbackEvents: CustomEvent[] = []
+    window.addEventListener('moviepilot:playback-open', event => playbackEvents.push(event as CustomEvent), {
+      once: true,
+    })
+
+    await renderHistory('/history')
+    await screen.findByText('精确目标')
+    await fireEvent.click(screen.getByRole('button', { name: '播放此文件' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'mediaserver/stream-ticket',
+        expect.objectContaining({ file: expect.objectContaining({ path: '/library/目标文件.mkv' }) }),
+      ),
+    )
+    expect(playbackEvents[0]?.detail).toEqual({ itemId: ticket, title: '精确目标' })
+  })
+
+  it('失败整理历史只请求源文件票据', async () => {
+    nativeLayout.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: () => undefined,
+    }
+    const item = createHistory(32, '失败记录', {
+      status: false,
+      src_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '待整理.mkv',
+        path: '/downloads/待整理.mkv',
+      } as TransferHistory['src_fileitem'],
+      dest_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '不应播放.mkv',
+        path: '/library/不应播放.mkv',
+      } as TransferHistory['dest_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    mocks.apiPost.mockResolvedValue({ item_id: `file.${'b'.repeat(240)}` })
+
+    await renderHistory('/history')
+    await screen.findByText('失败记录')
+    await fireEvent.click(screen.getByRole('button', { name: '播放此文件' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'mediaserver/stream-ticket',
+        expect.objectContaining({ file: expect.objectContaining({ path: '/downloads/待整理.mkv' }) }),
+      ),
+    )
   })
 
   it('returns the virtual list to the top only after the next page has loaded', async () => {

@@ -446,6 +446,8 @@ export interface TransferHistory {
   bitrate?: number
   // 源文件项
   src_fileitem?: FileItem
+  // 目标文件项
+  dest_fileitem?: FileItem
 }
 
 /** 整理历史删除的单个文件步骤状态。 */
@@ -2186,12 +2188,16 @@ export interface MediaServerPlayItem {
   id?: string | number
   // 媒体服务器项目ID
   item_id?: string | number
+  // MoviePilot 媒体服务器配置名
+  server?: string
   // 媒体服务器ID
   server_id?: string
   // 标题
   title: string
   // 副标题
   subtitle?: string
+  // 发行年份
+  year?: string | number
   // 类型
   type?: string
   // 海报

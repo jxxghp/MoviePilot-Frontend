@@ -49,6 +49,13 @@ const router = createRouter({
           beforeEnter: () => window.MoviePilotNative?.searchPageVersion === 1 || '/apps',
         },
         {
+          path: '/media-library/search',
+          component: () => import('../pages/media-library/search.vue'),
+          meta: { requiresAuth: true, permission: 'discovery' },
+          // 库内播放仅交给已协商原生播放能力的 App，网页仍沿用现有媒体服务器入口。
+          beforeEnter: () => window.MoviePilotNative?.playbackVersion === 1 || '/apps',
+        },
+        {
           path: '/dashboard',
           component: () => import('../pages/dashboard.vue'),
           meta: {
