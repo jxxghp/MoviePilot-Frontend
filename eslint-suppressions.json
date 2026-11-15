@@ -634,11 +634,6 @@
       "count": 3
     }
   },
-  "src/views/setting/AccountSettingSystem.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/views/subscribe/SubscribePopularView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1

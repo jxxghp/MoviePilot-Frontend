@@ -47,7 +47,7 @@ const LlmProviderAuthDialog = defineAsyncComponent(() => import('@/components/di
 const AgentMcpSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/AgentMcpSettingsDialog.vue'))
 
 // 系统设置项
-const SystemSettings = ref<any>({
+const systemSettingsDefaults = {
   // 基础设置
   Basic: {
     DB_TYPE: 'sqlite',
@@ -100,7 +100,7 @@ const SystemSettings = ref<any>({
   // 高级系统设置
   Advanced: {
     // 无其它配置项的内置模块开关
-    MODULE_ENABLE: {},
+    MODULE_ENABLE: {} as Record<string, boolean>,
     // 全局
     AUXILIARY_AUTH_ENABLE: false,
     GLOBAL_IMAGE_CACHE: false,
@@ -171,8 +171,8 @@ const SystemSettings = ref<any>({
     DOH_ENABLE: false,
     DOH_RESOLVERS: null,
     DOH_DOMAINS: null,
-    SECURITY_IMAGE_DOMAINS: [],
-    IMAGE_PROXY_ALLOWED_PRIVATE_RANGES: [],
+    SECURITY_IMAGE_DOMAINS: [] as string[],
+    IMAGE_PROXY_ALLOWED_PRIVATE_RANGES: [] as string[],
     // 日志
     DEBUG: false,
     LOG_LEVEL: 'INFO',
@@ -195,7 +195,16 @@ const SystemSettings = ref<any>({
     FS_PROXY_TIMEOUT: 30,
     FS_PROXY_STALL_TIMEOUT: 120,
   },
-})
+}
+
+/** 保留设置分组与字段类型，初始为空的文本配置允许输入字符串。 */
+type EditableSettings<T> = {
+  [Section in keyof T]: {
+    [Key in keyof T[Section]]: T[Section][Key] extends null ? string | null : T[Section][Key]
+  }
+}
+
+const SystemSettings = ref<EditableSettings<typeof systemSettingsDefaults>>(systemSettingsDefaults)
 
 const audioProviderItems = computed(() => [
   { title: t('setting.system.audioProviderOpenAiAudio'), value: 'openai' },
@@ -521,6 +530,7 @@ function normalizeLlmTemperature(value: unknown): number | null {
   return Number.isFinite(temperature) ? temperature : null
 }
 
+/** 冻结连接测试需要的配置，避免异步结果覆盖编辑后的状态。 */
 function buildLlmSnapshot(): LlmSettingsSnapshot {
   return {
     AI_AGENT_ENABLE: Boolean(SystemSettings.value.Basic.AI_AGENT_ENABLE),
@@ -538,10 +548,12 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
   }
 }
 
+/** 生成配置快照的稳定标识，用于识别过期的测试结果。 */
 function buildLlmSnapshotKey(snapshot: LlmSettingsSnapshot) {
   return JSON.stringify(snapshot)
 }
 
+/** 将表单快照转换为服务商连接测试参数。 */
 function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
   return {
     enabled: snapshot.AI_AGENT_ENABLE,
@@ -559,6 +571,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
   }
 }
 
+/** 将历史思考等级别名统一为当前配置值。 */
 function normalizeThinkingLevelValue(value?: unknown) {
   const normalized = String(value ?? '')
     .trim()
@@ -578,6 +591,7 @@ function normalizeThinkingLevelValue(value?: unknown) {
   return aliasMap[normalized] || normalized
 }
 
+/** 优先读取当前思考等级，兼容旧版推理强度与禁用开关。 */
 function resolveThinkingLevelValue(data?: Record<string, unknown>) {
   const explicit = normalizeThinkingLevelValue(data?.LLM_THINKING_LEVEL)
   if (explicit) return explicit
@@ -588,6 +602,7 @@ function resolveThinkingLevelValue(data?: Record<string, unknown>) {
   return legacyEffort || 'off'
 }
 
+/** 优先展示服务端失败原因，空消息使用通用提示。 */
 function showLlmTestFailedToast(message?: string) {
   const normalizedMessage = String(message ?? '').trim()
   if (normalizedMessage) {
@@ -597,6 +612,7 @@ function showLlmTestFailedToast(message?: string) {
   $toast.error(t('setting.system.llmTestFailedToast'))
 }
 
+/** 中断未完成的连接测试，并使在途结果失效。 */
 function invalidateLlmTestState() {
   llmTestRequestId += 1
   if (llmTestAbortController) {
@@ -738,10 +754,12 @@ const dbBackupPath = computed({
   },
 })
 
+/** 检查备份周期是否使用后端支持的五段 Cron 格式。 */
 function hasValidCronFieldCount(value: string) {
   return value.trim().split(/\s+/).length === 5
 }
 
+/** 校验备份保留天数与份数，拒绝留空和非整数值。 */
 function isNonNegativeInteger(value: unknown) {
   if (value === '' || value === null || value === undefined) return false
   const numberValue = Number(value)
@@ -776,6 +794,7 @@ async function refreshLlmModels(forceRefresh = true) {
   }
 }
 
+/** 切换服务商后同步默认配置，并按能力刷新模型目录。 */
 async function handleLlmProviderChanged() {
   handleProviderSelection(true)
   if (canRefreshModels.value) {
@@ -783,10 +802,12 @@ async function handleLlmProviderChanged() {
   }
 }
 
+/** 切换模型后应用其能力与默认参数。 */
 function handleLlmModelChanged() {
   applyModelMetadata()
 }
 
+/** 启动选定的服务商授权方式，并提示启动失败原因。 */
 async function startProviderAuth(methodId: string) {
   try {
     await startLlmProviderAuth(methodId)
@@ -795,6 +816,7 @@ async function startProviderAuth(methodId: string) {
   }
 }
 
+/** 断开服务商授权，并反馈操作结果。 */
 async function disconnectProviderAuth() {
   try {
     await disconnectLlmProviderAuth()
@@ -999,6 +1021,7 @@ function handleModuleToggle(item: ModuleSettingInfo, enabled: boolean) {
   })
 }
 
+/** 加载 Agent 的 MCP 服务配置，并维护加载状态。 */
 async function loadAgentMcpServers() {
   loadingAgentMcpServers.value = true
   try {
@@ -1011,6 +1034,7 @@ async function loadAgentMcpServers() {
   }
 }
 
+/** 将 MCP 弹窗保存后的服务列表同步回设置页。 */
 function handleAgentMcpSaved(servers: AgentMcpServer[]) {
   agentMcpServers.value = servers
 }
@@ -1031,7 +1055,7 @@ async function saveBasicSettings() {
   savingBasic.value = true
   try {
     SystemSettings.value.Basic.LLM_TEMPERATURE = normalizeLlmTemperature(SystemSettings.value.Basic.LLM_TEMPERATURE)
-    const basicSettings = { ...SystemSettings.value.Basic }
+    const basicSettings: Record<string, unknown> = { ...SystemSettings.value.Basic }
     // Token 已由专用接口托管，基础设置保存不能把脱敏占位值写回服务端。
     delete basicSettings.GITHUB_TOKEN
     if (await saveSystemSetting(basicSettings)) {
@@ -1046,6 +1070,7 @@ async function saveBasicSettings() {
   }
 }
 
+/** 测试当前 LLM 配置，仅采纳尚未过期的请求结果。 */
 async function testLlmConnection() {
   if (!canTestLlm.value) return
 
@@ -1332,6 +1357,7 @@ const musicReleaseScriptItems = computed(() => [
   { title: t('setting.system.musicScriptKorean'), value: 'Kore' },
 ])
 
+/** 在多选顺序与逗号分隔配置间转换，最多保存三个偏好。 */
 function preferenceSelection(setting: 'MUSIC_RELEASE_REGION_PRIORITY' | 'MUSIC_RELEASE_SCRIPT_PRIORITY') {
   return computed({
     get: () =>
@@ -3424,22 +3450,6 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     prepend-inner-icon="mdi-refresh-alert"
                   />
                 </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.TRANSFER_FAILURE_NOTIFICATION_AGGREGATION"
-                    :label="t('setting.system.transferFailureNotificationAggregation')"
-                    :hint="t('setting.system.transferFailureNotificationAggregationHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION"
-                    :label="t('setting.system.transferSuccessNotificationAggregation')"
-                    :hint="t('setting.system.transferSuccessNotificationAggregationHint')"
-                    persistent-hint
-                  />
-                </VCol>
                 <VCol v-if="SystemSettings.Advanced.FS_PROXY_ENABLED" cols="12" md="6">
                   <VTextField
                     v-model.number="SystemSettings.Advanced.FS_PROXY_TIMEOUT"
@@ -3464,6 +3474,22 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 </VCol>
               </VRow>
               <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.TRANSFER_FAILURE_NOTIFICATION_AGGREGATION"
+                    :label="t('setting.system.transferFailureNotificationAggregation')"
+                    :hint="t('setting.system.transferFailureNotificationAggregationHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION"
+                    :label="t('setting.system.transferSuccessNotificationAggregation')"
+                    :hint="t('setting.system.transferSuccessNotificationAggregationHint')"
+                    persistent-hint
+                  />
+                </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"

@@ -1493,7 +1493,9 @@ html[data-theme='glass'] {
       background-color: var(--glass-overlay-surface) !important;
     }
 
-    .v-card--link:hover {
+    // 设置项卡片共用悬浮材质，目录等通过内部控件操作的卡片也需要一致的投影。
+    .v-card--link:hover,
+    .app-card-colorful:hover {
       border-color: var(--glass-border-hover) !important;
       box-shadow: var(--glass-shadow-hover) !important;
     }
