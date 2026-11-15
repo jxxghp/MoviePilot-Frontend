@@ -243,7 +243,7 @@ const storagesArray = computed(() => {
 
 void loadStorageCatalog()
 
-/** 方法。 */
+/** 汇总子列表的并发加载状态，驱动刷新按钮与工作区忙碌提示。 */
 function loadingChanged(isLoading: number) {
   if (isLoading) loading.value++
   else if (loading.value > 0) loading.value--
@@ -479,7 +479,8 @@ onUnmounted(cleanupDrag)
   display: flex;
   flex-direction: column;
   min-block-size: 0;
-  overflow: hidden;
+  /* 外层容纳表面阴影，内容裁剪由下方圆角容器负责。 */
+  overflow: visible;
 }
 .file-workspace__inner {
   display: flex;

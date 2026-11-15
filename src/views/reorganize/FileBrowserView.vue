@@ -237,7 +237,8 @@ onMounted(loadDownloadDirectories)
 <style lang="scss" scoped>
 .file-browser-page {
   position: relative;
-  overflow: hidden;
+  // 主卡片的圆角阴影需延伸到页面留白，列表滚动由卡片内部约束。
+  overflow: visible;
   block-size: 100%;
 }
 </style>

@@ -427,14 +427,14 @@ html[data-theme-radius='extra'] {
     box-shadow 0.2s ease;
 }
 
-// 自定义字段圆角时，outlined 字段带左侧 inner icon 需要同步放大左侧描边弧度。
+// Outlined 字段的左侧描边段需容纳完整圆角，避免无图标输入框仍按默认 12px 挤压弧线。
 .v-field:not(
     .v-field--variant-plain,
     .v-field--variant-underlined,
     .v-field--rounded,
     [class^='rounded-'],
     [class*=' rounded-']
-  ).v-field--variant-outlined.v-field--prepended {
+  ).v-field--variant-outlined {
   --app-field-outline-start-size: max(12px, calc(var(--app-field-radius) + 8px));
 
   .v-field__outline__start {
