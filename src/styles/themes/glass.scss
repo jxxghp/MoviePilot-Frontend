@@ -2096,8 +2096,9 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     color: rgba(var(--v-theme-on-surface), var(--tw-text-opacity, 1)) !important;
   }
 
+  // tonal 的文字与底层共用 currentColor，保留语义色；只有实心填充需要修正浅色前景。
   .v-btn:is(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
-  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat, .v-chip--variant-tonal),
+  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat),
   .layout-vertical-nav .nav-link > .router-link-exact-active {
     color: rgb(var(--v-theme-on-surface)) !important;
   }
