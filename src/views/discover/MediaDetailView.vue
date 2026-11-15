@@ -136,6 +136,10 @@ interface PlayableEpisode {
   episode: number
   itemId: string
   name?: string
+  stillPath?: string
+  overview?: string
+  airDate?: string
+  runtime?: number
 }
 
 // 站点选择后待执行的搜索类型
@@ -420,9 +424,18 @@ const playEpisodeOptions = computed<PlayableEpisode[]>(() => {
     .sort((left, right) => left.episode - right.episode)
     .map(item => ({
       ...item,
-      name: selectedEpisodeGroup.value
-        ? undefined
-        : seasonEpisodesInfo.value[season]?.find(episode => episode.episode_number === item.episode)?.name,
+      ...(() => {
+        const metadata = selectedEpisodeGroup.value
+          ? undefined
+          : seasonEpisodesInfo.value[season]?.find(episode => episode.episode_number === item.episode)
+        return {
+          name: metadata?.name,
+          stillPath: metadata?.still_path,
+          overview: metadata?.overview,
+          airDate: metadata?.air_date,
+          runtime: metadata?.runtime,
+        }
+      })(),
     }))
 })
 
@@ -1526,42 +1539,78 @@ useNativePageHeader({
     :error-title="t('media.error.title')"
     :error-description="t('media.error.noMediaInfo')"
   />
-  <VDialog v-model="playEpisodeDialog" max-width="520">
-    <VCard>
-      <VCardTitle>{{ t('media.playback.chooseEpisode') }}</VCardTitle>
-      <VCardText>
-        <VSelect
-          :model-value="playEpisodeSeason"
-          :items="playEpisodeSeasonOptions"
-          item-title="title"
-          item-value="value"
-          :label="t('media.playback.season')"
-          hide-details
-          density="comfortable"
-          @update:model-value="changePlayEpisodeSeason"
-        />
-        <VProgressLinear v-if="playEpisodeIdsLoading" class="mt-4" color="primary" indeterminate />
-        <VAlert v-else-if="playEpisodeIdsFailed" class="mt-4" type="info" variant="tonal">
+  <VDialog v-model="playEpisodeDialog" max-width="760" scrollable>
+    <VCard class="episode-picker">
+      <header class="episode-picker__header" data-native-dialog-header>
+        <span class="episode-picker__header-spacer" aria-hidden="true" />
+        <h2 data-native-dialog-title>{{ t('media.playback.chooseEpisode') }}</h2>
+        <IconBtn
+          data-native-dialog-close
+          :aria-label="t('common.close')"
+          class="episode-picker__close"
+          @click="playEpisodeDialog = false"
+        >
+          <VIcon icon="mdi-close" />
+        </IconBtn>
+      </header>
+      <VCardText class="episode-picker__content" data-native-dialog-content>
+        <div class="episode-picker__season-label">{{ t('media.playback.season') }}</div>
+        <div class="episode-picker__seasons" role="tablist" :aria-label="t('media.playback.season')">
+          <VBtn
+            v-for="season in playEpisodeSeasonOptions"
+            :key="season.value"
+            :variant="playEpisodeSeason === season.value ? 'flat' : 'text'"
+            :color="playEpisodeSeason === season.value ? 'primary' : undefined"
+            :aria-pressed="playEpisodeSeason === season.value"
+            size="small"
+            @click="changePlayEpisodeSeason(season.value)"
+          >
+            {{ season.title }}
+          </VBtn>
+        </div>
+        <VProgressLinear v-if="playEpisodeIdsLoading" class="episode-picker__loading" color="primary" indeterminate />
+        <VAlert v-else-if="playEpisodeIdsFailed" class="mt-5" type="info" variant="tonal">
           {{ t('media.playback.noPlayableEpisodes') }}
         </VAlert>
-        <VList v-else density="compact" class="mt-2">
+        <VList v-else class="episode-picker__episodes" lines="two">
           <VListItem
             v-for="item in playEpisodeOptions"
             :key="item.episode"
-            :title="`S${String(playEpisodeSeason || 0).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}${item.name ? ` · ${item.name}` : ''}`"
-            rounded="sm"
+            class="episode-picker__episode"
+            :aria-label="`播放 S${String(playEpisodeSeason || 0).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}${item.name ? ` · ${item.name}` : ''}`"
             @click="playSelectedEpisode(item)"
           >
             <template #prepend>
-              <VIcon icon="mdi-play-circle-outline" color="success" />
+              <VImg
+                v-if="item.stillPath"
+                :src="getEpisodeImage(item.stillPath)"
+                class="episode-picker__thumbnail"
+                cover
+                alt=""
+              />
+              <div v-else class="episode-picker__thumbnail episode-picker__thumbnail--empty" aria-hidden="true">
+                <VIcon icon="mdi-filmstrip-box" />
+              </div>
+            </template>
+            <VListItemTitle>
+              <span class="episode-picker__number"
+                >S{{ String(playEpisodeSeason || 0).padStart(2, '0') }}E{{
+                  String(item.episode).padStart(2, '0')
+                }}</span
+              >
+              <span v-if="item.name" class="episode-picker__name">{{ item.name }}</span>
+            </VListItemTitle>
+            <VListItemSubtitle v-if="item.overview || item.airDate || item.runtime" class="episode-picker__metadata">
+              <span v-if="item.airDate">{{ item.airDate }}</span>
+              <span v-if="item.runtime">{{ item.runtime }} min</span>
+              <span v-if="item.overview" class="episode-picker__overview">{{ item.overview }}</span>
+            </VListItemSubtitle>
+            <template #append>
+              <VIcon icon="mdi-play-circle-outline" color="success" size="24" />
             </template>
           </VListItem>
         </VList>
       </VCardText>
-      <VCardActions>
-        <VSpacer />
-        <VBtn variant="text" @click="playEpisodeDialog = false">{{ t('common.cancel') }}</VBtn>
-      </VCardActions>
     </VCard>
   </VDialog>
 </template>
@@ -1599,6 +1648,123 @@ useNativePageHeader({
       rgba(var(--v-theme-background), var(--media-backdrop-edge-opacity)) 100%
     );
   margin-block-start: calc(-70px - env(safe-area-inset-top));
+}
+
+.episode-picker {
+  overflow: hidden;
+}
+
+.episode-picker__header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  min-block-size: 56px;
+  padding-inline: 12px;
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.episode-picker__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.episode-picker__close {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.episode-picker__content {
+  padding: 16px 18px 20px;
+}
+
+.episode-picker__season-label {
+  margin-block-end: 8px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.episode-picker__seasons {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-block-end: 8px;
+  scrollbar-width: none;
+}
+
+.episode-picker__seasons::-webkit-scrollbar {
+  display: none;
+}
+
+.episode-picker__episodes {
+  max-block-size: min(58vh, 560px);
+  overflow-y: auto;
+  padding: 0;
+}
+
+.episode-picker__episode {
+  min-block-size: 84px;
+  margin-block: 4px;
+  border-radius: 6px;
+}
+
+.episode-picker__thumbnail {
+  inline-size: 112px;
+  block-size: 64px;
+  flex: 0 0 auto;
+  margin-inline-end: 12px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.episode-picker__thumbnail--empty {
+  display: grid;
+  place-items: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 1.5rem;
+}
+
+.episode-picker__number {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.episode-picker__name {
+  margin-inline-start: 8px;
+  font-weight: 500;
+}
+
+.episode-picker__metadata {
+  display: flex;
+  gap: 8px;
+  margin-block-start: 4px;
+}
+
+.episode-picker__overview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+@media (max-width: 600px) {
+  .episode-picker__content {
+    padding-inline: 12px;
+  }
+
+  .episode-picker__thumbnail {
+    inline-size: 88px;
+    block-size: 56px;
+  }
+
+  .episode-picker__episode {
+    padding-inline: 8px;
+  }
 }
 
 .vue-media-back-image {

@@ -72,7 +72,7 @@ export function canUseNativeMediaPlayback(): boolean {
   return typeof window !== 'undefined' && nativeChromeActive.value && window.MoviePilotNative?.playbackVersion === 1
 }
 
-/** 检查文件管理条目是否为本地支持的视频或 STRM 文件。 */
+/** 检查文件管理条目是否为本地支持的视频、音频或 STRM 文件。 */
 export function isLocalPlayableMediaFile(item: Partial<Pick<FileItem, 'storage' | 'type' | 'path'>>): boolean {
   if (item.storage !== 'local' || item.type !== 'file' || !item.path) return false
   const filename = item.path.split(/[\\/]/).at(-1) || ''
@@ -88,17 +88,17 @@ export function getLocalPlaybackMediaType(file: Pick<FileItem, 'name' | 'path'>)
 }
 
 /** 将媒体库搜索命中的单集或单曲按服务器来源送入 App 原生播放器。 */
-export function playMediaServerLibraryItem(itemId: string, title: string, server: string): boolean {
-  if (!canUseNativeMediaPlayback() || !itemId || !title || !server) return false
+export function playMediaServerLibraryItem(itemId: string, title: string, server?: string): boolean {
+  if (!canUseNativeMediaPlayback() || !itemId || !title) return false
   window.dispatchEvent(
     new CustomEvent('moviepilot:playback-open', {
-      detail: { itemId, title, server },
+      detail: { itemId, title, ...(server ? { server } : {}) },
     }),
   )
   return true
 }
 
-/** 通过后端的短期单文件票据在 App 中播放选中的文件。 */
+/** 通过后端的短期单文件票据在 App 中播放选中的本地文件。 */
 export async function playLocalMediaFile(
   file: FileItem,
   title: string,

@@ -16,7 +16,7 @@ import { useI18n } from 'vue-i18n'
 import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import { getSharedConfiguration } from '@/api/configuration'
-import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
+import { getMediaStatus, getMediaSubscribedSeasons, type MediaStatusResult } from '@/api/mediaStatus'
 import { formatRating } from '@/@core/utils/formatters'
 import type { MediaInfo, Site } from '@/api/types'
 import router from '@/router'
@@ -36,6 +36,7 @@ import {
   setCachedMediaExistsStatus,
 } from '@/utils/mediaStatusCache'
 import { buildMusicDetailRoute, getMusicKey } from '@/utils/music'
+import { canUseNativeMediaPlayback, playMediaServerLibraryItem } from '@/utils/mediaPlayback'
 import {
   forgetMediaPosterReveal,
   rememberMediaPosterReveal,
@@ -115,6 +116,7 @@ const isSubscribed = ref(false)
 
 // 本地存在状态
 const isExists = ref(false)
+const existsItemId = ref<string>()
 
 // 当前媒体已订阅的季号
 const subscribedSeasons = ref<number[]>([])
@@ -276,24 +278,38 @@ async function querySubscribedSeasons() {
   }
 }
 
-// 查询当前媒体是否已入库
+/** 查询媒体入库状态并保留电影对应条目 ID，供长按菜单播放使用。 */
 async function handleCheckExists() {
+  existsItemId.value = undefined
   if (props.media?.type === '音乐') return
   const media = props.media
   const key = getExistsStatusKey()
   try {
+    let status: MediaStatusResult | undefined
     const exists = await getCachedMediaExistsStatus(key, async () => {
       if (!media) return false
-      const status = await getMediaStatus(media)
+      status = await getMediaStatus(media)
       if (status.legacyFailures?.exists) throw new Error(status.legacyFailures.exists)
       return Boolean(status.item_id)
     })
     if (media !== props.media) return
     isExists.value = exists
+    if (exists && !status && media) {
+      status = await getMediaStatus(media)
+      if (status.legacyFailures?.exists) throw new Error(status.legacyFailures.exists)
+    }
+    if (media !== props.media) return
+    existsItemId.value = exists ? status?.item_id || undefined : undefined
     setCachedMediaExistsStatus(key, exists)
   } catch (error) {
     console.error(error)
   }
+}
+
+/** 只从电影媒体卡片发起单文件播放；电视剧仍需在详情页选择具体单集。 */
+function playExistingMovie() {
+  if (props.media?.type !== '电影' || !existsItemId.value) return
+  playMediaServerLibraryItem(existsItemId.value, props.media.title || '')
 }
 
 // 调用API检查是否已订阅，电视剧需要指定季
@@ -548,7 +564,7 @@ const subscribeActions = useMediaSubscribe({
   getSubscribeStatusKey,
 })
 
-/** 长按只增加现有两项动作；权限、订阅状态及季选择仍由原按钮路径负责。 */
+/** 长按菜单为已入库电影提供播放；电视剧需在详情页明确选择具体单集。 */
 const nativeCardMenu = computed<NativeCardMenuBinding>(() => {
   const identity = getMediaSubscribeIdentity(props.media)
   return {
@@ -563,6 +579,12 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => {
     title: props.media?.title,
     available: () => !props.media?.collection_id,
     items: () => [
+      nativeCardAction('play', {
+        title: t('file.play'),
+        icon: 'mdi-play',
+        visible: canUseNativeMediaPlayback() && props.media?.type === '电影' && Boolean(existsItemId.value),
+        invoke: playExistingMovie,
+      }),
       nativeCardAction('search', {
         title: t('common.search'),
         icon: 'mdi-magnify',

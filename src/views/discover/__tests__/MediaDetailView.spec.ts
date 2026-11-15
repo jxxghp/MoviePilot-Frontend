@@ -731,8 +731,8 @@ describe('MediaDetailView detail and actions', () => {
         return apiJson({ 1: { 1: 'episode-1', 3: 'episode-3' }, 2: { 1: 'season-2-episode-1' } })
       }),
       tmdbSeasonEpisodesHandler(9301, 1, [
-        createTmdbEpisode({ episode_number: 1, name: '第一集', season_number: 1 }),
-        createTmdbEpisode({ episode_number: 3, name: '第三集', season_number: 1 }),
+        createTmdbEpisode({ episode_number: 1, name: '第一集', season_number: 1, still_path: '/episode-1.jpg' }),
+        createTmdbEpisode({ episode_number: 3, name: '第三集', season_number: 1, still_path: '/episode-3.jpg' }),
       ]),
     )
     await renderDetail({
@@ -742,10 +742,13 @@ describe('MediaDetailView detail and actions', () => {
     })
 
     await userEvent.setup().click(await screen.findByRole('button', { name: /在线播放/ }))
-    expect(await screen.findByText(/S01E01 · 第一集/)).toBeVisible()
-    expect(screen.getByText(/S01E03 · 第三集/)).toBeVisible()
+    expect(await screen.findByText('第一集')).toBeVisible()
+    expect(screen.getByText('第三集')).toBeVisible()
+    const picker = screen.getByRole('dialog')
+    expect(picker.querySelector('[data-native-dialog-close]')).not.toBeNull()
+    expect(picker.querySelector('img[src="https://image.tmdb.example.com/t/p/w500/episode-1.jpg"]')).not.toBeNull()
     expect(screen.queryByText(/S01E02/)).toBeNull()
-    await fireEvent.click(screen.getByText(/S01E03 · 第三集/))
+    await fireEvent.click(screen.getByText('第三集'))
 
     await waitFor(() =>
       expect(playbackOpen).toHaveBeenCalledWith(

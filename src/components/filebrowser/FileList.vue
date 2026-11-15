@@ -20,7 +20,7 @@ import { vTailEllipsis } from './tailEllipsis'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useRangeSelection } from '@/composables/useRangeSelection'
-import { playLocalMediaFile } from '@/utils/mediaPlayback'
+import { canUseNativeMediaPlayback, isLocalPlayableMediaFile, playLocalMediaFile } from '@/utils/mediaPlayback'
 
 // 原生滚动条宽度随系统变化，表头与可滚动列表使用同一内容宽度。
 const tableRef = ref<HTMLElement | null>(null)
@@ -626,11 +626,22 @@ async function playMediaFile(item: FileItem) {
 
 /** 将原菜单业务枚举转换为详情面板共用的动作，不以菜单位置识别操作。 */
 function fileMenuAction(value: number): FileAction {
+  if (value === 0) return 'play'
   if (value === 1) return 'recognize'
   if (value === 2) return 'scrape'
   if (value === 3) return 'rename'
   if (value === 4) return 'reorganize'
   return 'delete'
+}
+
+/** 普通菜单只在 App 已协商播放器且当前项可读时显示播放命令。 */
+function isFileMenuItemVisible(menu: FileDropdownItem, item: FileItem) {
+  return menu.value !== 0 || (canUseNativeMediaPlayback() && isLocalPlayableMediaFile(item))
+}
+
+/** 按当前文件过滤菜单，避免列表模板在循环节点上混用条件指令。 */
+function getVisibleFileMenuItems(item: FileItem) {
+  return dropdownItems.value.filter(menu => isFileMenuItemVisible(menu, item))
 }
 
 /** 文件与目录共用原操作；移动三点原本是详情入口，保持该功能独立存在。 */
@@ -645,6 +656,7 @@ function nativeFileMenu(item: FileItem): NativeCardMenuBinding {
           title: menu.title,
           icon: menu.props.prependIcon,
           color: menu.props.color,
+          visible: isFileMenuItemVisible(menu, item),
           invoke: () => runAction(fileMenuAction(menu.value), item),
         }),
       ),
@@ -834,6 +846,15 @@ watch(
     nameTestResult.value = undefined
     // 重置菜单
     dropdownItems.value = [
+      {
+        title: t('file.play'),
+        value: 0,
+        show: true,
+        props: {
+          prependIcon: 'mdi-play',
+          click: playMediaFile,
+        },
+      },
       {
         title: t('file.recognize'),
         value: 1,
@@ -1271,7 +1292,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   ></template>
                   <VList
                     ><VListItem
-                      v-for="menu in dropdownItems"
+                      v-for="menu in getVisibleFileMenuItems(item)"
                       :key="menu.value"
                       :title="menu.title"
                       :prepend-icon="menu.props.prependIcon"

@@ -484,7 +484,10 @@ describe('SubscribeCard display and progress', () => {
 
     expect(screen.getByLabelText('待定中')).toBeInTheDocument()
     expect(screen.getByText('8 / 10')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30')
+    const progress = screen.getByRole('progressbar')
+    expect(progress).toHaveAttribute('aria-valuenow', '30')
+    expect(progress.querySelector('.v-progress-linear__buffer')).toHaveStyle({ width: '80%' })
+    expect(container.querySelector('.subscribe-card-mobile-trailing-meta')).toHaveTextContent('30%')
     expect(screen.getByText(lastUpdateText)).toBeInTheDocument()
     expect(document.querySelector('.subscribe-card-mobile-menu')).toBeInTheDocument()
     expect(document.querySelector('.subscribe-card-mobile-media')).toContainElement(screen.getByText(/卡片测试媒体/))
@@ -507,13 +510,14 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
   })
 
-  it('applies mobile wash visuals to movies without episode progress', async () => {
+  it('applies mobile wash and state labels to movies without episode progress', async () => {
     setViewport(480)
-    const { container } = await renderCard({
+    const { container, media, rerender } = await renderCard({
       best_version: true,
       state: 'R',
       total_episode: undefined,
       type: '电影',
+      year: '2025',
     })
 
     expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
@@ -521,7 +525,13 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card-mobile-state')).toHaveStyle({
       color: 'rgb(var(--v-theme-success))',
     })
+    expect(screen.getByText('洗版中')).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card-mobile-trailing-meta')).toHaveTextContent('2025')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+
+    await rerender({ media: { ...media, best_version: false, state: 'R' } })
+    expect(screen.getByText('订阅中')).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card-mobile-trailing-meta')).toHaveTextContent('2025')
   })
 
   it('synchronizes desktop P, S, and R state from updated media props', async () => {
