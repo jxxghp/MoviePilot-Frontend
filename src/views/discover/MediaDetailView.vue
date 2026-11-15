@@ -74,6 +74,13 @@ const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 // 本地是否存在，存在则包括Item信息
 const existsItemId = ref('')
 
+// 详情与媒体库状态是异步加载的，按当前可用操作数固定辅助按钮列数，避免初始化视口变化导致换行。
+const hasSubscribeAction = computed(
+  () => canSubscribe.value && (mediaDetail.value.type === '电影' || hasMediaIdentity()),
+)
+const hasSearchActions = computed(() => hasMediaIdentity() && canSearch.value)
+const secondaryActionCount = computed(() => (hasSearchActions.value ? 2 : 0) + (existsItemId.value ? 1 : 0))
+
 // 是否已订阅
 const isSubscribed = ref(false)
 
@@ -985,16 +992,9 @@ useNativePageHeader({
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
-        <div
-          v-if="
-            (canSubscribe && (mediaDetail.type === '电影' || hasMediaIdentity())) ||
-            (hasMediaIdentity() && canSearch) ||
-            existsItemId
-          "
-          class="media-actions"
-        >
+        <div v-if="hasSubscribeAction || secondaryActionCount > 0" class="media-actions">
           <VBtn
-            v-if="canSubscribe && (mediaDetail.type === '电影' || hasMediaIdentity())"
+            v-if="hasSubscribeAction"
             class="media-action-button media-action-button--primary"
             :color="getSubscribeColor"
             variant="flat"
@@ -1006,14 +1006,12 @@ useNativePageHeader({
             </template>
             {{ getSubscribeText }}
           </VBtn>
-          <div v-if="(hasMediaIdentity() && canSearch) || existsItemId" class="media-action-secondary">
-            <VBtn
-              v-if="hasMediaIdentity() && canSearch"
-              variant="tonal"
-              color="primary"
-              class="media-action-button"
-              rounded="pill"
-            >
+          <div
+            v-if="secondaryActionCount > 0"
+            class="media-action-secondary"
+            :class="`media-action-secondary--${secondaryActionCount}`"
+          >
+            <VBtn v-if="hasSearchActions" variant="tonal" color="primary" class="media-action-button" rounded="pill">
               <template #prepend>
                 <VIcon icon="mdi-magnify" />
               </template>
@@ -1030,7 +1028,7 @@ useNativePageHeader({
               </VMenu>
             </VBtn>
             <VBtn
-              v-if="hasMediaIdentity() && canSearch"
+              v-if="hasSearchActions"
               variant="tonal"
               color="info"
               class="media-action-button"
@@ -1985,11 +1983,11 @@ a.crew-name {
   gap: var(--media-action-gap);
 }
 
-.media-action-secondary:has(> .media-action-button:only-child) {
+.media-action-secondary--1 {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.media-action-secondary:has(> .media-action-button:nth-child(2):last-child) {
+.media-action-secondary--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1998,18 +1996,6 @@ a.crew-name {
     margin-block-start: 0;
     inline-size: 100%;
     max-inline-size: 24rem;
-  }
-}
-
-@media (width < 360px) {
-  .media-action-secondary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .media-action-secondary > .media-action-button:last-child:nth-child(odd):not(:first-child) {
-    grid-column: 1 / -1;
-    inline-size: calc((100% - var(--media-action-gap)) / 2);
-    justify-self: center;
   }
 }
 

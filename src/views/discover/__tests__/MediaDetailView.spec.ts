@@ -543,6 +543,7 @@ describe('MediaDetailView detail and actions', () => {
     expect(actions?.querySelector('.media-action-button--primary')).not.toHaveClass('v-btn--size-large')
     expect(screen.getByRole('button', { name: /^订阅$/ })).toBeVisible()
     expect(secondary?.children).toHaveLength(3)
+    expect(secondary).toHaveClass('media-action-secondary--3')
     expect(secondary?.querySelector('.media-action-button')).not.toHaveClass('v-btn--size-large')
     expect(secondary?.textContent).toContain('搜索资源')
     expect(secondary?.textContent).toContain('搜索字幕')
@@ -558,6 +559,7 @@ describe('MediaDetailView detail and actions', () => {
 
     expect(actions?.querySelector('.media-action-button--primary')).toBeNull()
     expect(secondary?.children).toHaveLength(2)
+    expect(secondary).toHaveClass('media-action-secondary--2')
     expect(secondary?.textContent).toContain('搜索资源')
     expect(secondary?.textContent).toContain('搜索字幕')
   })
@@ -572,6 +574,7 @@ describe('MediaDetailView detail and actions', () => {
 
     expect(actions?.querySelector('.media-action-button--primary')).toBeNull()
     expect(secondary?.children).toHaveLength(1)
+    expect(secondary).toHaveClass('media-action-secondary--1')
     expect(screen.getByRole('button', { name: /在线播放/ })).toBeVisible()
   })
 
