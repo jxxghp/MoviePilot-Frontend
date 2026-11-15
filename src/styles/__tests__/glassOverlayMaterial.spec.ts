@@ -310,23 +310,23 @@ describe('glass overlay material styles', () => {
     expect(episodeGroupRule).toContain('var(--glass-control-shadow)')
   })
 
-  it('keeps workflow share gradients as colored glass in every appearance', () => {
+  it('keeps workflow share gradients as colored banner glass in every appearance', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const glassV3 = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const card = readFileSync(resolve(cwd(), 'src/components/cards/WorkflowShareCard.vue'), 'utf8')
 
     expect(card).toContain('--workflow-share-gradient-start-rgb')
     expect(card).toContain('--workflow-share-gradient-end-rgb')
+    expect(glassV3).toContain('.workflow-share-card')
     const ruleStart = styles.indexOf('.workflow-share-card {')
     const ruleEnd = styles.indexOf('\n  }', ruleStart)
     const workflowShareCardRule = styles.slice(ruleStart, ruleEnd)
     const expectedLayers = [
-      '--workflow-share-glass-background:',
-      'var(--glass-sheen),',
-      'var(--workflow-share-glass-scrim),',
+      '--workflow-banner-scrim:',
+      'var(--glass-material-rgb)',
+      '--workflow-banner-tint:',
       'var(--workflow-share-gradient-start-rgb,',
       'var(--workflow-share-gradient-end-rgb,',
-      '--glass-v3-card-background: var(--workflow-share-glass-background), var(--glass-surface);',
-      'background-image: var(--workflow-share-glass-background) !important;',
     ]
 
     expect(ruleStart).toBeGreaterThanOrEqual(0)
@@ -338,6 +338,9 @@ describe('glass overlay material styles', () => {
       expect(layerIndex).toBeGreaterThan(previousLayerIndex)
       previousLayerIndex = layerIndex
     }
+    expect(styles).toContain(
+      ':is(.plugin-card__banner, .workflow-task-card__banner, .workflow-share-card__banner)::before',
+    )
     expect(styles).toContain("&[data-glass-appearance='frosted'] .workflow-share-card")
     expect(styles).toContain("&[data-glass-appearance='tinted'] .workflow-share-card")
   })

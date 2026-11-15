@@ -1335,6 +1335,35 @@ html[data-theme='plain'][data-glass-color-scheme='light'] .plugin-card__banner {
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
 }
 
+// 工作流卡片与工作流分享卡片横幅染色层：平面深浅随主题切换柔和微光，玻璃主题仅在卡片根部替换透射色层变量
+.workflow-task-card,
+.workflow-share-card {
+  --workflow-banner-scrim: linear-gradient(180deg, rgba(24, 34, 53, 0.2) 0%, rgba(24, 34, 53, 0.54) 100%);
+  --workflow-banner-tint: linear-gradient(
+    135deg,
+    rgba(var(--workflow-banner-start-rgb, 10, 132, 255), 0.24) 0%,
+    rgba(var(--workflow-banner-end-rgb, 0, 102, 220), 0.08) 62%,
+    rgba(var(--workflow-banner-end-rgb, 0, 102, 220), 0.02) 100%
+  );
+}
+
+.workflow-task-card__banner,
+.workflow-share-card__banner {
+  position: relative;
+  background-image: var(--workflow-banner-scrim), var(--workflow-banner-tint);
+  transition: background-image 0.2s ease;
+}
+
+html[data-theme='plain'][data-glass-color-scheme='light'] :is(.workflow-task-card, .workflow-share-card) {
+  --workflow-banner-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.82) 100%);
+  --workflow-banner-tint: linear-gradient(
+    135deg,
+    rgba(var(--workflow-banner-start-rgb, 10, 132, 255), 0.15) 0%,
+    rgba(var(--workflow-banner-end-rgb, 0, 102, 220), 0.05) 62%,
+    rgba(var(--workflow-banner-end-rgb, 0, 102, 220), 0.01) 100%
+  );
+}
+
 // 文本样式
 .text-moviepilot {
   background-clip: text;

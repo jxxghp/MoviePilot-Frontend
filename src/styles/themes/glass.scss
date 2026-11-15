@@ -1136,22 +1136,18 @@ html[data-theme='glass'] {
     backdrop-filter: var(--glass-surface-backdrop-filter);
   }
 
-  // 工作流卡片复用分享卡的随机色相，以玻璃吸收层和镜面高光控制材质强度。
+  // 工作流卡片与分享卡片统一走横幅有色玻璃染色层，主体与静态吸收底座由外层单次采样承托。
   .workflow-task-card {
-    --workflow-card-header-content-rgb: 255, 255, 255;
-    --workflow-card-header-background:
-      var(--glass-sheen),
-      linear-gradient(
-        135deg,
-        rgba(var(--workflow-card-gradient-start-rgb), calc(0.16 + var(--glass-tint-density, 0.65) * 0.34)) 0%,
-        rgba(var(--workflow-card-gradient-end-rgb), calc(0.09 + var(--glass-tint-density, 0.65) * 0.22)) 58%,
-        rgba(var(--workflow-card-gradient-end-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.1)) 100%
-      ),
-      linear-gradient(
-        rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.62) * 0.08)),
-        rgba(var(--v-theme-background), calc(0.14 + var(--glass-surface-density, 0.62) * 0.12))
-      );
-    --workflow-card-header-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(0, 0, 0, 14%);
+    --workflow-banner-scrim: linear-gradient(
+      rgba(var(--glass-material-rgb), calc(0.18 + var(--glass-surface-density, 0.62) * 0.11)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.26 + var(--glass-surface-density, 0.62) * 0.15)) 100%
+    );
+    --workflow-banner-tint: linear-gradient(
+      135deg,
+      rgba(var(--workflow-card-gradient-start-rgb), calc(0.18 + var(--glass-tint-density, 0.65) * 0.28)) 0%,
+      rgba(var(--workflow-card-gradient-end-rgb), calc(0.09 + var(--glass-tint-density, 0.65) * 0.18)) 58%,
+      rgba(var(--workflow-card-gradient-end-rgb), calc(0.03 + var(--glass-tint-density, 0.65) * 0.08)) 100%
+    );
   }
 
   // 工作流编辑器组件选择栏
@@ -1172,26 +1168,24 @@ html[data-theme='glass'] {
     --workflow-edge-panel-backdrop-filter: var(--glass-surface-backdrop-filter);
   }
 
-  // 分享卡保留原随机渐变的色相，以半透明染色、吸光和镜面层组成有色玻璃。
+  // 分享卡与我的工作流共享横幅有色玻璃架构，保留稳定色相并释放底座呼吸感。
   .workflow-share-card {
-    --workflow-share-glass-start-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.38);
-    --workflow-share-glass-end-opacity: calc(0.24 + var(--glass-tint-density, 0.65) * 0.42);
-    --workflow-share-glass-scrim: linear-gradient(
-      rgba(var(--glass-material-rgb), calc(0.1 + var(--glass-surface-density, 0.62) * 0.1)),
-      rgba(var(--glass-material-rgb), calc(0.2 + var(--glass-surface-density, 0.62) * 0.14))
+    --workflow-banner-scrim: linear-gradient(
+      rgba(var(--glass-material-rgb), calc(0.18 + var(--glass-surface-density, 0.62) * 0.11)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.26 + var(--glass-surface-density, 0.62) * 0.15)) 100%
     );
-    // Glass V3 用更高优先级的整卡 background 覆盖普通卡片样式，这里把分享卡的色相接入同一材质 token。
-    --workflow-share-glass-background:
-      var(--glass-sheen), var(--workflow-share-glass-scrim),
-      linear-gradient(
-        135deg,
-        rgba(var(--workflow-share-gradient-start-rgb, 74, 85, 104), var(--workflow-share-glass-start-opacity)) 0%,
-        rgba(var(--workflow-share-gradient-end-rgb, 45, 55, 72), var(--workflow-share-glass-end-opacity)) 100%
-      );
-    --glass-v3-card-background: var(--workflow-share-glass-background), var(--glass-surface);
+    --workflow-banner-tint: linear-gradient(
+      135deg,
+      rgba(var(--workflow-share-gradient-start-rgb, 10, 132, 255), calc(0.18 + var(--glass-tint-density, 0.65) * 0.28))
+        0%,
+      rgba(var(--workflow-share-gradient-end-rgb, 0, 102, 220), calc(0.09 + var(--glass-tint-density, 0.65) * 0.18)) 58%,
+      rgba(var(--workflow-share-gradient-end-rgb, 0, 102, 220), calc(0.03 + var(--glass-tint-density, 0.65) * 0.08))
+        100%
+    );
+  }
 
-    background-color: var(--glass-surface) !important;
-    background-image: var(--workflow-share-glass-background) !important;
+  .workflow-share-card__dock {
+    border-block-start: 1px solid var(--glass-border);
   }
 
   // 插件卡片头部改为染色玻璃：图标主色只作为透光色相，压暗遮罩换成玻璃吸收与高光。
@@ -1211,7 +1205,7 @@ html[data-theme='glass'] {
   }
 
   // 卡片主体已经承担实时背景采样，头部只叠加静态色层与镜面高光。
-  .plugin-card__banner::before {
+  :is(.plugin-card__banner, .workflow-task-card__banner, .workflow-share-card__banner)::before {
     position: absolute;
     background-image: var(--glass-sheen);
     box-shadow: inset 0 1px 0 var(--glass-highlight);
@@ -1220,7 +1214,7 @@ html[data-theme='glass'] {
     pointer-events: none;
   }
 
-  .plugin-card__banner > * {
+  :is(.plugin-card__banner, .workflow-task-card__banner, .workflow-share-card__banner) > * {
     position: relative;
   }
 
@@ -1239,26 +1233,30 @@ html[data-theme='glass'] {
   }
 
   &[data-glass-appearance='frosted'] .workflow-task-card {
-    --workflow-card-header-background:
-      var(--glass-sheen),
-      linear-gradient(
-        135deg,
-        rgba(var(--workflow-card-gradient-start-rgb), calc(0.1 + var(--glass-tint-density, 0.65) * 0.2)) 0%,
-        rgba(var(--workflow-card-gradient-end-rgb), calc(0.05 + var(--glass-tint-density, 0.65) * 0.13)) 58%,
-        rgba(var(--workflow-card-gradient-end-rgb), calc(0.02 + var(--glass-tint-density, 0.65) * 0.06)) 100%
-      ),
-      linear-gradient(
-        rgba(var(--v-theme-background), calc(0.04 + var(--glass-surface-density, 0.86) * 0.04)),
-        rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.86) * 0.08))
-      );
+    --workflow-banner-scrim: linear-gradient(
+      rgba(var(--glass-material-rgb), calc(0.09 + var(--glass-surface-density, 0.86) * 0.085)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.14 + var(--glass-surface-density, 0.86) * 0.13)) 100%
+    );
+    --workflow-banner-tint: linear-gradient(
+      135deg,
+      rgba(var(--workflow-card-gradient-start-rgb), calc(0.12 + var(--glass-tint-density, 0.65) * 0.18)) 0%,
+      rgba(var(--workflow-card-gradient-end-rgb), calc(0.06 + var(--glass-tint-density, 0.65) * 0.12)) 58%,
+      rgba(var(--workflow-card-gradient-end-rgb), calc(0.02 + var(--glass-tint-density, 0.65) * 0.05)) 100%
+    );
   }
 
   &[data-glass-appearance='frosted'] .workflow-share-card {
-    --workflow-share-glass-start-opacity: calc(0.12 + var(--glass-tint-density, 0.65) * 0.28);
-    --workflow-share-glass-end-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.34);
-    --workflow-share-glass-scrim: linear-gradient(
-      rgba(var(--glass-material-rgb), calc(0.06 + var(--glass-surface-density, 0.86) * 0.07)),
-      rgba(var(--glass-material-rgb), calc(0.13 + var(--glass-surface-density, 0.86) * 0.1))
+    --workflow-banner-scrim: linear-gradient(
+      rgba(var(--glass-material-rgb), calc(0.09 + var(--glass-surface-density, 0.86) * 0.085)) 0%,
+      rgba(var(--glass-material-rgb), calc(0.14 + var(--glass-surface-density, 0.86) * 0.13)) 100%
+    );
+    --workflow-banner-tint: linear-gradient(
+      135deg,
+      rgba(var(--workflow-share-gradient-start-rgb, 10, 132, 255), calc(0.12 + var(--glass-tint-density, 0.65) * 0.18))
+        0%,
+      rgba(var(--workflow-share-gradient-end-rgb, 0, 102, 220), calc(0.06 + var(--glass-tint-density, 0.65) * 0.12)) 58%,
+      rgba(var(--workflow-share-gradient-end-rgb, 0, 102, 220), calc(0.02 + var(--glass-tint-density, 0.65) * 0.05))
+        100%
     );
   }
 
@@ -1283,36 +1281,46 @@ html[data-theme='glass'] {
   }
 
   &[data-glass-appearance='tinted'] .workflow-task-card {
-    --workflow-card-header-background:
-      var(--glass-sheen),
-      linear-gradient(
-        135deg,
-        color-mix(
-            in srgb,
-            rgba(var(--workflow-card-gradient-start-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33)) 74%,
-            rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.33))
-          )
-          0%,
-        color-mix(
-            in srgb,
-            rgba(var(--workflow-card-gradient-end-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2)) 74%,
-            rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.2))
-          )
-          58%,
-        rgba(var(--workflow-card-gradient-end-rgb), calc(0.04 + var(--glass-tint-density, 0.65) * 0.095)) 100%
-      ),
-      linear-gradient(
-        rgba(var(--v-theme-background), calc(0.08 + var(--glass-surface-density, 0.72) * 0.08)),
-        rgba(var(--v-theme-background), calc(0.14 + var(--glass-surface-density, 0.72) * 0.12))
-      );
+    --workflow-banner-tint: linear-gradient(
+      135deg,
+      color-mix(
+          in srgb,
+          rgba(var(--workflow-card-gradient-start-rgb), calc(0.14 + var(--glass-tint-density, 0.65) * 0.28)) 74%,
+          rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.28))
+        )
+        0%,
+      color-mix(
+          in srgb,
+          rgba(var(--workflow-card-gradient-end-rgb), calc(0.07 + var(--glass-tint-density, 0.65) * 0.18)) 74%,
+          rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.18))
+        )
+        58%,
+      rgba(var(--workflow-card-gradient-end-rgb), calc(0.03 + var(--glass-tint-density, 0.65) * 0.08)) 100%
+    );
   }
 
   &[data-glass-appearance='tinted'] .workflow-share-card {
-    --workflow-share-glass-start-opacity: calc(0.16 + var(--glass-tint-density, 0.65) * 0.32);
-    --workflow-share-glass-end-opacity: calc(0.21 + var(--glass-tint-density, 0.65) * 0.38);
-    --workflow-share-glass-scrim: linear-gradient(
-      rgba(var(--glass-material-rgb), calc(0.09 + var(--glass-surface-density, 0.72) * 0.09)),
-      rgba(var(--glass-material-rgb), calc(0.18 + var(--glass-surface-density, 0.72) * 0.13))
+    --workflow-banner-tint: linear-gradient(
+      135deg,
+      color-mix(
+          in srgb,
+          rgba(
+              var(--workflow-share-gradient-start-rgb, 10, 132, 255),
+              calc(0.14 + var(--glass-tint-density, 0.65) * 0.28)
+            )
+            74%,
+          rgba(var(--v-theme-primary), calc(0.14 + var(--glass-tint-density, 0.65) * 0.28))
+        )
+        0%,
+      color-mix(
+          in srgb,
+          rgba(var(--workflow-share-gradient-end-rgb, 0, 102, 220), calc(0.07 + var(--glass-tint-density, 0.65) * 0.18))
+            74%,
+          rgba(var(--v-theme-primary), calc(0.07 + var(--glass-tint-density, 0.65) * 0.18))
+        )
+        58%,
+      rgba(var(--workflow-share-gradient-end-rgb, 0, 102, 220), calc(0.03 + var(--glass-tint-density, 0.65) * 0.08))
+        100%
     );
   }
 
@@ -2094,14 +2102,12 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     background-color: var(--glass-control-prominent);
   }
 
-  // 工作流整卡会随玻璃材质透亮，前景也要切换，覆盖组件内固定的白色通道。
-  .workflow-task-card {
-    --workflow-card-header-content-rgb: var(--v-theme-on-surface);
-  }
-
-  // 分享卡沿用各信息层级的文字透明度，同时让文字和图标匹配浅色玻璃。
-  .workflow-share-card .text-white {
-    color: rgba(var(--v-theme-on-surface), var(--tw-text-opacity, 1)) !important;
+  // 浅色玻璃下工作流与分享横幅采用高透亮白雾遮罩，烘托深色语义文字对比度。
+  :is(.workflow-task-card, .workflow-share-card) {
+    --workflow-banner-scrim: linear-gradient(
+      rgba(255, 255, 255, calc(0.32 + var(--glass-surface-density, 0.62) * 0.18)) 0%,
+      rgba(255, 255, 255, calc(0.56 + var(--glass-surface-density, 0.62) * 0.22)) 100%
+    );
   }
 
   // tonal 的文字与底层共用 currentColor，保留语义色；只有实心填充需要修正浅色前景。
