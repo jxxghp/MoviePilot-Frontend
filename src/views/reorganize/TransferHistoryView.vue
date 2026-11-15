@@ -3394,6 +3394,12 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   font-weight: 500;
 }
+// 状态与整理元信息分成两行，菜单隐藏时也保留稳定的垂直间距。
+.transfer-history-desktop-record__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .transfer-history-desktop-record__status {
   display: flex;
   align-items: center;
@@ -3749,6 +3755,12 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   grid-template-rows: auto auto;
   padding-block: 0.85rem 0.75rem;
   padding-inline: 1rem 0.85rem;
+}
+
+// 原生菜单隐藏按钮后收起菜单列；批量选择仍为复选框保留位置。
+.transfer-history-mobile-record[data-native-card-menu-ready]:not(.transfer-history-mobile-record--batch)
+  .transfer-history-mobile-record__header {
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
 }
 
 .transfer-history-mobile-record__poster-wrapper {
