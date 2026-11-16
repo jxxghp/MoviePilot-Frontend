@@ -696,6 +696,28 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     expect(screen.queryByRole('checkbox', { name: '跳过已成功整理记录' })).not.toBeInTheDocument()
   })
 
+  it.each([true, false])('shows the CUE switch only for music and preserves its selection (%s)', async cueEnabled => {
+    const user = userEvent.setup()
+    await renderDialog({
+      cueEnabled,
+      items: [createFileItem({ name: 'Track.flac', path: '/downloads/Album/Track.flac' })],
+    })
+
+    expect(screen.queryByRole('checkbox', { name: '本次识别 CUE' })).not.toBeInTheDocument()
+    await selectOption('类型', 3)
+    const cueSwitch = screen.getByRole('checkbox', { name: '本次识别 CUE' })
+    expect((cueSwitch as HTMLInputElement).checked).toBe(cueEnabled)
+    await user.click(cueSwitch)
+    expect((cueSwitch as HTMLInputElement).checked).toBe(!cueEnabled)
+
+    for (const typeIndex of [0, 1, 2]) {
+      await selectOption('类型', typeIndex)
+      expect(screen.queryByRole('checkbox', { name: '本次识别 CUE' })).not.toBeInTheDocument()
+      await selectOption('类型', 3)
+      expect((screen.getByRole('checkbox', { name: '本次识别 CUE' }) as HTMLInputElement).checked).toBe(!cueEnabled)
+    }
+  })
+
   it('resets the data source to auto and hides the media id input after switching media type', async () => {
     await renderDialog()
 
@@ -1237,6 +1259,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
         cueEnabled,
         items: [createFileItem({ name: '专辑', path: '/downloads/专辑', type: 'dir' })],
       })
+      await selectOption('类型', 3)
       const cueSwitch = screen.getByRole('checkbox', { name: '本次识别 CUE' })
       expect((cueSwitch as HTMLInputElement).checked).toBe(cueEnabled)
       await user.click(cueSwitch)

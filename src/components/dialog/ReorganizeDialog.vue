@@ -2251,7 +2251,8 @@ onUnmounted(() => {
                 >
                   {{ t('dialog.reorganize.artistCollectionHint') }}
                 </VAlert>
-                <VRow v-if="!transferForm.type_name || transferForm.type_name === '音乐'">
+                <!-- 自动类型尚未确定媒体分类，不展示音乐专属设置。 -->
+                <VRow v-if="transferForm.type_name === '音乐'">
                   <VCol cols="12">
                     <VSwitch
                       v-model="transferForm.music_cue_enable"
