@@ -104,10 +104,10 @@ describe('WorkflowShareCard', () => {
 
     expect(screen.getByText('4 个动作')).toBeInTheDocument()
     expect(screen.getByText('下载完成')).toBeInTheDocument()
-    const stepLabels = [...container.querySelectorAll('.workflow-share-card__step-label')].map(node =>
-      node.textContent?.trim(),
-    )
+    const steps = [...container.querySelectorAll('.workflow-share-card__step[role="img"]')]
+    const stepLabels = steps.map(node => node.getAttribute('aria-label'))
     expect(stepLabels).toEqual(['获取RSS资源', '过滤资源', '添加下载'])
+    expect(container.querySelector('.workflow-share-card__step-label')).toBeNull()
     expect(container.querySelector('.workflow-share-card__step-more')).toHaveTextContent('+1')
   })
 

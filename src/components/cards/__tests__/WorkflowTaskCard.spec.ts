@@ -457,12 +457,12 @@ describe('WorkflowTaskCard redesign', () => {
     })
 
     expect(screen.getByText('定时扫描下载目录并自动刮削整理入库')).toBeInTheDocument()
-    const stepLabels = [...container.querySelectorAll('.workflow-task-card__step-label')].map(node =>
-      node.textContent?.trim(),
-    )
+    const steps = [...container.querySelectorAll('.workflow-task-card__step[role="img"]')]
+    const stepLabels = steps.map(node => node.getAttribute('aria-label'))
     expect(stepLabels).toEqual(['扫描目录', '刮削文件', '整理文件'])
-    expect(container.querySelector('.workflow-task-card__step--done')).toHaveTextContent('扫描目录')
-    expect(container.querySelector('.workflow-task-card__step--active')).toHaveTextContent('刮削文件')
+    expect(container.querySelector('.workflow-task-card__step-label')).toBeNull()
+    expect(container.querySelector('.workflow-task-card__step--done')?.getAttribute('aria-label')).toBe('扫描目录')
+    expect(container.querySelector('.workflow-task-card__step--active')?.getAttribute('aria-label')).toBe('刮削文件')
     expect(container.querySelector('.workflow-task-card__step-more')).toHaveTextContent('+1')
   })
 

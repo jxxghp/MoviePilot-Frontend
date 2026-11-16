@@ -558,12 +558,11 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
                   <span
                     class="workflow-task-card__step"
                     :class="`workflow-task-card__step--${resolveStepNodeState(action)}`"
+                    :aria-label="getWorkflowActionLabel(action, t('workflow.preview.unknownAction'), t)"
                     :title="getWorkflowActionLabel(action, t('workflow.preview.unknownAction'), t)"
+                    role="img"
                   >
-                    <VIcon :icon="getWorkflowActionIcon(action.type)" size="12" />
-                    <span class="workflow-task-card__step-label">
-                      {{ getWorkflowActionLabel(action, t('workflow.preview.unknownAction'), t) }}
-                    </span>
+                    <VIcon :icon="getWorkflowActionIcon(action.type)" size="15" aria-hidden="true" />
                   </span>
                   <VIcon
                     v-if="index < previewActions.length - 1"
@@ -903,32 +902,20 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 
 .workflow-task-card__step {
   display: inline-flex;
-  overflow: hidden;
-  flex: 0 1 auto;
+  flex: 0 0 1.625rem;
   align-items: center;
+  justify-content: center;
   border: 1px solid var(--mp-border, rgba(128, 128, 128, 0.1));
   border-radius: 7px;
   background: rgba(var(--v-theme-on-surface), 0.04);
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
-  font-size: 0.6875rem;
-  font-weight: 500;
-  gap: 0.25rem;
-  line-height: 1.2;
-  min-inline-size: 0;
-  padding-block: 0.1875rem;
-  padding-inline: 0.4375rem;
+  block-size: 1.625rem;
+  inline-size: 1.625rem;
 }
 
 .workflow-task-card__step > .v-icon {
   flex: 0 0 auto;
   opacity: 0.82;
-}
-
-.workflow-task-card__step-label {
-  overflow: hidden;
-  min-inline-size: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .workflow-task-card__step--active {

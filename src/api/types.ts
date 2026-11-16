@@ -362,10 +362,10 @@ export interface WorkflowShare {
   trigger_type?: string
   // 事件类型（当trigger_type为event时使用）
   event_type?: string
-  // 动作列表
-  actions?: any[]
-  // 动作流
-  flows?: any[]
+  // 动作列表（接口以JSON字符串返回，兼容数组形式）
+  actions?: any[] | string
+  // 动作流（接口以JSON字符串返回，兼容数组形式）
+  flows?: any[] | string
   // 上下文
   context?: string
   // 时间
