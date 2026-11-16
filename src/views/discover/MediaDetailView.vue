@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getSharedConfiguration } from '@/api/configuration'
 import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
-import { invalidateSharedData } from '@/utils/sharedDataCache'
+import { getSharedData, invalidateSharedData } from '@/utils/sharedDataCache'
 import { useToast } from 'vue-toastification'
 import { nativeChromeActive } from '@/native/layout'
 import { useNativePageHeader } from '@/native/page'
@@ -13,6 +13,7 @@ import { getApiBusinessErrorMessage } from '@/api/client'
 import type {
   MediaDataSource,
   MediaInfo,
+  MediaMapping,
   MediaRelease,
   MediaSeason,
   NotExistMediaInfo,
@@ -70,6 +71,37 @@ const theme = useTheme()
 
 // 媒体详情
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
+
+// 共享关系只补充外链，避免辅助 TMDB ID 改变原来源的季集、订阅和搜索行为。
+const sharedTmdbMapping = ref<MediaMapping | null>(null)
+let mappingRequestId = 0
+
+/** 独立查询已有关系；中心不可用或旧后端没有接口时继续显示原详情。 */
+async function querySharedTmdbMapping() {
+  const requestId = ++mappingRequestId
+  const identity = getMediaSubscribeIdentity(mediaDetail.value)
+  if (!identity || identity.source === 'themoviedb' || !['电影', '电视剧'].includes(mediaDetail.value.type ?? ''))
+    return
+  const params = {
+    media_source: identity.source,
+    media_id: identity.mediaId,
+    type: mediaDetail.value.type === '电影' ? 'movie' : 'tv',
+    season: mediaDetail.value.type === '电视剧' ? (mediaDetail.value.season ?? undefined) : undefined,
+  }
+  try {
+    const mapping = await getSharedData<MediaMapping | null>(`media-mapping:${JSON.stringify(params)}`, () =>
+      api.get('media/mapping', { params, timeout: 1500, feedback: 'silent', skipConnectionTracking: true }),
+    )
+    if (
+      requestId === mappingRequestId &&
+      mapping?.media_source === identity.source &&
+      mapping.media_id === identity.mediaId
+    )
+      sharedTmdbMapping.value = mapping
+  } catch {
+    // 此入口仅补充可选外链；无共享关系时不触发名称匹配或打断详情页。
+  }
+}
 
 // 本地是否存在，存在则包括Item信息
 const existsItemId = ref('')
@@ -243,6 +275,8 @@ function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season
 
 // 调用API查询详情
 async function getMediaDetail() {
+  mappingRequestId++
+  sharedTmdbMapping.value = null
   if (!mediaProps.mediaSource || !mediaProps.mediaId || !mediaProps.type) {
     mediaDetail.value = {} as MediaInfo
     detailLoadFailed.value = false
@@ -260,6 +294,7 @@ async function getMediaDetail() {
       },
     })
     if (!hasMediaIdentity()) return
+    void querySharedTmdbMapping()
 
     const supportsEpisodeGroups = getMediaSubscribeIdentity(mediaDetail.value)?.source === 'themoviedb'
     selectedEpisodeGroup.value = supportsEpisodeGroups ? mediaDetail.value.episode_group || '' : ''
@@ -579,8 +614,13 @@ function getGenresName(genres: Array<string | { name: string }>) {
   return genres.map(genre => (typeof genre === 'string' ? genre : genre.name)).join('、')
 }
 
-// 拼装TheMovieDb地址
+/** 拼装原详情或共享关系的 TheMovieDb 链接，保留共享的第零季等精确季号。 */
 function getTheMovieDbLink() {
+  if (sharedTmdbMapping.value) {
+    const mapping = sharedTmdbMapping.value
+    const season = mapping.tmdb_type === 'tv' && mapping.tmdb_season !== null ? `/season/${mapping.tmdb_season}` : ''
+    return `https://www.themoviedb.org/${mapping.tmdb_type}/${mapping.tmdb_id}${season}`
+  }
   const mtype = mediaProps.type === '电影' ? 'movie' : 'tv'
   return `https://www.themoviedb.org/${mtype}/${mediaDetail.value.tmdb_id}`
 }
@@ -924,6 +964,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  mappingRequestId++
   window.removeEventListener('resize', updateEpisodeGroupScrollState)
 })
 useNativePageHeader({
@@ -1079,10 +1120,11 @@ useNativePageHeader({
           </ul>
           <div class="mt-6">
             <a
-              v-if="mediaDetail.tmdb_id"
+              v-if="mediaDetail.tmdb_id || sharedTmdbMapping"
               class="mb-2 mr-2 inline-flex last:mr-0"
               :href="getTheMovieDbLink()"
               target="_blank"
+              rel="noopener noreferrer"
             >
               <div
                 class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
