@@ -1575,10 +1575,6 @@ useNativePageHeader({
             v-for="item in playEpisodeOptions"
             :key="item.episode"
             class="episode-picker__episode"
-            :class="{
-              'episode-picker__episode--runtime': item.runtime,
-              'episode-picker__episode--overview': item.overview,
-            }"
             :aria-label="`播放 S${String(playEpisodeSeason || 0).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}${item.name ? ` · ${item.name}` : ''}`"
             @click="playSelectedEpisode(item)"
           >
@@ -1594,19 +1590,21 @@ useNativePageHeader({
                 <VIcon icon="mdi-filmstrip-box" />
               </div>
             </template>
-            <VListItemTitle class="episode-picker__title">
-              <span class="episode-picker__number"
-                >S{{ String(playEpisodeSeason || 0).padStart(2, '0') }}E{{
-                  String(item.episode).padStart(2, '0')
-                }}</span
-              >
-              <span v-if="item.name" class="episode-picker__name">{{ item.name }}</span>
-            </VListItemTitle>
-            <VListItemSubtitle v-if="item.overview || item.airDate || item.runtime" class="episode-picker__metadata">
-              <span v-if="item.airDate" class="episode-picker__date">{{ item.airDate }}</span>
-              <span v-if="item.runtime" class="episode-picker__runtime">{{ item.runtime }} min</span>
-              <span v-if="item.overview" class="episode-picker__overview">{{ item.overview }}</span>
-            </VListItemSubtitle>
+            <div class="episode-picker__details">
+              <VListItemTitle class="episode-picker__title">
+                <span class="episode-picker__number"
+                  >S{{ String(playEpisodeSeason || 0).padStart(2, '0') }}E{{
+                    String(item.episode).padStart(2, '0')
+                  }}</span
+                >
+                <span v-if="item.name" class="episode-picker__name">{{ item.name }}</span>
+              </VListItemTitle>
+              <VListItemSubtitle v-if="item.airDate || item.runtime" class="episode-picker__metadata">
+                <span v-if="item.airDate" class="episode-picker__date">{{ item.airDate }}</span>
+                <span v-if="item.runtime" class="episode-picker__runtime">{{ item.runtime }} min</span>
+              </VListItemSubtitle>
+            </div>
+            <p v-if="item.overview" class="episode-picker__overview">{{ item.overview }}</p>
             <template #append>
               <VIcon icon="mdi-play-circle-outline" color="success" size="24" />
             </template>
@@ -1735,6 +1733,11 @@ useNativePageHeader({
   align-self: flex-start;
 }
 
+.episode-picker__episode.v-list-item :deep(.v-list-item__prepend) {
+  align-self: flex-start;
+  padding-block-start: 0;
+}
+
 .episode-picker__episode :deep(.v-list-item__append) {
   align-self: flex-start;
   margin-block-start: 2px;
@@ -1764,11 +1767,15 @@ useNativePageHeader({
   white-space: nowrap;
 }
 
+.episode-picker__details {
+  min-inline-size: 0;
+}
+
 .episode-picker__title {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px 0;
   min-inline-size: 0;
   line-height: 1.35;
   white-space: normal;
@@ -1805,11 +1812,14 @@ useNativePageHeader({
 
 .episode-picker__runtime {
   grid-column: 2;
+  font-size: 0.75rem;
 }
 
 .episode-picker__overview {
-  grid-column: 1 / -1;
   min-inline-size: 0;
+  margin-block: 4px 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -1851,7 +1861,7 @@ useNativePageHeader({
     display: none;
   }
 
-  .episode-picker__title {
+  .episode-picker__details {
     grid-column: 2;
     grid-row: 1;
     align-self: flex-start;
@@ -1862,25 +1872,29 @@ useNativePageHeader({
   }
 
   .episode-picker__episode :deep(.v-list-item-subtitle.episode-picker__metadata) {
-    display: contents;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .episode-picker__runtime {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .episode-picker__episode--overview .episode-picker__overview {
-    grid-row: 3;
-  }
-
-  .episode-picker__episode--overview:not(.episode-picker__episode--runtime) .episode-picker__overview {
-    grid-row: 2;
+    grid-column: 1;
   }
 
   .episode-picker__overview {
     grid-column: 1 / -1;
-    margin-block-start: 0;
+    grid-row: 2;
+    margin-block-start: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .episode-picker__episode {
+    grid-template-columns: 72px minmax(0, 1fr) 24px;
+    column-gap: 10px;
+  }
+
+  .episode-picker__thumbnail {
+    inline-size: 72px;
+    block-size: 46px;
   }
 }
 
