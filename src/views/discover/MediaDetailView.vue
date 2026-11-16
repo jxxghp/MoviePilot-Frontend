@@ -1782,7 +1782,7 @@ useNativePageHeader({
 
 .episode-picker__episode :deep(.v-list-item-subtitle.episode-picker__metadata) {
   display: grid;
-  grid-template-columns: minmax(10.5ch, max-content) max-content;
+  grid-template-columns: 11ch minmax(0, 1fr);
   align-items: start;
   gap: 4px 8px;
   min-inline-size: 0;
@@ -1797,6 +1797,14 @@ useNativePageHeader({
 .episode-picker__date,
 .episode-picker__runtime {
   white-space: nowrap;
+}
+
+.episode-picker__date {
+  grid-column: 1;
+}
+
+.episode-picker__runtime {
+  grid-column: 2;
 }
 
 .episode-picker__overview {
