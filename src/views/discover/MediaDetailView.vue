@@ -1576,6 +1576,7 @@ useNativePageHeader({
             :key="item.episode"
             class="episode-picker__episode"
             :class="{
+              'episode-picker__episode--runtime': item.runtime,
               'episode-picker__episode--overview': item.overview,
             }"
             :aria-label="`播放 S${String(playEpisodeSeason || 0).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}${item.name ? ` · ${item.name}` : ''}`"
@@ -1863,6 +1864,10 @@ useNativePageHeader({
 
   .episode-picker__episode--overview .episode-picker__overview {
     grid-row: 3;
+  }
+
+  .episode-picker__episode--overview:not(.episode-picker__episode--runtime) .episode-picker__overview {
+    grid-row: 2;
   }
 
   .episode-picker__overview {
