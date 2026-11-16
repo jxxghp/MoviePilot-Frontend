@@ -1575,6 +1575,9 @@ useNativePageHeader({
             v-for="item in playEpisodeOptions"
             :key="item.episode"
             class="episode-picker__episode"
+            :class="{
+              'episode-picker__episode--overview': item.overview,
+            }"
             :aria-label="`播放 S${String(playEpisodeSeason || 0).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}${item.name ? ` · ${item.name}` : ''}`"
             @click="playSelectedEpisode(item)"
           >
@@ -1813,7 +1816,36 @@ useNativePageHeader({
   }
 
   .episode-picker__episode {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) 28px;
+    column-gap: 12px;
     padding-inline: 8px;
+  }
+
+  .episode-picker__episode :deep(.v-list-item__prepend) {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: flex-start;
+  }
+
+  .episode-picker__episode :deep(.v-list-item__content) {
+    display: contents;
+  }
+
+  .episode-picker__episode :deep(.v-list-item__append) {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: flex-start;
+  }
+
+  .episode-picker__episode :deep(.v-list-item__spacer) {
+    display: none;
+  }
+
+  .episode-picker__title {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: flex-start;
   }
 
   .episode-picker__date {
@@ -1821,11 +1853,21 @@ useNativePageHeader({
   }
 
   .episode-picker__episode :deep(.v-list-item-subtitle.episode-picker__metadata) {
-    grid-template-columns: minmax(0, 1fr);
+    display: contents;
+  }
+
+  .episode-picker__runtime {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .episode-picker__episode--overview .episode-picker__overview {
+    grid-row: 3;
   }
 
   .episode-picker__overview {
-    grid-column: 1;
+    grid-column: 1 / -1;
+    margin-block-start: 0;
   }
 }
 

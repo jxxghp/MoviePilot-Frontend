@@ -764,6 +764,8 @@ describe('MediaDetailView detail and actions', () => {
     expect(firstEpisode?.querySelector('.episode-picker__date')).toHaveTextContent('2022-09-01')
     expect(firstEpisode?.querySelector('.episode-picker__runtime')).toHaveTextContent('68 min')
     expect(firstEpisode?.querySelector('.episode-picker__overview')).toHaveTextContent(episodeOverview)
+    const episodeWithoutOverview = picker.querySelectorAll<HTMLElement>('.episode-picker__episode')[1]
+    expect(episodeWithoutOverview.querySelector('.episode-picker__overview')).toBeNull()
     expect(screen.queryByText(/S01E02/)).toBeNull()
     await fireEvent.click(screen.getByText('第三集'))
 
