@@ -17,6 +17,17 @@ export enum MediaSource {
 
 export type MediaDataSource = `${MediaSource}` | (string & {})
 
+/** 非 TMDB 来源对应的共享 TMDB 身份；原详情的媒体主身份保持不变。 */
+export interface MediaMapping {
+  media_source: MediaDataSource
+  media_id: string
+  type: 'movie' | 'tv'
+  season: number | null
+  tmdb_id: number
+  tmdb_type: 'movie' | 'tv'
+  tmdb_season: number | null
+}
+
 /** 后端返回的媒体来源注册描述，供各类来源选择器共享。 */
 export interface MediaSourceInfo {
   name: string
