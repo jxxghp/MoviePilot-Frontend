@@ -568,7 +568,9 @@ describe('resource page search flow', () => {
     expect(screen.queryByRole('status', { name: '本页搜索情况' })).not.toBeInTheDocument()
     source.message({ type: 'done', diagnostics: createSearchDiagnostics() })
     source.fail()
-    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toHaveTextContent('规则“中文字幕”未应用')
+    const panel = await screen.findByRole('status', { name: '本页搜索情况' })
+    expect(panel).toHaveTextContent('候选 0 · 保留 0')
+    expect(panel).not.toHaveTextContent('规则“中文字幕”未应用')
   })
 
   it('restores optional diagnostics with the matching remembered results', async () => {

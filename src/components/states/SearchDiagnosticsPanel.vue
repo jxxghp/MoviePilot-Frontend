@@ -4,12 +4,17 @@ import { ruleConfigurationWarningCodes } from '@/utils/searchDiagnostics'
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+/** 当前完整页的搜索诊断。 */
 const props = defineProps<{ diagnostics: SearchDiagnostics }>()
 const { t } = useI18n()
 // 搜索诊断属于辅助信息，首次展示仅保留摘要，详细来源由用户主动展开。
 const expanded = ref(false)
 const detailsId = useId()
 const hasDetails = computed(() => props.diagnostics.searched_sites.length || props.diagnostics.rejection_reasons.length)
+// 多选规则按媒体类型和分类自动匹配，不适用的规则属于正常跳过，无需逐条提示。
+const visibleWarnings = computed(() =>
+  props.diagnostics.warnings.filter(warning => warning.code !== 'rule_group_not_applicable'),
+)
 const reasonCodes = new Set([
   'filter_params',
   'filter_rules',
@@ -22,7 +27,6 @@ const reasonCodes = new Set([
 ])
 const warningCodes = new Set([
   ...ruleConfigurationWarningCodes,
-  'rule_group_not_applicable',
   'rule_group_missing',
   'provider_error',
   'provider_cooldown',
@@ -80,8 +84,8 @@ const warningCodes = new Set([
         </div>
       </div>
     </VExpandTransition>
-    <div v-if="diagnostics.warnings.length" class="search-diagnostics__notes">
-      <p v-for="(warning, index) in diagnostics.warnings" :key="index" class="search-diagnostics__note">
+    <div v-if="visibleWarnings.length" class="search-diagnostics__notes">
+      <p v-for="(warning, index) in visibleWarnings" :key="index" class="search-diagnostics__note">
         <VIcon icon="mdi-information-outline" size="15" class="search-diagnostics__icon" />
         <span>
           {{
