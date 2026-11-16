@@ -718,6 +718,7 @@ describe('MediaDetailView detail and actions', () => {
 
   it('selects an available TV episode and sends its media server item to native playback', async () => {
     const media = createSubscribeTv({ media_id: '9301', tmdb_id: 9301, title: '多集电视剧' })
+    const episodeOverview = '阿隆迪尔发现加拉德瑞尔留下的线索，踏上穿越中土世界的旅程。'
     const playbackOpen = vi.fn()
     const adapter = new NativeLayoutAdapter(document, window)
     adapter.setActive(true)
@@ -734,7 +735,15 @@ describe('MediaDetailView detail and actions', () => {
         return apiJson({ 1: { 1: 'episode-1', 3: 'episode-3' }, 2: { 1: 'season-2-episode-1' } })
       }),
       tmdbSeasonEpisodesHandler(9301, 1, [
-        createTmdbEpisode({ episode_number: 1, name: '第一集', season_number: 1, still_path: '/episode-1.jpg' }),
+        createTmdbEpisode({
+          air_date: '2022-09-01',
+          episode_number: 1,
+          name: '第一集',
+          overview: episodeOverview,
+          runtime: 68,
+          season_number: 1,
+          still_path: '/episode-1.jpg',
+        }),
         createTmdbEpisode({ episode_number: 3, name: '第三集', season_number: 1, still_path: '/episode-3.jpg' }),
       ]),
     )
@@ -750,6 +759,11 @@ describe('MediaDetailView detail and actions', () => {
     const picker = screen.getByRole('dialog')
     expect(picker.querySelector('[data-native-dialog-close]')).not.toBeNull()
     expect(picker.querySelector('img[src="https://image.tmdb.example.com/t/p/w500/episode-1.jpg"]')).not.toBeNull()
+    const firstEpisode = picker.querySelector<HTMLElement>('.episode-picker__episode')
+    expect(firstEpisode).not.toBeNull()
+    expect(firstEpisode?.querySelector('.episode-picker__date')).toHaveTextContent('2022-09-01')
+    expect(firstEpisode?.querySelector('.episode-picker__runtime')).toHaveTextContent('68 min')
+    expect(firstEpisode?.querySelector('.episode-picker__overview')).toHaveTextContent(episodeOverview)
     expect(screen.queryByText(/S01E02/)).toBeNull()
     await fireEvent.click(screen.getByText('第三集'))
 

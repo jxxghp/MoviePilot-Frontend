@@ -1570,7 +1570,7 @@ useNativePageHeader({
         <VAlert v-else-if="playEpisodeIdsFailed" class="mt-5" type="info" variant="tonal">
           {{ t('media.playback.noPlayableEpisodes') }}
         </VAlert>
-        <VList v-else class="episode-picker__episodes" lines="two">
+        <VList v-else class="episode-picker__episodes" lines="three">
           <VListItem
             v-for="item in playEpisodeOptions"
             :key="item.episode"
@@ -1590,7 +1590,7 @@ useNativePageHeader({
                 <VIcon icon="mdi-filmstrip-box" />
               </div>
             </template>
-            <VListItemTitle>
+            <VListItemTitle class="episode-picker__title">
               <span class="episode-picker__number"
                 >S{{ String(playEpisodeSeason || 0).padStart(2, '0') }}E{{
                   String(item.episode).padStart(2, '0')
@@ -1599,8 +1599,8 @@ useNativePageHeader({
               <span v-if="item.name" class="episode-picker__name">{{ item.name }}</span>
             </VListItemTitle>
             <VListItemSubtitle v-if="item.overview || item.airDate || item.runtime" class="episode-picker__metadata">
-              <span v-if="item.airDate">{{ item.airDate }}</span>
-              <span v-if="item.runtime">{{ item.runtime }} min</span>
+              <span v-if="item.airDate" class="episode-picker__date">{{ item.airDate }}</span>
+              <span v-if="item.runtime" class="episode-picker__runtime">{{ item.runtime }} min</span>
               <span v-if="item.overview" class="episode-picker__overview">{{ item.overview }}</span>
             </VListItemSubtitle>
             <template #append>
@@ -1649,7 +1649,18 @@ useNativePageHeader({
 }
 
 .episode-picker {
+  display: flex;
+  flex-direction: column;
+  block-size: min(88vh, 760px);
+  max-block-size: calc(100vh - 24px);
   overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  .episode-picker {
+    block-size: min(88dvh, 760px);
+    max-block-size: calc(100dvh - 24px);
+  }
 }
 
 .episode-picker__header {
@@ -1675,6 +1686,10 @@ useNativePageHeader({
 }
 
 .episode-picker__content {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px 18px 20px;
 }
 
@@ -1698,15 +1713,27 @@ useNativePageHeader({
 }
 
 .episode-picker__episodes {
-  max-block-size: min(58vh, 560px);
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow: visible;
   padding: 0;
 }
 
 .episode-picker__episode {
-  min-block-size: 84px;
+  align-items: flex-start;
+  min-block-size: 0;
   margin-block: 4px;
+  padding-block: 10px;
   border-radius: 6px;
+}
+
+.episode-picker__episode :deep(.v-list-item__content) {
+  min-inline-size: 0;
+  align-self: flex-start;
+}
+
+.episode-picker__episode :deep(.v-list-item__append) {
+  align-self: flex-start;
+  margin-block-start: 2px;
 }
 
 .episode-picker__thumbnail {
@@ -1727,27 +1754,52 @@ useNativePageHeader({
 }
 
 .episode-picker__number {
+  flex: 0 0 auto;
   font-size: 0.8rem;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.episode-picker__name {
-  margin-inline-start: 8px;
-  font-weight: 500;
+.episode-picker__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-inline-size: 0;
+  line-height: 1.35;
+  white-space: normal;
 }
 
-.episode-picker__metadata {
-  display: flex;
-  gap: 8px;
+.episode-picker__name {
+  min-inline-size: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.episode-picker__episode :deep(.v-list-item-subtitle.episode-picker__metadata) {
+  display: grid;
+  grid-template-columns: minmax(10.5ch, max-content) max-content;
+  align-items: start;
+  gap: 4px 8px;
+  min-inline-size: 0;
   margin-block-start: 4px;
+  overflow: visible;
+  white-space: normal;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  line-height: 1.4;
+}
+
+.episode-picker__date,
+.episode-picker__runtime {
+  white-space: nowrap;
 }
 
 .episode-picker__overview {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 600px) {
@@ -1762,6 +1814,18 @@ useNativePageHeader({
 
   .episode-picker__episode {
     padding-inline: 8px;
+  }
+
+  .episode-picker__date {
+    display: none;
+  }
+
+  .episode-picker__episode :deep(.v-list-item-subtitle.episode-picker__metadata) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .episode-picker__overview {
+    grid-column: 1;
   }
 }
 
