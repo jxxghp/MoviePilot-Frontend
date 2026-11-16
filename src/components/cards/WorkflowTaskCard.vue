@@ -6,6 +6,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useWorkflowPreviewActionCount } from '@/composables/useWorkflowPreview'
 import { formatDateDifference } from '@/@core/utils/formatters'
 import {
   getWorkflowActionIcon,
@@ -229,8 +230,9 @@ const workflowActions = computed<WorkflowCardActionItem[]>(() =>
 )
 
 const orderedActions = computed(() => orderWorkflowActions(workflowActions.value, props.workflow.flows))
-const maxPreviewSteps = 3
-const previewActions = computed(() => orderedActions.value.slice(0, maxPreviewSteps))
+const workflowPipelineRef = ref<HTMLElement | null>(null)
+const { visibleActionCount } = useWorkflowPreviewActionCount(workflowPipelineRef, () => orderedActions.value.length)
+const previewActions = computed(() => orderedActions.value.slice(0, visibleActionCount.value))
 const hiddenActionCount = computed(() => Math.max(orderedActions.value.length - previewActions.value.length, 0))
 
 const totalActionCount = computed(() => workflowActions.value.length)
@@ -553,7 +555,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
                 {{ workflow.description }}
               </p>
 
-              <div v-if="previewActions.length > 0" class="workflow-task-card__pipeline">
+              <div v-if="orderedActions.length > 0" ref="workflowPipelineRef" class="workflow-task-card__pipeline">
                 <template v-for="(action, index) in previewActions" :key="action.id || index">
                   <span
                     class="workflow-task-card__step"
@@ -896,7 +898,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
   display: flex;
   overflow: hidden;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
   min-inline-size: 0;
 }
 
@@ -942,20 +944,24 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 }
 
 .workflow-task-card__step-arrow {
-  flex: 0 0 auto;
+  flex: 0 0 13px;
   color: var(--mp-faint, rgba(var(--v-theme-on-surface), 0.42));
+  inline-size: 13px;
+  justify-content: center;
 }
 
 .workflow-task-card__step-more {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 0 32px;
   align-items: center;
+  justify-content: center;
   border-radius: 9999px;
   background: rgba(var(--v-theme-on-surface), 0.06);
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.2;
+  inline-size: 32px;
   padding-block: 0.125rem;
   padding-inline: 0.375rem;
 }

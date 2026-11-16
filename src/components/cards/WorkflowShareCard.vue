@@ -8,6 +8,7 @@ import {
 } from '@/@core/utils/workflowGradient'
 import type { WorkflowShare } from '@/api/types'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useWorkflowPreviewActionCount } from '@/composables/useWorkflowPreview'
 import { useI18n } from 'vue-i18n'
 
 const ForkWorkflowDialog = defineAsyncComponent(() => import('../dialog/ForkWorkflowDialog.vue'))
@@ -74,8 +75,9 @@ const triggerDisplay = computed(() => {
 
 // 解析并按连线拓扑排序动作节点，提供实用的分享流预览
 const orderedActions = computed(() => orderWorkflowActions(props.workflow?.actions, props.workflow?.flows))
-const maxPreviewSteps = 3
-const previewActions = computed(() => orderedActions.value.slice(0, maxPreviewSteps))
+const workflowPipelineRef = ref<HTMLElement | null>(null)
+const { visibleActionCount } = useWorkflowPreviewActionCount(workflowPipelineRef, () => orderedActions.value.length)
+const previewActions = computed(() => orderedActions.value.slice(0, visibleActionCount.value))
 const hiddenActionCount = computed(() => Math.max(orderedActions.value.length - previewActions.value.length, 0))
 
 const shareDescription = computed(() => props.workflow?.share_comment || props.workflow?.description || '')
@@ -165,13 +167,13 @@ function doDelete() {
                 <p
                   v-if="shareDescription"
                   class="workflow-share-card__desc"
-                  :class="previewActions.length > 0 ? 'line-clamp-2' : 'line-clamp-3'"
+                  :class="orderedActions.length > 0 ? 'line-clamp-2' : 'line-clamp-3'"
                   :title="shareDescription"
                 >
                   {{ shareDescription }}
                 </p>
 
-                <div v-if="previewActions.length > 0" class="workflow-share-card__pipeline">
+                <div v-if="orderedActions.length > 0" ref="workflowPipelineRef" class="workflow-share-card__pipeline">
                   <template v-for="(action, index) in previewActions" :key="action.id || index">
                     <span
                       class="workflow-share-card__step"
@@ -364,7 +366,7 @@ function doDelete() {
   display: flex;
   overflow: hidden;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
   margin-block-start: auto;
   min-inline-size: 0;
 }
@@ -388,20 +390,24 @@ function doDelete() {
 }
 
 .workflow-share-card__step-arrow {
-  flex: 0 0 auto;
+  flex: 0 0 13px;
   color: var(--mp-faint, rgba(var(--v-theme-on-surface), 0.42));
+  inline-size: 13px;
+  justify-content: center;
 }
 
 .workflow-share-card__step-more {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 0 32px;
   align-items: center;
+  justify-content: center;
   border-radius: 9999px;
   background: rgba(var(--v-theme-on-surface), 0.06);
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.2;
+  inline-size: 32px;
   padding-block: 0.125rem;
   padding-inline: 0.375rem;
 }
