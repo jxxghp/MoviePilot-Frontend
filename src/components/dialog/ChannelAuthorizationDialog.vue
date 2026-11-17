@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
       <VCardItem class="py-3" data-native-sheet-actions>
         <template #prepend
           ><VAvatar color="primary" variant="tonal" rounded class="me-2"
-            ><VIcon icon="mdi-account-key-outline" /></VAvatar
+            ><VIcon icon="mdi-shield-check-outline" /></VAvatar
         ></template>
         <VCardTitle>{{ t('channelAuthorization.title') }}</VCardTitle>
         <template #append>

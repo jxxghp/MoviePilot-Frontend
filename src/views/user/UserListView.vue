@@ -105,7 +105,7 @@ useDynamicButton({
     { titleKey: 'user.addUser', icon: 'mdi-account-plus', permission: 'admin' as const, action: openAddUserDialog },
     {
       titleKey: 'channelAuthorization.title',
-      icon: 'mdi-account-key-outline',
+      icon: 'mdi-shield-check-outline',
       permission: 'admin' as const,
       action: openAuthorizationDialog,
     },
@@ -170,7 +170,7 @@ useDynamicButton({
     <Teleport to="body" v-if="route.path === '/user'">
       <div v-if="isRefreshed && !appMode && canAdmin" class="compact-fab-stack">
         <VFab
-          icon="mdi-account-key-outline"
+          icon="mdi-shield-check-outline"
           color="info"
           appear
           class="compact-fab compact-fab--secondary"

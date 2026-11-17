@@ -249,6 +249,7 @@ describe('UserListView', () => {
     const menuItems = mocks.useDynamicButton.mock.calls[0][0].menuItems.value
     const authorization = menuItems.find((item: { titleKey: string }) => item.titleKey === 'channelAuthorization.title')
     expect(authorization.permission).toBe('admin')
+    expect(authorization.icon).toBe('mdi-shield-check-outline')
     authorization.action()
     expect(mocks.openSharedDialog.mock.calls[1][0]).toBe(component)
   })

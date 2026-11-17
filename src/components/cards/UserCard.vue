@@ -9,6 +9,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@/native/card'
 
 const UserAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/UserAddEditDialog.vue'))
 
@@ -43,6 +44,7 @@ const currentLoginUserId = computed(() => useUserStore().userID)
 
 // 当前用户是否是管理员
 const currentUserIsSuperuser = computed(() => useUserStore().superUser)
+const canDeleteUser = computed(() => props.user.id !== currentLoginUserId.value && currentUserIsSuperuser.value)
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
@@ -135,6 +137,27 @@ function onUserUpdate() {
   emit('save')
 }
 
+/** 原生长按复用编辑与确认删除，实时保留管理员权限及当前账号不可删除的限制。 */
+const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
+  key: props.user.id,
+  title: displayName.value,
+  items: () => [
+    nativeCardAction('edit', {
+      title: t('common.edit'),
+      icon: 'mdi-pencil',
+      color: props.user.is_superuser ? 'warning' : 'primary',
+      invoke: editUser,
+    }),
+    nativeCardAction('delete', {
+      title: t('common.delete'),
+      icon: 'mdi-delete',
+      color: 'error',
+      visible: canDeleteUser.value,
+      invoke: removeUser,
+    }),
+  ],
+}))
+
 onMounted(() => {
   fetchSubscriptions()
 })
@@ -143,6 +166,7 @@ onMounted(() => {
   <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
   <div class="user-card-hover-area h-full">
     <VCard
+      v-native-card-menu="nativeCardMenu"
       :class="['app-hover-lift-card', !props.user.is_active ? 'opacity-85 bg-surface-lighten-1' : '']"
       class="user-card flex flex-column h-full"
       @click="editUser"
@@ -223,25 +247,27 @@ onMounted(() => {
 
           <!-- 头部操作按钮 -->
           <template v-slot:append>
-            <div :class="['d-flex', isMobile ? 'position-absolute top-2 right-2' : '']">
+            <div data-native-card-menu-trigger :class="['d-flex', isMobile ? 'position-absolute top-2 right-2' : '']">
               <VBtn
                 icon
                 size="small"
                 :color="user.is_superuser ? 'warning' : 'primary'"
                 variant="text"
                 class="opacity-70 hover:opacity-100 transition-opacity"
+                :aria-label="t('common.edit')"
                 @click.stop="editUser"
               >
                 <VIcon icon="mdi-pencil" />
               </VBtn>
 
               <VBtn
-                v-if="props.user.id != currentLoginUserId && currentUserIsSuperuser"
+                v-if="canDeleteUser"
                 icon
                 size="small"
                 color="error"
                 variant="text"
                 class="opacity-70 hover:opacity-100 transition-opacity"
+                :aria-label="t('common.delete')"
                 @click.stop="removeUser"
               >
                 <VIcon icon="mdi-delete" />
@@ -323,8 +349,13 @@ onMounted(() => {
   inline-size: 100%;
 }
 
-.user-card-hover-area:hover .user-card {
+.user-card-hover-area:hover .user-card:not([data-native-card-menu-ready]) {
   transform: translate3d(0, -0.25rem, 0);
+}
+
+/* 原生长按依赖稳定的卡片位置，上浮会使正在展示的菜单被位置校验撤销。 */
+.user-card[data-native-card-menu-ready] {
+  transform: none;
 }
 
 .user-card {
