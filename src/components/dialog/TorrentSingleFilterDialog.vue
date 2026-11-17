@@ -65,12 +65,14 @@ function updateFilter(values: string[]) {
     max-height="85vh"
     location="center"
     scrollable
+    data-native-sheet-size="medium"
     :aria-label="props.filterTitle"
   >
     <VCard>
-      <VCardTitle class="py-3 d-flex align-center">
+      <VDialogCloseBtn v-model="visible" />
+      <VCardTitle class="py-3 d-flex align-center" data-native-dialog-header>
         <VIcon :icon="getFilterIcon(props.filterKey)" class="me-2"></VIcon>
-        <span>{{ props.filterTitle }}</span>
+        <span data-native-dialog-title>{{ props.filterTitle }}</span>
         <VSpacer />
         <VBtn
           v-if="filterValues.length > 0"
@@ -81,7 +83,7 @@ function updateFilter(values: string[]) {
         >
           {{ t('torrent.clear') }}
         </VBtn>
-        <VBtn variant="text" size="small" color="primary" @click="emit('selectAll', props.filterKey)">
+        <VBtn class="me-10" variant="text" size="small" color="primary" @click="emit('selectAll', props.filterKey)">
           {{ t('torrent.selectAll') }}
         </VBtn>
       </VCardTitle>

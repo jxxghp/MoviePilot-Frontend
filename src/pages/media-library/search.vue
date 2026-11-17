@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { MediaServerPlayItem } from '@/api/types'
+import type { MediaServerPlayItem, TmdbEpisode } from '@/api/types'
+import type { PlayableEpisode } from '@/types/playback'
+import MediaEpisodePickerDialog from '@/components/dialog/MediaEpisodePickerDialog.vue'
 import noImage from '@images/no-image.jpeg'
 import { useGlobalSettingsStore } from '@/stores'
 import { useNativePageHeader } from '@/native/page'
@@ -34,6 +36,8 @@ const episodeMap = ref<EpisodeMap>({})
 const selectedSeason = ref<number | null>(null)
 const episodesLoading = ref(false)
 const episodesFailed = ref(false)
+const episodeMetadata = ref<Record<number, TmdbEpisode[]>>({})
+let episodeGeneration = 0
 
 const keyword = computed(() => route.query.query?.toString().trim() || '')
 const seasons = computed(() =>
@@ -44,9 +48,56 @@ const seasons = computed(() =>
 const selectedEpisodes = computed(() => {
   if (selectedSeason.value === null) return []
   return Object.entries(episodeMap.value[selectedSeason.value] || {})
-    .map(([episode, itemId]) => ({ episode: Number(episode), itemId }))
+    .map(([episode, itemId]): PlayableEpisode => {
+      const number = Number(episode)
+      const metadata = episodeMetadata.value[selectedSeason.value!]?.find(item => item.episode_number === number)
+      return {
+        episode: number,
+        itemId,
+        name: metadata?.name,
+        stillPath: metadata?.still_path,
+        overview: metadata?.overview,
+        airDate: metadata?.air_date,
+        runtime: metadata?.runtime,
+      }
+    })
+    .filter(item => Boolean(item.itemId))
     .sort((left, right) => left.episode - right.episode)
 })
+const seasonOptions = computed(() =>
+  seasons.value.map(value => ({
+    value,
+    title: value === 0 ? t('media.specials') : t('media.seasonNumber', { number: value }),
+  })),
+)
+
+/** 仅补充已选服务器对应系列的集元数据；旧后端或未匹配元数据时仍可按真实集号播放。 */
+async function loadEpisodeMetadata(season: number) {
+  const series = selectedSeries.value
+  const itemId = series?.item_id || series?.id
+  if (!itemId || !series?.server || episodeMetadata.value[season]) return
+  const generation = episodeGeneration
+  try {
+    const metadata = await api.get<TmdbEpisode[]>('mediaserver/episode-metadata', {
+      params: { itemid: String(itemId), server: series.server, season },
+      feedback: 'silent',
+    })
+    if (generation === episodeGeneration) episodeMetadata.value[season] = metadata || []
+  } catch {
+    // 元数据属于可选展示，保留当前可播放映射，不改用标题猜测其它剧集。
+  }
+}
+
+/** 切季只补充该季展示信息，不重新查询或替换媒体服务器的可播放条目标识。 */
+function changeEpisodeSeason(season: number) {
+  selectedSeason.value = season
+  void loadEpisodeMetadata(season)
+}
+
+/** 与详情页采用相同的集海报尺寸和配置域名。 */
+function episodeImage(path: string) {
+  return `https://${settings.globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${path}`
+}
 
 /** 请求媒体服务器搜索当前关键词的电视剧和音乐单曲。 */
 async function searchLibrary() {
@@ -107,9 +158,11 @@ function markPosterUnavailable(item: MediaServerPlayItem) {
 
 /** 电视剧先读取媒体服务器的已入库季集映射，再让用户选择准确单集。 */
 async function openEpisodePicker(item: MediaServerPlayItem) {
+  const generation = ++episodeGeneration
   selectedSeries.value = item
   episodeMap.value = {}
   selectedSeason.value = null
+  episodeMetadata.value = {}
   episodesFailed.value = false
   episodeDialog.value = true
   const itemId = item.item_id || item.id
@@ -123,14 +176,16 @@ async function openEpisodePicker(item: MediaServerPlayItem) {
       params: { itemid: String(itemId), server: item.server },
       feedback: 'silent',
     })
+    if (generation !== episodeGeneration) return
     episodeMap.value = data || {}
     selectedSeason.value = seasons.value[0] ?? null
     episodesFailed.value = seasons.value.length === 0
+    if (selectedSeason.value !== null) void loadEpisodeMetadata(selectedSeason.value)
   } catch (error) {
     console.error(error)
-    episodesFailed.value = true
+    if (generation === episodeGeneration) episodesFailed.value = true
   } finally {
-    episodesLoading.value = false
+    if (generation === episodeGeneration) episodesLoading.value = false
   }
 }
 
@@ -142,13 +197,17 @@ function playTrack(item: MediaServerPlayItem) {
 }
 
 /** 按所选季集条目打开原生视频播放器，并将服务器来源一并传给后端。 */
-function playEpisode(episode: number, itemId: string) {
+function playEpisode(item: PlayableEpisode) {
   const series = selectedSeries.value
   const season = selectedSeason.value
   if (!series || !series.server || season === null) return
-  const label = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
+  const label = `S${String(season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
   episodeDialog.value = false
-  playMediaServerLibraryItem(itemId, `${series.title} · ${label}`, series.server)
+  playMediaServerLibraryItem(
+    item.itemId,
+    `${series.title} · ${label}${item.name ? ` · ${item.name}` : ''}`,
+    series.server,
+  )
 }
 
 /** 选择电视剧时显示剧集清单；音乐条目则立即开始播放。 */
@@ -165,6 +224,12 @@ watch(
   { immediate: true },
 )
 watch([keyword, activeFilter], searchLibrary, { immediate: true })
+watch(episodeDialog, visible => {
+  if (!visible) episodeGeneration++
+})
+onUnmounted(() => {
+  episodeGeneration++
+})
 
 useNativePageHeader({ title: () => t('dialog.searchBar.mediaLibrary') })
 </script>
@@ -238,47 +303,17 @@ useNativePageHeader({ title: () => t('dialog.searchBar.mediaLibrary') })
       </div>
     </section>
 
-    <VBottomSheet v-model="episodeDialog" inset scrollable>
-      <VCard class="episode-picker">
-        <header class="episode-picker-header">
-          <div>
-            <div class="episode-picker-title">{{ selectedSeries?.title }}</div>
-            <div class="episode-picker-caption">{{ t('mediaType.tv') }}</div>
-          </div>
-          <VBtn icon="mdi-close" variant="text" :aria-label="t('common.close')" @click="episodeDialog = false" />
-        </header>
-        <VSelect
-          v-if="seasons.length > 1"
-          v-model="selectedSeason"
-          :items="seasons"
-          :item-title="
-            (season: number) =>
-              Number(season) === 0 ? t('media.specials') : t('media.seasonNumber', { number: season })
-          "
-          :label="t('subscribe.season')"
-          variant="outlined"
-          density="comfortable"
-          hide-details
-        />
-        <LoadingBanner v-if="episodesLoading" class="py-6" />
-        <div v-else-if="selectedEpisodes.length" class="episode-list">
-          <VBtn
-            v-for="episode in selectedEpisodes"
-            :key="episode.itemId"
-            class="episode-row"
-            variant="text"
-            block
-            prepend-icon="mdi-play"
-            @click="playEpisode(episode.episode, episode.itemId)"
-          >
-            {{ `S${String(selectedSeason).padStart(2, '0')}E${String(episode.episode).padStart(2, '0')}` }}
-          </VBtn>
-        </div>
-        <VAlert v-else-if="episodesFailed" type="info" variant="tonal" density="compact">
-          {{ t('common.noData') }}
-        </VAlert>
-      </VCard>
-    </VBottomSheet>
+    <MediaEpisodePickerDialog
+      v-model="episodeDialog"
+      :season="selectedSeason"
+      :seasons="seasonOptions"
+      :episodes="selectedEpisodes"
+      :loading="episodesLoading"
+      :failed="episodesFailed"
+      :image-source="episodeImage"
+      @update:season="changeEpisodeSeason"
+      @play="playEpisode"
+    />
   </main>
 </template>
 
@@ -382,42 +417,5 @@ useNativePageHeader({ title: () => t('dialog.searchBar.mediaLibrary') })
   gap: 0.5rem;
   padding: 3rem 1rem;
   color: rgb(var(--v-theme-on-surface-variant));
-}
-
-.episode-picker {
-  display: grid;
-  gap: 1rem;
-  max-block-size: min(72vh, 44rem);
-  overflow-y: auto;
-  padding: 1rem;
-  background: rgb(var(--v-theme-surface));
-  color: rgb(var(--v-theme-on-surface));
-}
-
-.episode-picker-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.episode-picker-title {
-  font-size: 1rem;
-  font-weight: 650;
-}
-
-.episode-picker-caption {
-  color: rgb(var(--v-theme-on-surface-variant));
-  font-size: 0.75rem;
-}
-
-.episode-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
-  gap: 0.25rem;
-}
-
-.episode-row {
-  justify-content: flex-start;
 }
 </style>
