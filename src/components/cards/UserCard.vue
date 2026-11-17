@@ -15,7 +15,7 @@ const UserAddEditDialog = defineAsyncComponent(() => import('@/components/dialog
 // 国际化
 const { t } = useI18n()
 
-// 扩展User类型以包含昵称字段
+/** 用户卡片支持直接昵称字段及旧设置中的昵称。 */
 interface ExtendedUser extends User {
   nickname?: string
 }
@@ -66,12 +66,21 @@ const displayName = computed(() => {
   return nickname || props.user.name
 })
 
-// 远程头像遵循全局图片缓存开关，本地默认头像和 data URL 保持原样。
+// 历史默认头像可能保存了旧构建路径，加载失败时使用当前版本内置头像。
+const avatarLoadError = ref(false)
+const avatarSource = computed(() => props.user.avatar?.trim() || '')
 const avatarUrl = computed(() =>
-  getDisplayImageUrl(props.user.avatar || avatar1, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE),
+  getDisplayImageUrl(
+    avatarLoadError.value || !avatarSource.value ? avatar1 : avatarSource.value,
+    globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+  ),
 )
 
-// 按用户查询订阅数量
+watch(avatarSource, () => {
+  avatarLoadError.value = false
+})
+
+/** 按卡片用户查询电影和电视剧订阅数，失败不影响用户管理操作。 */
 async function fetchSubscriptions() {
   try {
     const result: Subscribe[] = await api.get(`subscribe/user/${props.user.name}`)
@@ -84,7 +93,7 @@ async function fetchSubscriptions() {
   }
 }
 
-// 删除用户
+/** 管理员确认后删除其他账号，当前登录账号不可删除。 */
 async function removeUser() {
   if (props.user.id === currentLoginUserId.value) {
     $toast.error(t('user.cannotDeleteCurrentUser'))
@@ -105,7 +114,7 @@ async function removeUser() {
   }
 }
 
-// 编辑用户
+/** 在共享弹窗编辑当前用户，并回传保存结果以刷新用户列表。 */
 function editUser() {
   openSharedDialog(
     UserAddEditDialog,
@@ -121,7 +130,7 @@ function editUser() {
   )
 }
 
-// 用户更新完成时
+/** 用户资料保存后通知列表重新查询。 */
 function onUserUpdate() {
   emit('save')
 }
@@ -152,7 +161,7 @@ onMounted(() => {
                 ]"
                 :style="user.is_superuser ? 'border: 4px solid rgba(var(--v-theme-warning), 0.3);' : ''"
               >
-                <VImg :src="avatarUrl" :alt="user.name" />
+                <VImg :src="avatarUrl" :alt="user.name" eager @error="avatarLoadError = true" />
                 <div
                   v-if="!user.is_active"
                   class="position-absolute d-flex align-center justify-center rounded-lg bg-surface-variant opacity-20"

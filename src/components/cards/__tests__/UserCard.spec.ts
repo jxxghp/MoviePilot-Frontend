@@ -1,4 +1,5 @@
 import UserCard from '@/components/cards/UserCard.vue'
+import avatar1 from '@images/avatars/avatar-1.png'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { createUser } from '@tests/support/factories/user'
 import { renderWithProviders } from '@tests/support/render'
@@ -47,6 +48,18 @@ const IconStub = defineComponent({
   },
 })
 
+/** jsdom 不加载图片，以原生错误事件验证头像失效后的可见回退。 */
+const ImageStub = defineComponent({
+  name: 'VImg',
+  props: { src: String, alt: String },
+  emits: ['error'],
+  /** 保留图片地址、替代文本与加载错误事件，不读取卡片内部状态。 */
+  setup(props, { emit }) {
+    return () => h('img', { src: props.src, alt: props.alt, onError: () => emit('error') })
+  },
+})
+
+/** 渲染用户卡片，无法在 jsdom 执行的图片加载仅替换浏览器边界。 */
 async function renderCard(
   options: { currentUserId?: number; superUser?: boolean; user?: Parameters<typeof createUser>[0] } = {},
 ) {
@@ -63,7 +76,7 @@ async function renderCard(
       global: { globalSettings: { GLOBAL_IMAGE_CACHE: false } },
       user: { superUser: options.superUser ?? true, userID: options.currentUserId ?? 99 },
     },
-    global: { stubs: { VBtn: ButtonStub, VIcon: IconStub } },
+    global: { stubs: { VBtn: ButtonStub, VIcon: IconStub, VImg: ImageStub } },
   })
   return { ...result, events, user }
 }
@@ -113,6 +126,25 @@ describe('UserCard', () => {
     expect(screen.getByText('已停用')).toBeInTheDocument()
     expect(screen.getByText('2FA')).toBeInTheDocument()
     expect(screen.getByText('未设置邮箱')).toBeInTheDocument()
+  })
+
+  it.each(['', '   '])('shows the built-in avatar when the new user has no avatar (%j)', async avatar => {
+    const { container } = await renderCard({ user: { avatar } })
+    expect(container.querySelector('.v-avatar img')).toHaveAttribute('src', avatar1)
+  })
+
+  it('falls back from an unavailable saved avatar and retries a changed avatar source', async () => {
+    const { container, rerender, user } = await renderCard({
+      user: { avatar: '/assets/avatar-1-old-version.png' },
+    })
+    const image = container.querySelector('.v-avatar img')!
+    expect(image).toHaveAttribute('src', '/assets/avatar-1-old-version.png')
+    await fireEvent.error(image)
+    expect(container.querySelector('.v-avatar img')).toHaveAttribute('src', avatar1)
+
+    const uploaded = 'data:image/png;base64,synthetic-avatar'
+    await rerender({ user: { ...user, avatar: uploaded } })
+    expect(container.querySelector('.v-avatar img')).toHaveAttribute('src', uploaded)
   })
 
   it('prefers the direct nickname and hides absent permission chips', async () => {

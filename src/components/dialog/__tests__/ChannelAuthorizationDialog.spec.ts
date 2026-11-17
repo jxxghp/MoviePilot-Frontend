@@ -1,6 +1,8 @@
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import type { ChannelMemberUpdate } from '@/api/authorization'
 import ChannelAuthorizationDialog from '@/components/dialog/ChannelAuthorizationDialog.vue'
+import { NativeLayoutAdapter } from '@/native/layout'
+import { NativeSheetAdapter } from '@/native/sheet'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { createChannelMember } from '@tests/support/factories/authorization'
@@ -20,6 +22,32 @@ async function renderDialog() {
 }
 
 describe('ChannelAuthorizationDialog', () => {
+  it('App 通过原生标题栏菜单打开授权表单，进入表单后撤销旧入口', async () => {
+    server.use(authorizationListHandler([createChannelMember()]))
+    const layout = new NativeLayoutAdapter(document, window)
+    const adapter = new NativeSheetAdapter(document)
+    layout.setActive(true)
+    try {
+      await renderDialog()
+      await screen.findByRole('button', { name: '审批 小明' })
+      await waitFor(() => expect(screen.getByRole('button', { name: '直接授权' })).toBeEnabled())
+      const sheet = adapter.read('用户管理')!
+      expect(sheet.actions).toEqual([
+        expect.objectContaining({ title: '直接授权', enabled: true, icon: 'mdi-account-plus' }),
+      ])
+      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: sheet.actions[0].id })).toBe(true)
+      await screen.findByLabelText('平台用户 ID')
+      expect(adapter.read('用户管理')!.actions).toEqual([])
+      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: sheet.actions[0].id })).toBe(false)
+      await fireEvent.click(screen.getByRole('button', { name: '取消' }))
+      expect(await screen.findByRole('button', { name: '审批 小明' })).toBeInTheDocument()
+      expect(adapter.read('用户管理')!.actions).toHaveLength(1)
+    } finally {
+      adapter.reset()
+      layout.setActive(false)
+    }
+  })
+
   it('在同一窗口审批默认成员，并按明确选择提交定时任务能力', async () => {
     const member = createChannelMember()
     const changed = vi.fn()

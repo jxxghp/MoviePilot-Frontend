@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { getApiErrorMessage } from '@/api/client'
+import { nativeChromeActive } from '@/native/layout'
 import {
   CHANNEL_SCOPES,
   DEFAULT_CHANNEL_SCOPES,
@@ -216,12 +217,23 @@ onBeforeUnmount(() => {
 <template>
   <VDialog v-model="visible" max-width="58rem" :fullscreen="!display.mdAndUp.value" :persistent="saving" scrollable>
     <VCard class="channel-authorization-dialog">
-      <VCardItem class="py-3">
+      <VCardItem class="py-3" data-native-sheet-actions>
         <template #prepend
           ><VAvatar color="primary" variant="tonal" rounded class="me-2"
             ><VIcon icon="mdi-account-key-outline" /></VAvatar
         ></template>
         <VCardTitle>{{ t('channelAuthorization.title') }}</VCardTitle>
+        <template #append>
+          <VBtn
+            v-if="nativeChromeActive && !editing"
+            variant="text"
+            prepend-icon="mdi-account-plus-outline"
+            data-native-sheet-action="mdi-account-plus"
+            :disabled="loading || saving || enabledChannels.length === 0"
+            @click="edit(null)"
+            >{{ t('channelAuthorization.add') }}</VBtn
+          >
+        </template>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
       <VDivider />
@@ -415,16 +427,20 @@ onBeforeUnmount(() => {
           </div>
         </template>
       </VCardText>
-      <VDivider />
-      <VCardActions class="app-dialog-actions px-4 py-3"
+      <VDivider v-if="editing || !nativeChromeActive" />
+      <VCardActions
+        v-if="editing || !nativeChromeActive"
+        class="app-dialog-actions px-4 py-3"
+        :class="{ 'justify-start': !editing }"
         ><VBtn
           v-if="!editing"
+          variant="text"
           prepend-icon="mdi-account-plus-outline"
+          class="authorization-add"
           :disabled="loading || saving || enabledChannels.length === 0"
           @click="edit(null)"
           >{{ t('channelAuthorization.add') }}</VBtn
-        ><VSpacer /><VBtn v-if="!editing" variant="text" @click="visible = false">{{ t('common.close') }}</VBtn
-        ><template v-else
+        ><VSpacer /><template v-if="editing"
           ><VBtn variant="text" :disabled="saving" @click="back">{{ t('common.cancel') }}</VBtn
           ><VBtn
             type="submit"
@@ -450,6 +466,9 @@ onBeforeUnmount(() => {
 .authorization-body {
   overflow-y: auto;
   min-block-size: 14rem;
+}
+.app-dialog-actions > .v-btn.authorization-add {
+  flex: 0 0 auto;
 }
 .authorization-filters {
   display: flex;
