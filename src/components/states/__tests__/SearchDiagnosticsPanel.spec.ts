@@ -66,7 +66,7 @@ describe('SearchDiagnosticsPanel', () => {
     expect(panel).not.toHaveTextContent('站点 B')
     await fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(panel).toHaveTextContent('站点 B — 未执行检索')
+    expect(panel).toHaveTextContent(/站点 B\s*未执行检索/)
     expect(panel).not.toHaveTextContent('规则“中文字幕”未应用')
     expect(panel).not.toHaveTextContent('均不符合过滤规则')
     await fireEvent.click(screen.getByRole('button', { name: '收起' }))

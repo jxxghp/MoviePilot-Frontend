@@ -60,13 +60,14 @@ const warningCodes = new Set([
       <div v-if="expanded" :id="detailsId" class="search-diagnostics__details">
         <div v-if="diagnostics.searched_sites.length">
           <p class="search-diagnostics__label">{{ t('resource.diagnostics.sources') }}</p>
-          <ul class="search-diagnostics__list">
+          <ul class="search-diagnostics__list search-diagnostics__list--sources">
             <li v-for="(site, index) in diagnostics.searched_sites" :key="index">
               <span class="search-diagnostics__name">{{ site.site_name }}</span>
-              <span class="search-diagnostics__separator" aria-hidden="true"> — </span>
               <span class="search-diagnostics__outcome">
                 {{ t(`resource.diagnostics.${site.attempted ? site.outcome : 'notAttempted'}`) }}
-                <span v-if="site.attempted">{{ t('resource.diagnostics.rawCount', { count: site.raw_count }) }}</span>
+              </span>
+              <span v-if="site.attempted" class="search-diagnostics__count">
+                {{ t('resource.diagnostics.rawCount', { count: site.raw_count }) }}
               </span>
             </li>
           </ul>
@@ -78,7 +79,7 @@ const warningCodes = new Set([
               <span class="search-diagnostics__name">
                 {{ t(`resource.diagnostics.reasons.${reasonCodes.has(reason.code) ? reason.code : 'other'}`) }}:
               </span>
-              <span class="search-diagnostics__outcome">{{ reason.count }}</span>
+              <span class="search-diagnostics__count">{{ reason.count }}</span>
             </li>
           </ul>
         </div>
@@ -144,7 +145,7 @@ const warningCodes = new Set([
 
 .search-diagnostics__details {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 16px 24px;
   padding: 12px;
   border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.06);
@@ -162,11 +163,16 @@ const warningCodes = new Set([
 }
 
 .search-diagnostics__list li {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: baseline;
-  justify-content: space-between;
   gap: 12px;
   padding-block: 5px;
+}
+
+.search-diagnostics__list--sources li {
+  /* 三列使用统一宽度，避免站点名、状态或数量的字数改变其他列的位置。 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 7.5em);
 }
 
 .search-diagnostics__list li + li {
@@ -179,7 +185,10 @@ const warningCodes = new Set([
 }
 
 .search-diagnostics__outcome {
-  max-inline-size: 65%;
+  overflow-wrap: anywhere;
+}
+
+.search-diagnostics__count {
   text-align: end;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
