@@ -227,8 +227,8 @@ onBeforeUnmount(() => {
           <VBtn
             v-if="nativeChromeActive && !editing"
             variant="text"
-            prepend-icon="mdi-account-plus-outline"
-            data-native-sheet-action="mdi-account-plus"
+            prepend-icon="mdi-shield-check-outline"
+            data-native-sheet-action="mdi-shield-check-outline"
             :disabled="loading || saving || enabledChannels.length === 0"
             @click="edit(null)"
             >{{ t('channelAuthorization.add') }}</VBtn
@@ -435,7 +435,7 @@ onBeforeUnmount(() => {
         ><VBtn
           v-if="!editing"
           variant="text"
-          prepend-icon="mdi-account-plus-outline"
+          prepend-icon="mdi-shield-check-outline"
           class="authorization-add"
           :disabled="loading || saving || enabledChannels.length === 0"
           @click="edit(null)"

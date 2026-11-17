@@ -33,7 +33,7 @@ describe('ChannelAuthorizationDialog', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: '直接授权' })).toBeEnabled())
       const sheet = adapter.read('用户管理')!
       expect(sheet.actions).toEqual([
-        expect.objectContaining({ title: '直接授权', enabled: true, icon: 'mdi-account-plus' }),
+        expect.objectContaining({ title: '直接授权', enabled: true, icon: 'mdi-shield-check-outline' }),
       ])
       expect(adapter.execute('presentation.action', { id: sheet.id, actionId: sheet.actions[0].id })).toBe(true)
       await screen.findByLabelText('平台用户 ID')
