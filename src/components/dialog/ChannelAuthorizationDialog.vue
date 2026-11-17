@@ -38,7 +38,6 @@ const loading = ref(false)
 const error = ref('')
 const tab = ref<'pending' | 'approved' | 'inactive'>('pending')
 const keyword = ref('')
-const channelFilter = ref<string | null>(null)
 const editing = ref(false)
 const selected = ref<ChannelMember | null>(null)
 const adminConfirmed = ref(false)
@@ -53,6 +52,7 @@ let controller: AbortController | null = null
 let generation = 0
 let disposed = false
 
+/** 在当前状态页即时匹配身份与渠道信息，不为每次输入请求接口。 */
 const filteredMembers = computed(() => {
   const query = (keyword.value || '').trim().toLocaleLowerCase()
   return members.value.filter(member => {
@@ -60,9 +60,8 @@ const filteredMembers = computed(() => {
       tab.value === 'inactive' ? ['disabled', 'rejected'].includes(member.status) : member.status === tab.value
     return (
       statusMatches &&
-      (!channelFilter.value || member.notification_id === channelFilter.value) &&
       (!query ||
-        `${member.display_name} ${member.sender_id} ${member.linked_username ?? ''}`
+        `${member.display_name} ${member.sender_id} ${member.linked_username ?? ''} ${member.source} ${member.channel}`
           .toLocaleLowerCase()
           .includes(query))
     )
@@ -223,15 +222,25 @@ onBeforeUnmount(() => {
             ><VIcon icon="mdi-shield-check-outline" /></VAvatar
         ></template>
         <VCardTitle>{{ t('channelAuthorization.title') }}</VCardTitle>
-        <template #append>
+        <!-- App 将现有业务按钮投影到原生标题栏左上角的操作菜单。 -->
+        <template v-if="nativeChromeActive && !editing" #append>
           <VBtn
-            v-if="nativeChromeActive && !editing"
             variant="text"
             prepend-icon="mdi-shield-check-outline"
             data-native-sheet-action="mdi-shield-check-outline"
             :disabled="loading || saving || enabledChannels.length === 0"
             @click="edit(null)"
             >{{ t('channelAuthorization.add') }}</VBtn
+          >
+          <VBtn
+            variant="text"
+            prepend-icon="mdi-refresh"
+            data-native-sheet-action="mdi-refresh"
+            :aria-label="t('common.refresh')"
+            :loading="loading"
+            :disabled="loading || saving"
+            @click="load"
+            >{{ t('common.refresh') }}</VBtn
           >
         </template>
         <VDialogCloseBtn v-model="visible" />
@@ -323,35 +332,21 @@ onBeforeUnmount(() => {
               >{{ t(`channelAuthorization.tabs.${status}`) }} ({{ count(status) }})</VTab
             ></VTabs
           >
-          <div class="authorization-filters mb-4">
-            <VTextField
-              v-model="keyword"
-              :label="t('channelAuthorization.search')"
-              prepend-inner-icon="mdi-magnify"
-              clearable
-              hide-details
-              density="compact"
-            /><VSelect
-              v-model="channelFilter"
-              :items="channelOptions"
-              :label="t('channelAuthorization.channel')"
-              clearable
-              hide-details
-              density="compact"
-            /><VBtn
-              icon="mdi-refresh"
-              variant="text"
-              :aria-label="t('common.refresh')"
-              :loading="loading"
-              :disabled="saving"
-              @click="load"
-            />
-          </div>
+          <VTextField
+            v-model="keyword"
+            :aria-label="t('channelAuthorization.search')"
+            :placeholder="t('channelAuthorization.search')"
+            prepend-inner-icon="mdi-magnify"
+            clearable
+            hide-details
+            density="compact"
+            class="mb-4"
+          />
           <VProgressLinear v-if="loading" indeterminate color="primary" :aria-label="t('common.loading')" />
           <div v-else-if="filteredMembers.length === 0 && !error" class="authorization-empty text-medium-emphasis">
             <VIcon icon="mdi-account-check-outline" size="42" class="mb-3" />
             <div>{{ t('channelAuthorization.empty') }}</div>
-            <div v-if="tab === 'pending' && !keyword && !channelFilter" class="text-caption mt-2">
+            <div v-if="tab === 'pending' && !keyword" class="text-caption mt-2">
               {{ t('channelAuthorization.applyHint') }}
             </div>
           </div>
@@ -431,7 +426,7 @@ onBeforeUnmount(() => {
       <VCardActions
         v-if="editing || !nativeChromeActive"
         class="app-dialog-actions px-4 py-3"
-        :class="{ 'justify-start': !editing }"
+        :class="{ 'justify-space-between': !editing }"
         ><VBtn
           v-if="!editing"
           variant="text"
@@ -440,7 +435,17 @@ onBeforeUnmount(() => {
           :disabled="loading || saving || enabledChannels.length === 0"
           @click="edit(null)"
           >{{ t('channelAuthorization.add') }}</VBtn
-        ><VSpacer /><template v-if="editing"
+        ><VSpacer /><VBtn
+          v-if="!editing"
+          variant="text"
+          prepend-icon="mdi-refresh"
+          class="authorization-refresh"
+          :aria-label="t('common.refresh')"
+          :loading="loading"
+          :disabled="loading || saving"
+          @click="load"
+          >{{ t('common.refresh') }}</VBtn
+        ><template v-else
           ><VBtn variant="text" :disabled="saving" @click="back">{{ t('common.cancel') }}</VBtn
           ><VBtn
             type="submit"
@@ -467,17 +472,8 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   min-block-size: 14rem;
 }
-.app-dialog-actions > .v-btn.authorization-add {
+.app-dialog-actions > .v-btn:is(.authorization-add, .authorization-refresh) {
   flex: 0 0 auto;
-}
-.authorization-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-}
-.authorization-filters > :not(button) {
-  flex: 1 1 12rem;
 }
 .authorization-member {
   display: flex;

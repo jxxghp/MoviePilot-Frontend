@@ -22,7 +22,28 @@ async function renderDialog() {
 }
 
 describe('ChannelAuthorizationDialog', () => {
-  it('App 通过原生标题栏菜单打开授权表单，进入表单后撤销旧入口', async () => {
+  it('网页将图标文字刷新与直接授权放在列表底部，进入表单后隐藏刷新', async () => {
+    server.use(authorizationListHandler([createChannelMember()]))
+    await renderDialog()
+    await screen.findByRole('button', { name: '审批 小明' })
+    const refresh = screen.getByRole('button', { name: '刷新' })
+    const add = screen.getByRole('button', { name: '直接授权' })
+    const footer = add.closest('.app-dialog-actions')!
+    expect(footer).toContainElement(refresh)
+    expect(footer).toHaveClass('justify-space-between')
+    expect(refresh).toHaveClass('v-btn--variant-text')
+    expect(refresh).not.toHaveClass('v-btn--icon')
+    expect(refresh).toHaveTextContent('刷新')
+    expect(refresh.querySelector('.v-btn__prepend .v-icon')).toBeInTheDocument()
+    expect(footer.querySelectorAll('button')).toHaveLength(2)
+    await waitFor(() => expect(add).toBeEnabled())
+    await fireEvent.click(add)
+    expect(screen.queryByRole('button', { name: '刷新' })).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(await screen.findByRole('button', { name: '刷新' })).toBeEnabled()
+  })
+
+  it('App 将直接授权与刷新登记到原生标题栏菜单，进入表单后撤销两个旧入口', async () => {
     server.use(authorizationListHandler([createChannelMember()]))
     const layout = new NativeLayoutAdapter(document, window)
     const adapter = new NativeSheetAdapter(document)
@@ -34,15 +55,64 @@ describe('ChannelAuthorizationDialog', () => {
       const sheet = adapter.read('用户管理')!
       expect(sheet.actions).toEqual([
         expect.objectContaining({ title: '直接授权', enabled: true, icon: 'mdi-shield-check-outline' }),
+        expect.objectContaining({ title: '刷新', enabled: true, icon: 'mdi-refresh' }),
       ])
+      expect(document.querySelector('.app-dialog-actions')).not.toBeInTheDocument()
       expect(adapter.execute('presentation.action', { id: sheet.id, actionId: sheet.actions[0].id })).toBe(true)
       await screen.findByLabelText('平台用户 ID')
       expect(adapter.read('用户管理')!.actions).toEqual([])
-      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: sheet.actions[0].id })).toBe(false)
+      for (const action of sheet.actions)
+        expect(adapter.execute('presentation.action', { id: sheet.id, actionId: action.id })).toBe(false)
       await fireEvent.click(screen.getByRole('button', { name: '取消' }))
       expect(await screen.findByRole('button', { name: '审批 小明' })).toBeInTheDocument()
-      expect(adapter.read('用户管理')!.actions).toHaveLength(1)
+      expect(adapter.read('用户管理')!.actions).toHaveLength(2)
     } finally {
+      adapter.reset()
+      layout.setActive(false)
+    }
+  })
+
+  it('App 原生刷新复用列表读取，加载时禁止重复触发并保留搜索条件', async () => {
+    const requested = vi.fn()
+    let finishRefresh!: () => void
+    const refreshResponse = new Promise<void>(resolve => {
+      finishRefresh = resolve
+    })
+    server.use(
+      http.get(authorizationApiUrls.list, async () => {
+        requested()
+        if (requested.mock.calls.length > 1) await refreshResponse
+        return apiJson({
+          members: requested.mock.calls.length === 1 ? [] : [createChannelMember()],
+          channels: [],
+        })
+      }),
+    )
+    const layout = new NativeLayoutAdapter(document, window)
+    const adapter = new NativeSheetAdapter(document)
+    layout.setActive(true)
+    try {
+      const { unmount } = await renderDialog()
+      await screen.findByText('暂无符合条件的成员')
+      await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled())
+      await fireEvent.update(screen.getByRole('textbox', { name: '搜索昵称或用户 ID' }), '小')
+      const sheet = adapter.read('用户管理')!
+      expect(sheet.actions[0]).toEqual(expect.objectContaining({ title: '直接授权', enabled: false }))
+      const refresh = sheet.actions[1]
+      expect(refresh).toEqual(expect.objectContaining({ title: '刷新', enabled: true, icon: 'mdi-refresh' }))
+      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: refresh.id })).toBe(true)
+      await waitFor(() => expect(requested).toHaveBeenCalledTimes(2))
+      expect(adapter.read('用户管理')!.actions[1].enabled).toBe(false)
+      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: refresh.id })).toBe(false)
+      expect(requested).toHaveBeenCalledTimes(2)
+      finishRefresh()
+      expect(await screen.findByRole('button', { name: '审批 小明' })).toBeInTheDocument()
+      expect(screen.getByRole('textbox', { name: '搜索昵称或用户 ID' })).toHaveValue('小')
+      await waitFor(() => expect(adapter.read('用户管理')!.actions[1].enabled).toBe(true))
+      unmount()
+      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: refresh.id })).toBe(false)
+    } finally {
+      finishRefresh()
       adapter.reset()
       layout.setActive(false)
     }
@@ -201,24 +271,62 @@ describe('ChannelAuthorizationDialog', () => {
     )
   })
 
-  it('筛选不会把昵称相同的跨实例成员混在一起，清空搜索可恢复列表', async () => {
+  it('仅显示无文本标签的搜索框，输入昵称、用户 ID、关联账号或渠道信息即本地过滤', async () => {
+    const requested = vi.fn()
+    const members = [
+      createChannelMember(),
+      createChannelMember({
+        id: 'member-b',
+        display_name: '小红',
+        sender_id: '20002',
+        notification_id: 'wechat-b',
+        source: '工作机器人',
+        channel: 'WeChat',
+        linked_username: 'WorkUser',
+      }),
+      createChannelMember({ id: 'member-c', display_name: '小红', sender_id: '30003', status: 'approved' }),
+    ]
+    server.use(
+      http.get(authorizationApiUrls.list, () => {
+        requested()
+        return apiJson({ members, channels: [] })
+      }),
+    )
+    await renderDialog()
+    await screen.findByRole('button', { name: '审批 小明' })
+    const search = screen.getByRole('textbox', { name: '搜索昵称或用户 ID' })
+    expect(screen.getAllByRole('textbox')).toHaveLength(1)
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    // Vuetify 保留空 label 节点，但不显示浮动标签或移动端两栏标签。
+    expect(document.querySelector(`label[for="${search.id}"]`)).toHaveTextContent(/^$/)
+    expect(search).toHaveAttribute('placeholder', '搜索昵称或用户 ID')
+    for (const keyword of ['小红', '200', ' workuser ', '工作', 'wEcHaT']) {
+      await fireEvent.update(search, keyword)
+      expect(screen.queryByText('10001')).not.toBeInTheDocument()
+      expect(screen.getByText('20002')).toBeInTheDocument()
+      expect(screen.queryByText('30003')).not.toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: '待审批 (2)' })).toBeInTheDocument()
+    }
+    expect(requested).toHaveBeenCalledTimes(1)
+    await fireEvent.update(search, '不匹配')
+    expect(screen.getByText('暂无符合条件的成员')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(await screen.findByText('10001')).toBeInTheDocument()
+    expect(screen.getByText('20002')).toBeInTheDocument()
+    expect(requested).toHaveBeenCalledTimes(1)
+  })
+
+  it('搜索用户 ID 仍可区分昵称相同的跨实例成员', async () => {
     server.use(
       authorizationListHandler([
         createChannelMember(),
-        createChannelMember({
-          id: 'member-b',
-          sender_id: '20002',
-          notification_id: 'telegram-b',
-          source: '工作机器人',
-        }),
+        createChannelMember({ id: 'member-b', sender_id: '20002', notification_id: 'telegram-b' }),
       ]),
     )
     await renderDialog()
     await screen.findAllByRole('button', { name: '审批 小明' })
-    await fireEvent.update(screen.getByLabelText('搜索昵称或用户 ID'), '20002')
+    await fireEvent.update(screen.getByRole('textbox', { name: '搜索昵称或用户 ID' }), '20002')
     expect(screen.queryByText('10001')).not.toBeInTheDocument()
     expect(screen.getByText('20002')).toBeInTheDocument()
-    await fireEvent.update(screen.getByLabelText('搜索昵称或用户 ID'), '')
-    expect(screen.getByText('10001')).toBeInTheDocument()
   })
 })
