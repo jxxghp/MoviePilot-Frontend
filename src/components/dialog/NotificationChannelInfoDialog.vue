@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { manageNotificationChannel, rotateAppPushInstance } from '@/api/manage'
+import { stripLegacyChannelAuthorization } from '@/api/authorization'
 import { NotificationConf } from '@/api/types'
 import { useToast } from 'vue-toastification'
 import { cloneDeep } from 'lodash-es'
@@ -111,6 +112,7 @@ const notificationTypes = [
   { value: '其它', title: t('notificationSwitch.other') },
 ]
 
+/** 微信渠道连接状态及二维码，不包含授权名单。 */
 interface WechatClawBotStatus {
   connected?: boolean
   account_id?: string | null
@@ -123,6 +125,7 @@ interface WechatClawBotStatus {
   base_url?: string | null
 }
 
+/** 一次状态读取的二维码刷新与错误反馈策略。 */
 interface WechatClawBotStatusFetchOptions {
   autoGenerateQrcode?: boolean
   silent?: boolean
@@ -130,6 +133,7 @@ interface WechatClawBotStatusFetchOptions {
   showErrorToast?: boolean
 }
 
+/** 主动二维码刷新的反馈选项。 */
 interface WechatClawBotRefreshOptions {
   silent?: boolean
   showToast?: boolean
@@ -184,6 +188,7 @@ function cancelWechatSession() {
   wechatController = new AbortController()
   clearWechatClawBotTimer()
 }
+/** 判断异步状态结果是否仍属于当前打开的编辑窗口。 */
 function isWechatSessionActive(generation = wechatGeneration) {
   return !disposed && notificationInfoDialog.value && generation === wechatGeneration
 }
@@ -242,7 +247,7 @@ async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null, g
 }
 
 /** 组装微信客服状态接口所需的请求参数。 */
-function getWechatClawBotRequestParams(extraParams: Record<string, any> = {}) {
+function getWechatClawBotRequestParams(extraParams: Record<string, unknown> = {}) {
   const config = notificationInfo.value.config || {}
   // 配置身份优先于显示名称；名称仅作为旧配置尚未归一化时的明确读取回退。
   const source = notificationInfo.value.id || notificationInfo.value.name
@@ -252,7 +257,6 @@ function getWechatClawBotRequestParams(extraParams: Record<string, any> = {}) {
     fallback_source: fallbackSource,
     WECHATCLAWBOT_BASE_URL: config.WECHATCLAWBOT_BASE_URL,
     WECHATCLAWBOT_DEFAULT_TARGET: config.WECHATCLAWBOT_DEFAULT_TARGET,
-    WECHATCLAWBOT_ADMINS: config.WECHATCLAWBOT_ADMINS,
     WECHATCLAWBOT_POLL_TIMEOUT: config.WECHATCLAWBOT_POLL_TIMEOUT,
     ...extraParams,
   }
@@ -275,6 +279,7 @@ const isWechatBotMode = computed({
 function openNotificationInfoDialog() {
   // 替换成深复制，避免修改时影响原数据
   notificationInfo.value = cloneDeep(props.notification)
+  notificationInfo.value.config = stripLegacyChannelAuthorization(notificationInfo.value.config || {})
   appPushManualPanel.value = notificationInfo.value.config?.PUSH_RELAY_KEY ? 'manual' : undefined
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
@@ -554,6 +559,24 @@ onMounted(() => {
       <VDialogCloseBtn v-model="notificationInfoDialog" />
       <VDivider />
       <VCardText>
+        <p
+          v-if="
+            [
+              'telegram',
+              'wechat',
+              'wechatclawbot',
+              'feishu',
+              'qqbot',
+              'discord',
+              'slack',
+              'vocechat',
+              'synologychat',
+            ].includes(notificationInfo.type)
+          "
+          class="text-caption text-medium-emphasis mb-4"
+        >
+          {{ t('channelAuthorization.configHint') }}
+        </p>
         <VForm>
           <VRow>
             <VCol cols="12" md="6">
@@ -631,16 +654,6 @@ onMounted(() => {
                   prepend-inner-icon="mdi-lan-connect"
                 />
               </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="notificationInfo.config.WECHAT_ADMINS"
-                  :label="t('notification.wechat.admins')"
-                  :placeholder="t('notification.wechat.adminsPlaceholder')"
-                  :hint="t('notification.wechat.adminsHint')"
-                  persistent-hint
-                  prepend-inner-icon="mdi-account-supervisor"
-                />
-              </VCol>
             </template>
             <template v-else>
               <VCol cols="12" md="6">
@@ -697,16 +710,6 @@ onMounted(() => {
                   prepend-inner-icon="mdi-lock"
                 />
               </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="notificationInfo.config.WECHAT_ADMINS"
-                  :label="t('notification.wechat.admins')"
-                  :placeholder="t('notification.wechat.adminsPlaceholder')"
-                  :hint="t('notification.wechat.adminsHint')"
-                  persistent-hint
-                  prepend-inner-icon="mdi-account-supervisor"
-                />
-              </VCol>
             </template>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'wechatclawbot'">
@@ -737,16 +740,6 @@ onMounted(() => {
                 :hint="t('notification.wechatclawbot.defaultTargetHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-account-arrow-right"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.WECHATCLAWBOT_ADMINS"
-                :label="t('notification.wechatclawbot.admins')"
-                :placeholder="t('notification.wechatclawbot.adminsPlaceholder')"
-                :hint="t('notification.wechatclawbot.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
               />
             </VCol>
             <VCol cols="12" md="6">
@@ -893,16 +886,6 @@ onMounted(() => {
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
-                v-model="notificationInfo.config.FEISHU_ADMINS"
-                :label="t('notification.feishu.admins')"
-                :placeholder="t('notification.feishu.adminsPlaceholder')"
-                :hint="t('notification.feishu.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
                 v-model="notificationInfo.config.FEISHU_VERIFICATION_TOKEN"
                 :label="t('notification.feishu.verificationToken')"
                 :hint="t('notification.feishu.verificationTokenHint')"
@@ -960,26 +943,6 @@ onMounted(() => {
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
-                v-model="notificationInfo.config.TELEGRAM_USERS"
-                :label="t('notification.telegram.users')"
-                :placeholder="t('notification.telegram.usersPlaceholder')"
-                :hint="t('notification.telegram.usersHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-group"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.TELEGRAM_ADMINS"
-                :label="t('notification.telegram.admins')"
-                :placeholder="t('notification.telegram.adminsPlaceholder')"
-                :hint="t('notification.telegram.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
                 v-model="notificationInfo.config.API_URL"
                 :label="t('notification.telegram.apiUrl')"
                 :placeholder="t('notification.telegram.apiUrlPlaceholder')"
@@ -1030,16 +993,6 @@ onMounted(() => {
                 prepend-inner-icon="mdi-pound"
               />
             </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.SLACK_ADMINS"
-                :label="t('notification.slack.admins')"
-                :placeholder="t('notification.slack.adminsPlaceholder')"
-                :hint="t('notification.slack.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
-              />
-            </VCol>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'discord'">
             <VCol cols="12" md="6">
@@ -1081,16 +1034,6 @@ onMounted(() => {
                 prepend-inner-icon="mdi-pound-box"
               />
             </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.DISCORD_ADMINS"
-                :label="t('notification.discord.admins')"
-                :placeholder="t('notification.discord.adminsPlaceholder')"
-                :hint="t('notification.discord.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
-              />
-            </VCol>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'synologychat'">
             <VCol cols="12" md="6">
@@ -1119,16 +1062,6 @@ onMounted(() => {
                 :hint="t('notification.synologychat.tokenHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.SYNOLOGYCHAT_ADMINS"
-                :label="t('notification.synologychat.admins')"
-                :placeholder="t('notification.synologychat.adminsPlaceholder')"
-                :hint="t('notification.synologychat.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
               />
             </VCol>
           </VRow>
@@ -1202,16 +1135,6 @@ onMounted(() => {
                 prepend-inner-icon="mdi-pound"
               />
             </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.VOCECHAT_ADMINS"
-                :label="t('notification.vocechat.admins')"
-                :placeholder="t('notification.vocechat.adminsPlaceholder')"
-                :hint="t('notification.vocechat.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
-              />
-            </VCol>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'qqbot'">
             <VCol cols="12" md="6">
@@ -1260,16 +1183,6 @@ onMounted(() => {
                 :hint="t('notification.qqbot.groupOpenIdHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-account-group"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.QQBOT_ADMINS"
-                :label="t('notification.qqbot.admins')"
-                :placeholder="t('notification.qqbot.adminsPlaceholder')"
-                :hint="t('notification.qqbot.adminsHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-supervisor"
               />
             </VCol>
           </VRow>

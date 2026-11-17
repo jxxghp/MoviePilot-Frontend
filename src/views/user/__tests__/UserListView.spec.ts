@@ -225,7 +225,7 @@ describe('UserListView', () => {
     await screen.findByRole('region', { name: '用户状态' })
 
     expect(mocks.useDynamicButton).toHaveBeenCalledWith(expect.objectContaining({ permission: 'admin' }))
-    await fireEvent.click(document.querySelector('.compact-fab')!)
+    await fireEvent.click(screen.getByRole('button', { name: '添加用户' }))
     expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
     expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
       maxWidth: '45rem',
@@ -237,5 +237,19 @@ describe('UserListView', () => {
 
     mocks.useDynamicButton.mock.calls[0][0].onClick()
     expect(mocks.openSharedDialog).toHaveBeenCalledTimes(2)
+  })
+
+  it('通过右下角浮动按钮及移动端操作菜单打开同一个渠道授权弹窗', async () => {
+    mocks.apiGet.mockResolvedValue([])
+    await renderList()
+    await screen.findByRole('region', { name: '用户状态' })
+    await fireEvent.click(screen.getByRole('button', { name: '渠道授权' }))
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    const component = mocks.openSharedDialog.mock.calls[0][0]
+    const menuItems = mocks.useDynamicButton.mock.calls[0][0].menuItems.value
+    const authorization = menuItems.find((item: { titleKey: string }) => item.titleKey === 'channelAuthorization.title')
+    expect(authorization.permission).toBe('admin')
+    authorization.action()
+    expect(mocks.openSharedDialog.mock.calls[1][0]).toBe(component)
   })
 })
