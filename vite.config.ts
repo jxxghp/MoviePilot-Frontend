@@ -257,7 +257,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     proxy: {
       '/api/v1': {
         target: process.env.MOVIEPILOT_DEV_PROXY_TARGET || 'http://localhost:3001',
-        changeOrigin: true,
+        // 与正式 API 代理一致，保留后端生成同源媒体地址所需的原始 Host。
+        changeOrigin: false,
         secure: false,
         cookieDomainRewrite: 'localhost',
         configure(proxy) {

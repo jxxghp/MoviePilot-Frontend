@@ -5,12 +5,14 @@ import http from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
 import { test } from 'node:test'
 import { createServer, loadConfigFromFile } from 'vite'
+import { startMediaUpstream, verifyMediaProxy } from './proxy-stream-fixture.mjs'
 
 // 使用仓库真实代理配置，但仅启动回环地址上的独立服务，不加载业务插件或访问真实后端。
 const loaded = await loadConfigFromFile({ command: 'serve', mode: 'test' })
 const proxyOptions = loaded.config.server.proxy['/api/v1']
 const image = Buffer.alloc(8 * 1024 * 1024, 1)
 
+/** 在隔离的回环服务中验证取消请求时，真实 Vite 代理能否释放上游连接。 */
 async function startFixture(t, { baseline = false, beforeHeaders = false } = {}) {
   const sockets = new Set()
   let releaseResponse
@@ -68,6 +70,7 @@ async function startFixture(t, { baseline = false, beforeHeaders = false } = {})
   }
 }
 
+/** 等待代理回收已取消请求的上游连接，避免将普通 keep-alive 误认为已释放。 */
 async function waitForClosed(sockets) {
   const deadline = Date.now() + 2000
   while (sockets.size && Date.now() < deadline) await delay(20)
@@ -131,4 +134,24 @@ test('正常请求：图片内容完整返回', { timeout: 5000 }, async t => {
       .on('error', reject)
   })
   assert.deepEqual(content, image)
+})
+
+test('媒体代理保留外部来源、Range、认证 Cookie 与流式响应', { timeout: 10_000 }, async t => {
+  const upstream = await startMediaUpstream(t)
+  const vite = await createServer({
+    configFile: false,
+    envFile: false,
+    logLevel: 'silent',
+    server: {
+      host: '127.0.0.1',
+      port: 0,
+      allowedHosts: ['moviepilot.example'],
+      proxy: {
+        '/api/v1': { ...proxyOptions, target: upstream.url },
+      },
+    },
+  })
+  t.after(() => vite.close())
+  await vite.listen()
+  await verifyMediaProxy(`http://127.0.0.1:${vite.httpServer.address().port}`, upstream)
 })

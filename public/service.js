@@ -8,7 +8,7 @@ const port = process.env.NGINX_PORT || 3000
 // 后端 API 地址
 const proxyConfig = {
   URL: '127.0.0.1',
-  PORT: process.env.PORT || 3001
+  PORT: process.env.PORT || 3001,
 }
 
 // 静态文件服务目录
@@ -18,23 +18,25 @@ app.use(express.static(__dirname))
 app.use(
   '/api',
   proxy(`${proxyConfig.URL}:${proxyConfig.PORT}`, {
+    // 后端生成播放、字幕和歌词的绝对地址时必须保留用户访问的域名与端口。
+    preserveHostHdr: true,
     // 路径加上 /api 前缀
-    proxyReqPathResolver: (req) => {
+    proxyReqPathResolver: req => {
       return `/api${req.url}`
-    }
-  })
-);
+    },
+  }),
+)
 
 // 配置代理中间件将CookieCloud请求转发给后端API
 app.use(
   '/cookiecloud',
   proxy(`${proxyConfig.URL}:${proxyConfig.PORT}`, {
     // 路径加上 /cookiecloud 前缀
-    proxyReqPathResolver: (req) => {
+    proxyReqPathResolver: req => {
       return `/cookiecloud${req.url}`
-    }
-  })
-);
+    },
+  }),
+)
 
 // 处理根路径的请求
 app.get('/', (req, res) => {
