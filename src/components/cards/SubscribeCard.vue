@@ -1144,6 +1144,11 @@ function handleCardClick() {
   border-radius: var(--app-surface-radius);
 }
 
+/* 原生长按使用卡片矩形定位预览；上浮和缩放会被位置校验当成布局变化而撤销菜单。 */
+.subscribe-card-shell:has([data-native-card-menu-ready]) {
+  transform: none;
+}
+
 .subscribe-card {
   border: var(--app-card-light-border);
 }
@@ -1593,7 +1598,12 @@ button.subscribe-card-mobile-state:active {
   }
 
   .subscribe-card-shell:not(
-      :has(.cursor-move, .subscribe-card-mobile-menu:active, button.subscribe-card-mobile-state:active)
+      :has(
+        [data-native-card-menu-ready],
+        .cursor-move,
+        .subscribe-card-mobile-menu:active,
+        button.subscribe-card-mobile-state:active
+      )
     ):active {
     transform: scale(0.978);
   }
