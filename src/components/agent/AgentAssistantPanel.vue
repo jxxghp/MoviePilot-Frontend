@@ -3,7 +3,7 @@ import { useDisplay } from 'vuetify'
 import { VDialog, VMenu } from 'vuetify/components'
 import { useI18n } from 'vue-i18n'
 import { useId } from 'vue'
-import { useWindowSize } from '@vueuse/core'
+import { useVisualViewportHeight } from '@/composables/useVisualViewportHeight'
 import api, { isApiResponse } from '@/api'
 import { useAuthStore, useUserStore } from '@/stores'
 import { getCurrentLocale } from '@/plugins/i18n'
@@ -445,7 +445,7 @@ const drawerWidth = computed(() => (display.mdAndDown.value || fullscreen.value 
 const nativeSheetActions = computed(() => nativeChromeActive.value && window.MoviePilotNative?.sheetsVersion === 1)
 // 网页窄屏由 Vuetify 管理模态层；原生 Sheet 和桌面侧栏继续沿用原内容节点。
 const mobileModal = computed(() => display.mdAndDown.value && !nativeSheetActions.value)
-const { height: visualViewportHeight } = useWindowSize({ type: 'visual' })
+const { height: visualViewportHeight } = useVisualViewportHeight()
 // 仅网页桌面宽屏展示全屏开关，App 高度由系统 Sheet 控制。
 const canToggleFullscreen = computed(() => !nativeSheetActions.value && !display.mdAndDown.value)
 const hasConversationContent = computed(() => messages.value.length > 0 || protectedDeliveries.value.length > 0)
@@ -4034,7 +4034,10 @@ onScopeDispose(() => {
 /* stylelint-disable selector-pseudo-class-no-unknown */
 /* stylelint-disable no-descending-specificity */
 
+/* Vuetify 给 .v-dialog>.v-overlay__content 加了安全区 margin，而 header 与 composer 已各自留过同一段高度；
+   该容器又带 contain:layout，会成为 fixed 面板的包含块，把整块面板下推、底边超出可视区。 */
 .agent-assistant-modal :deep(.agent-assistant-modal__content) {
+  margin-block: 0;
   overflow: hidden;
 }
 
