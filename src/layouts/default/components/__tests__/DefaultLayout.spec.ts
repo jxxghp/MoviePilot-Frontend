@@ -181,6 +181,44 @@ describe('DefaultLayout', () => {
     await flushPromises()
   })
 
+  it('keeps horizontal navigation actions outside the scrollable menu area', async () => {
+    const wrapper = shallowMount(DefaultLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          IconBtn: mocks.emptyComponent,
+          RouterLink: mocks.emptyComponent,
+          VerticalNavLayout: mocks.verticalNavLayout,
+          VerticalNavLink: mocks.navLink,
+        },
+      },
+    })
+    await flushPromises()
+
+    window.dispatchEvent(
+      new CustomEvent(THEME_CUSTOMIZER_CHANGE_EVENT, {
+        detail: { layout: 'horizontal' },
+      }),
+    )
+    await nextTick()
+
+    window.__VUE_INJECT_DYNAMIC_HEADER_TAB__?.({
+      items: [{ tab: 'installed', title: 'Installed' }],
+      modelValue: 'installed',
+      appendButtons: [{ icon: 'mdi-arrow-left' }],
+    })
+    await nextTick()
+
+    const nav = wrapper.get('.theme-horizontal-nav')
+    const menuItems = nav.get('.theme-horizontal-nav__menu-items')
+    const actions = nav.get('.theme-horizontal-nav__actions')
+
+    expect(menuItems.element.nextElementSibling).toBe(actions.element)
+    expect(menuItems.find('.theme-horizontal-nav__actions').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
   it('does not poll the superuser runtime endpoint for an ordinary authenticated user', async () => {
     const wrapper = shallowMount(DefaultLayout, {
       global: {

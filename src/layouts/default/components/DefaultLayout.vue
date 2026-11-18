@@ -538,88 +538,90 @@ onMounted(async () => {
         </div>
       </div>
       <div v-if="showHorizontalThemeNav" class="theme-horizontal-nav">
-        <VMenu
-          v-for="group in horizontalNavGroups"
-          :key="group.title"
-          :model-value="openHorizontalNavGroup === group.title"
-          location="bottom start"
-          offset="8"
-          open-on-hover
-          :open-delay="0"
-          :close-delay="120"
-          :close-on-content-click="false"
-          @update:model-value="openHorizontalNavGroup = $event ? group.title : null"
-        >
-          <template #activator="{ props: menuProps }">
-            <VBtn
-              v-bind="menuProps"
-              :prepend-icon="group.icon"
-              append-icon="mdi-chevron-down"
-              :variant="isHorizontalNavGroupActive(group) ? 'tonal' : 'text'"
-              :color="isHorizontalNavGroupActive(group) ? 'primary' : 'default'"
-              rounded="pill"
-              class="theme-horizontal-nav__item"
-            >
-              {{ group.title }}
-            </VBtn>
-          </template>
-
-          <VList class="theme-horizontal-nav__menu" min-width="13rem" density="comfortable">
-            <template v-for="item in group.items" :key="`${group.title}-${item.title}-${item.to}`">
-              <VMenu
-                v-if="hasHorizontalDynamicTabs(item)"
-                location="end top"
-                offset="8"
-                open-on-hover
-                :open-delay="0"
-                :close-delay="120"
-                :close-on-content-click="true"
+        <div class="theme-horizontal-nav__menu-items">
+          <VMenu
+            v-for="group in horizontalNavGroups"
+            :key="group.title"
+            :model-value="openHorizontalNavGroup === group.title"
+            location="bottom start"
+            offset="8"
+            open-on-hover
+            :open-delay="0"
+            :close-delay="120"
+            :close-on-content-click="false"
+            @update:model-value="openHorizontalNavGroup = $event ? group.title : null"
+          >
+            <template #activator="{ props: menuProps }">
+              <VBtn
+                v-bind="menuProps"
+                :prepend-icon="group.icon"
+                append-icon="mdi-chevron-down"
+                :variant="isHorizontalNavGroupActive(group) ? 'tonal' : 'text'"
+                :color="isHorizontalNavGroupActive(group) ? 'primary' : 'default'"
+                rounded="pill"
+                class="theme-horizontal-nav__item"
               >
-                <template #activator="{ props: subMenuProps }">
-                  <VListItem
-                    v-bind="subMenuProps"
-                    :active="isHorizontalNavActive(item)"
-                    class="theme-horizontal-nav__submenu-activator"
-                  >
-                    <template #prepend>
-                      <VIcon :icon="String(item.icon || '')" />
-                    </template>
-                    <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
-                    <template #append>
-                      <VIcon icon="mdi-chevron-right" size="small" />
-                    </template>
-                  </VListItem>
-                </template>
-
-                <VList class="theme-horizontal-nav__submenu" min-width="12rem" density="comfortable">
-                  <VListItem
-                    v-for="tab in getHorizontalNavTabs(item)"
-                    :key="`${item.to}-${tab.tab}`"
-                    :active="isHorizontalDynamicTabActive(tab)"
-                    @click="handleHorizontalDynamicTabSelect(item, tab)"
-                  >
-                    <template #prepend>
-                      <VIcon :icon="getHorizontalTabIcon(tab)" />
-                    </template>
-                    <VListItemTitle>{{ tab.title }}</VListItemTitle>
-                  </VListItem>
-                </VList>
-              </VMenu>
-
-              <VListItem
-                v-else
-                :to="item.to || undefined"
-                :active="isHorizontalNavActive(item)"
-                @click="closeHorizontalNavGroup"
-              >
-                <template #prepend>
-                  <VIcon :icon="String(item.icon || '')" />
-                </template>
-                <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
-              </VListItem>
+                {{ group.title }}
+              </VBtn>
             </template>
-          </VList>
-        </VMenu>
+
+            <VList class="theme-horizontal-nav__menu" min-width="13rem" density="comfortable">
+              <template v-for="item in group.items" :key="`${group.title}-${item.title}-${item.to}`">
+                <VMenu
+                  v-if="hasHorizontalDynamicTabs(item)"
+                  location="end top"
+                  offset="8"
+                  open-on-hover
+                  :open-delay="0"
+                  :close-delay="120"
+                  :close-on-content-click="true"
+                >
+                  <template #activator="{ props: subMenuProps }">
+                    <VListItem
+                      v-bind="subMenuProps"
+                      :active="isHorizontalNavActive(item)"
+                      class="theme-horizontal-nav__submenu-activator"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="String(item.icon || '')" />
+                      </template>
+                      <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
+                      <template #append>
+                        <VIcon icon="mdi-chevron-right" size="small" />
+                      </template>
+                    </VListItem>
+                  </template>
+
+                  <VList class="theme-horizontal-nav__submenu" min-width="12rem" density="comfortable">
+                    <VListItem
+                      v-for="tab in getHorizontalNavTabs(item)"
+                      :key="`${item.to}-${tab.tab}`"
+                      :active="isHorizontalDynamicTabActive(tab)"
+                      @click="handleHorizontalDynamicTabSelect(item, tab)"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="getHorizontalTabIcon(tab)" />
+                      </template>
+                      <VListItemTitle>{{ tab.title }}</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
+
+                <VListItem
+                  v-else
+                  :to="item.to || undefined"
+                  :active="isHorizontalNavActive(item)"
+                  @click="closeHorizontalNavGroup"
+                >
+                  <template #prepend>
+                    <VIcon :icon="String(item.icon || '')" />
+                  </template>
+                  <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
+                </VListItem>
+              </template>
+            </VList>
+          </VMenu>
+        </div>
         <div v-if="visibleHorizontalHeaderButtons.length" class="theme-horizontal-nav__actions">
           <VBtn
             v-for="button in visibleHorizontalHeaderButtons"
@@ -820,6 +822,14 @@ onMounted(async () => {
   grid-row: 1;
   align-items: center;
   block-size: auto;
+  gap: 0.25rem;
+  min-inline-size: 0;
+}
+
+.theme-horizontal-nav__menu-items {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
   gap: 0.25rem;
   min-inline-size: 0;
   overflow-x: auto;
