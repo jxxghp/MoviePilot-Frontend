@@ -171,6 +171,7 @@ export interface NativeLayout {
 export interface NativePlaybackOpenRequest {
   itemId: string
   title: string
+  /** 精确媒体服务器配置名称，用于避免不同服务器的条目 ID 冲突。 */
   server?: string
   season?: number
   episode?: number

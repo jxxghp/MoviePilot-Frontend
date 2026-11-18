@@ -94,7 +94,7 @@ export class NativeChromeSession {
       (server !== undefined &&
         (typeof server !== 'string' ||
           !server.trim() ||
-          server.length > 128 ||
+          new TextEncoder().encode(server).length > 128 ||
           Array.from(server).some(character => {
             const code = character.charCodeAt(0)
             return code < 0x20 || code === 0x7f

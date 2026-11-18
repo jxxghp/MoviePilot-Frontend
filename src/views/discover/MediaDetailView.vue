@@ -107,6 +107,7 @@ async function querySharedTmdbMapping() {
 
 // 本地是否存在，存在则包括Item信息
 const existsItemId = ref('')
+const existsServer = ref('')
 
 // 详情与媒体库状态是异步加载的，按当前可用操作数固定辅助按钮列数，避免初始化视口变化导致换行。
 const hasSubscribeAction = computed(
@@ -354,6 +355,7 @@ async function checkExists() {
     const result = await getMediaStatus(mediaDetail.value)
     if (result.legacyFailures?.exists) throw new Error(result.legacyFailures.exists)
     existsItemId.value = result.item_id || ''
+    existsServer.value = result.server || ''
   } catch (error) {
     console.error(error)
   }
@@ -789,7 +791,7 @@ function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: M
 }
 
 // 将已解析的媒体服务器条目交给原生 App，网页继续使用兼容的媒体服务器入口。
-function requestNativePlayback(itemId: string, title: string, season?: number, episode?: number) {
+function requestNativePlayback(itemId: string, title: string, season?: number, episode?: number, server?: string) {
   const transport = window.MoviePilotNative
   if (!nativeChromeActive.value || transport?.playbackVersion !== 1) return false
   window.dispatchEvent(
@@ -797,6 +799,7 @@ function requestNativePlayback(itemId: string, title: string, season?: number, e
       detail: {
         itemId,
         title,
+        ...(server ? { server } : {}),
         ...(season !== undefined ? { season } : {}),
         ...(episode !== undefined ? { episode } : {}),
       },
@@ -806,8 +809,8 @@ function requestNativePlayback(itemId: string, title: string, season?: number, e
 }
 
 // 打开电影或单集；只有普通网页回退到媒体服务器自身的播放页面。
-async function playMediaServerItem(itemId: string, title: string, season?: number, episode?: number) {
-  if (requestNativePlayback(itemId, title, season, episode)) return
+async function playMediaServerItem(itemId: string, title: string, season?: number, episode?: number, server?: string) {
+  if (requestNativePlayback(itemId, title, season, episode, server)) return
   try {
     const result = await api.get<{ item_id: string; server_id: string; server_type: string; url: string }>(
       `mediaserver/play/${encodeURIComponent(itemId)}`,
@@ -854,7 +857,7 @@ async function loadPlayableEpisodeIds() {
   try {
     const result: Record<number, Record<number, string>> = await api.get('mediaserver/episodes', {
       feedback: 'silent',
-      params: { itemid: existsItemId.value },
+      params: { itemid: existsItemId.value, ...(existsServer.value ? { server: existsServer.value } : {}) },
     })
     if (requestId === playEpisodeIdsRequestId) {
       playEpisodeIds.value = result || {}
@@ -886,6 +889,7 @@ async function playSelectedEpisode(item: PlayableEpisode) {
     `${mediaDetail.value.title} · ${label}${item.name ? ` · ${item.name}` : ''}`,
     season,
     item.episode,
+    existsServer.value,
   )
 }
 
@@ -895,7 +899,13 @@ async function handlePlay() {
     await openPlayEpisodePicker()
     return
   }
-  await playMediaServerItem(existsItemId.value, mediaDetail.value.title || mediaProps.title || '')
+  await playMediaServerItem(
+    existsItemId.value,
+    mediaDetail.value.title || mediaProps.title || '',
+    undefined,
+    undefined,
+    existsServer.value,
+  )
 }
 
 // 删除订阅处理

@@ -66,11 +66,17 @@ describe('visible media status batches', () => {
   it('falls back to bounded old endpoints only when the batch endpoint is absent', async () => {
     mocks.post.mockRejectedValue({ response: { status: 404 } })
     mocks.get.mockImplementation(async path =>
-      path === 'mediaserver/exists' ? { item: { id: 'old-library' } } : { id: 7 },
+      path === 'mediaserver/exists' ? { item: { id: 'old-library', server: 'Emby-客厅' } } : { id: 7 },
     )
     const pending = getMediaStatus(movie(1))
     await vi.advanceTimersByTimeAsync(10)
-    await expect(pending).resolves.toEqual({ item_id: 'old-library', subscribed: true, seasons: {}, legacy: true })
+    await expect(pending).resolves.toEqual({
+      item_id: 'old-library',
+      server: 'Emby-客厅',
+      subscribed: true,
+      seasons: {},
+      legacy: true,
+    })
     expect(mocks.get).toHaveBeenCalledTimes(2)
     invalidateSharedData()
     mocks.post.mockRejectedValueOnce({ response: { status: 503 } })
