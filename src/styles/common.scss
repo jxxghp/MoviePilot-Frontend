@@ -1466,6 +1466,11 @@ html[data-theme='plain'][data-glass-color-scheme='light'] :is(.workflow-task-car
   background: rgb(var(--v-table-header-background));
 }
 
+// 表格常嵌在 VCardText 中，直接套用主题圆角；优先级高于按需加载的 Vuetify 默认继承规则。
+html .v-table {
+  border-radius: var(--app-surface-radius);
+}
+
 .v-divider {
   border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));
   opacity: 0.75;
