@@ -77,14 +77,13 @@ async function getSiteIcon() {
   }
 }
 
-// 测试站点连通性
+/** 展示后端实际检测范围，网页成功不能被改写成全部站点功能可用。 */
 async function testSite() {
   try {
     testButtonText.value = t('site.testing')
     testButtonDisable.value = true
 
-    await api.get(`site/test/${cardProps.site?.id}`)
-    $toast.success(t('site.testSuccess', { name: cardProps.site?.name }))
+    await api.get(`site/test/${cardProps.site?.id}`, { feedback: 'all' })
 
     // 测试完成后刷新统计数据
     emit('refresh-stats', cardProps.site?.domain)
