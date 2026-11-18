@@ -6,6 +6,8 @@ import { getSharedData } from '@/utils/sharedDataCache'
 /** 卡片与详情只消费轻量状态，不持有完整订阅及媒体库记录。 */
 export interface MediaStatusResult {
   item_id?: string | null
+  /** 本地媒体缓存中条目标识所属的媒体服务器配置名称。 */
+  server?: string | null
   subscribed: boolean
   seasons: SeasonSubscribeModes
   legacy?: boolean
@@ -53,7 +55,7 @@ async function loadLegacyStatus(query: MediaStatusQuery): Promise<MediaStatusRes
   const [exists, subscribe] = await Promise.allSettled([
     mtype === '音乐'
       ? undefined
-      : api.get<{ item?: { id?: string } }>('mediaserver/exists', {
+      : api.get<{ item?: { id?: string; server?: string } }>('mediaserver/exists', {
           params: { ...identity, mtype },
           feedback: 'silent',
         }),
@@ -71,6 +73,7 @@ async function loadLegacyStatus(query: MediaStatusQuery): Promise<MediaStatusRes
   ])
   return {
     item_id: exists.status === 'fulfilled' ? exists.value?.item?.id : undefined,
+    server: exists.status === 'fulfilled' ? exists.value?.item?.server : undefined,
     subscribed: subscribe.status === 'fulfilled' && Boolean(subscribe.value?.id),
     seasons: {},
     legacy: true,

@@ -148,7 +148,7 @@ describe('原生独立菜单的可选协商和上下文', () => {
 })
 
 describe('原生播放器能力协商', () => {
-  it('仅在双方都声明播放能力后转发所选媒体服务器条目', async () => {
+  it('仅在双方都声明播放能力后转发媒体服务器条目及其来源', async () => {
     const messages: NativeEnvelope[] = []
     harness({
       transport: {
@@ -162,7 +162,7 @@ describe('原生播放器能力协商', () => {
 
     window.dispatchEvent(
       new CustomEvent('moviepilot:playback-open', {
-        detail: { itemId: 'episode-17', title: '剧集 S02E05', season: 2, episode: 5 },
+        detail: { itemId: 'episode-17', title: '剧集 S02E05', server: 'Emby-客厅', season: 2, episode: 5 },
       }),
     )
 
@@ -170,7 +170,7 @@ describe('原生播放器能力协商', () => {
       expect.objectContaining({
         type: 'playback.open',
         sessionId: 'session-1',
-        payload: { episode: 5, itemId: 'episode-17', season: 2, title: '剧集 S02E05' },
+        payload: { episode: 5, itemId: 'episode-17', season: 2, server: 'Emby-客厅', title: '剧集 S02E05' },
       }),
     )
     await send('host.lifecycle', { state: 'background' })
@@ -207,6 +207,26 @@ describe('原生播放器能力协商', () => {
 
     expect(messages.filter(message => message.type === 'playback.open')).toHaveLength(1)
     expect(messages.at(-1)?.payload).toEqual({ itemId: ticket, title: '单文件播放' })
+  })
+
+  it('按 UTF-8 字节数限制媒体服务器名称', async () => {
+    const messages: NativeEnvelope[] = []
+    harness({
+      transport: {
+        transportVersion: 1,
+        playbackVersion: 1,
+        postMessage: message => messages.push(message),
+      },
+    })
+    await activate(false, false, false, false, true)
+
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'item-1', title: '影片', server: '媒'.repeat(43) },
+      }),
+    )
+
+    expect(messages.filter(message => message.type === 'playback.open')).toHaveLength(0)
   })
 })
 

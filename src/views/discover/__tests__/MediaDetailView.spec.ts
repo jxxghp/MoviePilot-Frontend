@@ -733,6 +733,7 @@ describe('MediaDetailView detail and actions', () => {
       mediaRemoteExistsHandler({ 1: [1, 2] }),
       http.get('http://localhost/api/v1/mediaserver/episodes', ({ request }) => {
         expect(new URL(request.url).searchParams.get('itemid')).toBe('library-tv')
+        expect(new URL(request.url).searchParams.get('server')).toBe('Emby-客厅')
         return apiJson({ 1: { 1: 'episode-1', 3: 'episode-3' }, 2: { 1: 'season-2-episode-1' } })
       }),
       tmdbSeasonEpisodesHandler(9301, 1, [
@@ -750,7 +751,7 @@ describe('MediaDetailView detail and actions', () => {
     )
     await renderDetail({
       media,
-      existsResponse: { data: { item: { id: 'library-tv' } }, success: true },
+      existsResponse: { data: { item: { id: 'library-tv', server: 'Emby-客厅' } }, success: true },
       type: '电视剧',
     })
 
@@ -773,7 +774,13 @@ describe('MediaDetailView detail and actions', () => {
     await waitFor(() =>
       expect(playbackOpen).toHaveBeenCalledWith(
         expect.objectContaining({
-          detail: { episode: 3, itemId: 'episode-3', season: 1, title: '多集电视剧 · S01E03 · 第三集' },
+          detail: {
+            episode: 3,
+            itemId: 'episode-3',
+            season: 1,
+            server: 'Emby-客厅',
+            title: '多集电视剧 · S01E03 · 第三集',
+          },
         }),
       ),
     )

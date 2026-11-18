@@ -117,6 +117,7 @@ const isSubscribed = ref(false)
 // 本地存在状态
 const isExists = ref(false)
 const existsItemId = ref<string>()
+const existsServer = ref<string>()
 
 // 当前媒体已订阅的季号
 const subscribedSeasons = ref<number[]>([])
@@ -281,6 +282,7 @@ async function querySubscribedSeasons() {
 /** 查询媒体入库状态并保留电影对应条目 ID，供长按菜单播放使用。 */
 async function handleCheckExists() {
   existsItemId.value = undefined
+  existsServer.value = undefined
   if (props.media?.type === '音乐') return
   const media = props.media
   const key = getExistsStatusKey()
@@ -300,6 +302,7 @@ async function handleCheckExists() {
     }
     if (media !== props.media) return
     existsItemId.value = exists ? status?.item_id || undefined : undefined
+    existsServer.value = exists ? status?.server || undefined : undefined
     setCachedMediaExistsStatus(key, exists)
   } catch (error) {
     console.error(error)
@@ -309,7 +312,7 @@ async function handleCheckExists() {
 /** 只从电影媒体卡片发起单文件播放；电视剧仍需在详情页选择具体单集。 */
 function playExistingMovie() {
   if (props.media?.type !== '电影' || !existsItemId.value) return
-  playMediaServerLibraryItem(existsItemId.value, props.media.title || '')
+  playMediaServerLibraryItem(existsItemId.value, props.media.title || '', existsServer.value)
 }
 
 // 调用API检查是否已订阅，电视剧需要指定季

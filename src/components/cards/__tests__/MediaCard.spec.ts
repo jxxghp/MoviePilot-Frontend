@@ -297,7 +297,7 @@ describe('MediaCard', () => {
       playbackVersion: 1,
       postMessage: vi.fn(),
     }
-    server.use(mediaExistsHandler({ data: { item: { id: 'library-movie-1' } }, success: true }))
+    server.use(mediaExistsHandler({ data: { item: { id: 'library-movie-1', server: 'Emby-客厅' } }, success: true }))
     const media = createMediaInfo({ media_id: 'movie-1', tmdb_id: 9110, title: '可播放电影', type: '电影' })
     const { container } = await renderCard(media)
     getStatusObservers()[0]?.trigger()
@@ -310,7 +310,7 @@ describe('MediaCard', () => {
 
     expect(playbackOpen).toHaveBeenCalledWith(
       expect.objectContaining({
-        detail: { itemId: 'library-movie-1', title: '可播放电影' },
+        detail: { itemId: 'library-movie-1', server: 'Emby-客厅', title: '可播放电影' },
       }),
     )
     window.removeEventListener('moviepilot:playback-open', playbackOpen)
