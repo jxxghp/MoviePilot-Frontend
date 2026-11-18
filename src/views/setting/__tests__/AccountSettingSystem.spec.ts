@@ -315,6 +315,16 @@ function mockLoadedSettings() {
               active: true,
             },
             {
+              id: 'JellyfinModule',
+              name: 'Jellyfin',
+              name_i18n: 'Jellyfin',
+              type: 'mediaserver',
+              subtype: 'Jellyfin',
+              option_value: 'jellyfin',
+              enabled: true,
+              active: true,
+            },
+            {
               id: 'PlexModule',
               name: 'Plex',
               name_i18n: 'Plex',
@@ -1178,6 +1188,28 @@ describe('AccountSettingSystem', () => {
     ])
     await waitFor(() => expect(screen.getByText('服务器1 / emby / 12')).toBeInTheDocument())
     expect(screen.queryByText('服务器3-edited / plex / 12')).not.toBeInTheDocument()
+  })
+
+  it('keeps disabled and newly added service types available for another configuration', async () => {
+    const user = userEvent.setup()
+    systemEnv.MEDIASERVER_SYNC_INTERVAL = 12
+    await renderSettings()
+    await screen.findByText('服务器1 / emby / 12')
+
+    const downloaderCard = getSettingsCard('下载器')
+    await user.click(downloaderCard.getAllByRole('button').at(-1)!)
+    await user.click(await screen.findByText('Transmission', { selector: '.v-list-item-title' }))
+    expect(screen.getByText('下载器4 / transmission / true')).toBeInTheDocument()
+    await user.click(downloaderCard.getAllByRole('button').at(-1)!)
+    expect(await screen.findByText('Transmission', { selector: '.v-list-item-title' })).toBeInTheDocument()
+
+    const mediaCard = getSettingsCard('媒体服务器')
+    await user.click(mediaCard.getAllByRole('button').at(-1)!)
+    await user.click(await screen.findByText('Jellyfin', { selector: '.v-list-item-title' }))
+    expect(screen.getByText('服务器4 / jellyfin / 12')).toBeInTheDocument()
+    await user.click(mediaCard.getAllByRole('button').at(-1)!)
+    await user.click(await screen.findByText('Jellyfin', { selector: '.v-list-item-title' }))
+    expect(screen.getByText('服务器5 / jellyfin / 12')).toBeInTheDocument()
   })
 
   it('prevents duplicate media server saves while the request is pending', async () => {

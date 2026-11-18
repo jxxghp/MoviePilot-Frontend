@@ -5,7 +5,7 @@ import api from '@/api'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
 import { useI18n } from 'vue-i18n'
-import { filterAvailableServiceOptions, notificationSwitchDict } from '@/api/constants'
+import { notificationSwitchDict } from '@/api/constants'
 import { useTheme } from 'vuetify'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -83,9 +83,9 @@ const notifications = ref<NotificationConf[]>([])
 const { moduleOptions, loadModuleCatalog } = useModuleCatalog()
 const notificationModuleOptions = moduleOptions('notification')
 
-// 通知类型全部关闭时从新增菜单移除，已存在的卡片仍保留开关以便恢复。
+// 通知渠道允许多个同类型配置，菜单只按模块目录控制可见性。
 const availableNotificationOptions = computed(() => [
-  ...filterAvailableServiceOptions(notificationModuleOptions.value, notifications.value),
+  ...notificationModuleOptions.value,
   { value: 'custom', title: t('setting.system.custom') },
 ])
 

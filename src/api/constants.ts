@@ -1,21 +1,5 @@
 import i18n from '@/plugins/i18n'
 
-type ServiceOptionConfig = {
-  type?: string
-  enabled?: boolean
-}
-
-/** 过滤已配置且全部关闭的服务类型，保留尚未配置的类型供用户新增。 */
-export function filterAvailableServiceOptions<T extends { value: string }>(
-  options: readonly T[],
-  configs: readonly ServiceOptionConfig[],
-): T[] {
-  return options.filter(option => {
-    const configured = configs.filter(config => config.type === option.value)
-    return configured.length === 0 || configured.some(config => config.enabled)
-  })
-}
-
 export const innerFilterRules = [
   { title: i18n.global.t('filterRules.specSub'), value: 'SPECSUB' },
   { title: i18n.global.t('filterRules.cnSub'), value: 'CNSUB' },
