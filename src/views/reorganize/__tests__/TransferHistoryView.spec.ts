@@ -2438,4 +2438,24 @@ describe('TransferHistoryView', () => {
     expect(mocks.progressStart).not.toHaveBeenCalled()
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
   })
+
+  it('keeps one outer glass container on desktop while flattening individual history rows', async () => {
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([createHistory(1, '桌面无嵌套玻璃记录')]))
+    })
+
+    const { container } = await renderHistory()
+    await screen.findByText('桌面无嵌套玻璃记录')
+
+    expect(container.querySelector('.transfer-history-desktop-page')).toHaveAttribute(
+      'data-glass-optical-mode',
+      'static-material',
+    )
+    expect(transferHistorySource).toContain('var(--mp-list-row-divider)')
+    expect(transferHistorySource).toContain(
+      '.transfer-history-desktop-virtual.v-table {\n    border: 1px solid var(--glass-border)',
+    )
+    expect(transferHistorySource).toContain('.transfer-history-desktop-record {\n  display: grid;')
+  })
 })

@@ -535,4 +535,38 @@ describe('SiteResourceDialog', () => {
     await user.click(closeButton)
     expect(close).toHaveBeenCalledOnce()
   })
+
+  it('switches resource rows to non-glass divided rows on desktop while preserving mobile cards', async () => {
+    server.use(
+      siteCategoriesHandler(501, []),
+      siteResourcesHandler(501, [
+        createTorrentInfo({ title: '桌面资源一' }),
+        createTorrentInfo({ title: '桌面资源二' }),
+      ]),
+    )
+
+    setViewport(1280)
+    const desktopDialog = await renderDialog()
+    await screen.findByText('桌面资源一')
+    expect(desktopDialog.container.querySelector('.site-resource-filter-panel')).toHaveClass('no-blur')
+    expect(desktopDialog.container.querySelector('.site-resource-list__surface')).toHaveClass(
+      'site-resource-list__surface--desktop',
+    )
+    const desktopItems = desktopDialog.container.querySelectorAll('.site-resource-item')
+    expect(desktopItems).toHaveLength(2)
+    expect(desktopItems[0]).toHaveClass('site-resource-item--desktop', 'no-blur', 'site-resource-item--divided')
+    expect(desktopItems[1]).toHaveClass('site-resource-item--desktop', 'no-blur')
+    expect(desktopItems[1]).not.toHaveClass('site-resource-item--divided')
+    desktopDialog.unmount()
+
+    setViewport(390)
+    const mobileDialog = await renderDialog()
+    await screen.findByText('桌面资源一')
+    expect(mobileDialog.container.querySelector('.site-resource-filter-panel')).not.toHaveClass('no-blur')
+    expect(mobileDialog.container.querySelector('.site-resource-list__surface')).not.toHaveClass(
+      'site-resource-list__surface--desktop',
+    )
+    const mobileItem = mobileDialog.container.querySelector('.site-resource-item')
+    expect(mobileItem).not.toHaveClass('site-resource-item--desktop', 'no-blur')
+  })
 })

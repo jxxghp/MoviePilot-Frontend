@@ -66,4 +66,69 @@ describe('glass chip colors', () => {
     expect(matchedForegroundOverrides(variant, 'bg-success', 'dark')).toEqual([])
     expect(matchedForegroundOverrides(variant, 'bg-success', 'light', 'plain')).toEqual([])
   })
+
+  it.each(['primary', 'secondary', 'success', 'info', 'warning', 'error'])(
+    'keeps light glass %s buttons and FABs on high-contrast on-color text instead of black on-surface',
+    color => {
+      const fixture = document.implementation.createHTMLDocument('glass button colors')
+      fixture.documentElement.dataset.theme = 'glass'
+      fixture.documentElement.dataset.glassColorScheme = 'light'
+      fixture.body.dataset.theme = 'glass'
+      const fabWrap = fixture.createElement('div')
+      fabWrap.className = 'compact-fab compact-fab--primary'
+      const button = fixture.createElement('button')
+      button.className = `v-btn v-btn--elevated bg-${color}`
+      fabWrap.append(button)
+      fixture.body.append(fabWrap)
+
+      expect(foregroundOverrides.filter(rule => button.matches(rule.selector))).toEqual([])
+      expect(css).toContain(`--v-theme-on-${color}`)
+    },
+  )
+
+  it('keeps light glass active vertical nav links on on-primary text instead of black on-surface', () => {
+    const fixture = document.implementation.createHTMLDocument('glass nav active')
+    fixture.documentElement.dataset.theme = 'glass'
+    fixture.documentElement.dataset.glassColorScheme = 'light'
+    fixture.body.dataset.theme = 'glass'
+    const nav = fixture.createElement('aside')
+    nav.className = 'layout-vertical-nav'
+    const item = fixture.createElement('li')
+    item.className = 'nav-link'
+    const link = fixture.createElement('a')
+    link.className = 'router-link-exact-active'
+    item.append(link)
+    nav.append(item)
+    fixture.body.append(nav)
+
+    expect(foregroundOverrides.filter(rule => link.matches(rule.selector))).toEqual([])
+    expect(css).toContain('--glass-nav-active-background: linear-gradient(')
+  })
+
+  it('excludes flat no-blur and nested dialog cards from heavy glass link hover shadows and defines light hover shadow', () => {
+    expect(css).toContain(
+      '--glass-shadow-hover: 0 14px 32px rgba(0, 0, 0, 10%), inset 0 1px 0 rgba(255, 255, 255, 78%)',
+    )
+    expect(css).toContain('.v-card--link:not(.no-blur, :is(.v-card, .v-sheet) .v-card):hover')
+  })
+
+  it('keeps dark glass --mp-muted translucent instead of being overridden by the dark plain hex fallback', () => {
+    const tokensPath = resolve(root, 'src/styles/tokens.scss')
+    const tokensCss = compileString(readFileSync(tokensPath, 'utf8'), {
+      url: new URL(pathToFileURL(tokensPath).href),
+    }).css
+    const mutedRules: Array<{ selector: string; value: string }> = []
+    postcss.parse(tokensCss).walkRules(rule => {
+      rule.walkDecls('--mp-muted', decl => {
+        mutedRules.push({ selector: rule.selector, value: decl.value })
+      })
+    })
+
+    const darkFallbackIndex = mutedRules.findIndex(item => item.value === '#131b2b')
+    const glassMutedIndex = mutedRules.findIndex(item => item.value === 'rgba(255, 255, 255, 0.055)')
+    expect(darkFallbackIndex).toBeGreaterThanOrEqual(0)
+    expect(glassMutedIndex).toBeGreaterThan(darkFallbackIndex)
+    expect(mutedRules[darkFallbackIndex].selector).toContain(':where(')
+    expect(mutedRules[glassMutedIndex].selector).toContain('[data-theme=')
+  })
 })

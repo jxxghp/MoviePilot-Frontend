@@ -438,17 +438,6 @@
       "count": 1
     }
   },
-  "src/pages/resource.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
-    },
-    "sonarjs/no-duplicated-branches": {
-      "count": 1
-    }
-  },
   "src/pages/subscribe/__tests__/index.spec.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1

@@ -350,4 +350,24 @@ describe('TorrentItem display and interactions', () => {
     expect(screen.getByText('无')).toBeInTheDocument()
     expect(mocks.getCachedSiteIcon).toHaveBeenCalledOnce()
   })
+
+  it('uses flat non-glass list rows on desktop while keeping hover-lift cards on mobile', async () => {
+    const setViewport = (width: number) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width, writable: true })
+      window.dispatchEvent(new Event('resize'))
+    }
+
+    setViewport(1280)
+    const desktopView = await renderItem(createContext())
+    const desktopItem = getItem(desktopView.container)
+    expect(desktopItem).toHaveClass('torrent-item--desktop', 'no-blur')
+    expect(desktopItem).not.toHaveClass('app-hover-lift-card')
+    desktopView.unmount()
+
+    setViewport(390)
+    const mobileView = await renderItem(createContext())
+    const mobileItem = getItem(mobileView.container)
+    expect(mobileItem).toHaveClass('app-hover-lift-card', 'mb-2', 'rounded')
+    expect(mobileItem).not.toHaveClass('torrent-item--desktop', 'no-blur')
+  })
 })

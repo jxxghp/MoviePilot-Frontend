@@ -12,6 +12,7 @@ import SubtitleItem from '@/components/cards/SubtitleItem.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
 import { useSearchPagination, type SearchSourceProgress } from '@/composables/useSearchPagination'
@@ -30,6 +31,8 @@ import { nativeChromeActive } from '@/native/layout'
 
 // 国际化
 const { t } = useI18n()
+const display = useDisplay()
+const isDesktopLayout = computed(() => display.mdAndUp.value)
 
 const { appMode } = usePWA()
 const userStore = useUserStore()
@@ -266,12 +269,6 @@ const keyword = computed(() => activeSearchParams.value.keyword)
 // 精确媒体身份对用户无意义，进度卡片中仅展示标题即可。
 const isMediaIdKeyword = computed(() => hasValidMediaIdentity(activeSearchParams.value))
 
-// 查询类型
-const type = computed(() => activeSearchParams.value.type)
-
-// 搜索字段
-const area = computed(() => activeSearchParams.value.area)
-
 // 搜索标题
 const title = computed(() => activeSearchParams.value.title)
 
@@ -280,9 +277,6 @@ const year = computed(() => activeSearchParams.value.year)
 
 // 搜索季
 const season = computed(() => activeSearchParams.value.season)
-
-// 搜索站点，以,分离多个
-const sites = computed(() => activeSearchParams.value.sites)
 
 // 搜索结果类型
 const resultType = computed(() => (activeSearchParams.value.result_type === 'subtitle' ? 'subtitle' : 'torrent'))
@@ -765,8 +759,11 @@ function hasLoadedEmptySearchResult() {
 }
 
 // 更新搜索进度
-function updateSearchProgress(eventData: { [key: string]: any }, flushNow: boolean = false) {
-  const text = eventData.text_i18n || eventData.text
+function updateSearchProgress(eventData: Record<string, unknown>, flushNow: boolean = false) {
+  const text =
+    (typeof eventData.text_i18n === 'string' && eventData.text_i18n) ||
+    (typeof eventData.text === 'string' && eventData.text) ||
+    ''
   if (text) {
     pendingProgressText = text
   }
@@ -894,13 +891,16 @@ function getSubtitleItemKey(item: SubtitleInfo, index: number) {
 }
 
 // 处理搜索流消息
-function handleSearchStreamMessage(eventData: { [key: string]: any }) {
+function handleSearchStreamMessage(eventData: Record<string, unknown>) {
   if (eventData.type === 'heartbeat') return
 
   if (eventData.type === 'error') {
     searchDiagnostics.value = null
     updateSearchProgress(eventData, true)
-    errorDescription.value = eventData.message_i18n || eventData.message || t('resource.noResourceFound')
+    errorDescription.value =
+      (typeof eventData.message_i18n === 'string' && eventData.message_i18n) ||
+      (typeof eventData.message === 'string' && eventData.message) ||
+      t('resource.noResourceFound')
     if (loadingNextPage.value) {
       if (continuingSource) clientPagination.failSource(continuingSource, errorDescription.value)
       toast.error(errorDescription.value)
@@ -930,10 +930,10 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
     if (eventData.type === 'append') {
       updateSearchProgress(eventData)
       appendSubtitleStreamResults(subtitleItems)
-    } else if (eventData.type === 'replace') {
-      updateSearchProgress(eventData, true)
-      applyFinalSubtitleStreamResults(subtitleItems)
-    } else if (eventData.type === 'done' && subtitleItems.length > 0 && !streamFinalResultApplied) {
+    } else if (
+      eventData.type === 'replace' ||
+      (eventData.type === 'done' && subtitleItems.length > 0 && !streamFinalResultApplied)
+    ) {
       updateSearchProgress(eventData, true)
       applyFinalSubtitleStreamResults(subtitleItems)
     } else {
@@ -1344,7 +1344,7 @@ async function startAiRecommend(force: boolean = false) {
 // 发送初始请求以启动智能推荐任务；筛选结果都不在推荐范围内时不启动，返回 false
 async function sendInitialRequest(force: boolean = false): Promise<boolean> {
   try {
-    const requestBody: any = {}
+    const requestBody: { filtered_indices?: number[]; force?: boolean } = {}
 
     // 检查是否有筛选条件
     const hasFilters = torrentFilter.hasActiveFilters()
@@ -1938,7 +1938,11 @@ useNativePageHeader({
 
           <!-- 列表视图模式 -->
           <div v-else-if="viewType === 'row'">
-            <VCard class="resource-list-container">
+            <VCard
+              class="resource-list-container"
+              :class="{ 'resource-list-container--desktop': isDesktopLayout }"
+              :data-glass-optical-surface="isDesktopLayout ? '' : undefined"
+            >
               <div
                 v-if="isSubtitleSearch && progressActive && streamPreviewSubtitleDataList.length > 0"
                 class="resource-list overflow-visible"
@@ -1946,32 +1950,53 @@ useNativePageHeader({
                 <div
                   v-for="(item, index) in streamPreviewSubtitleDataList"
                   :key="getSubtitleItemKey(item, index)"
-                  class="stream-result-item"
+                  class="stream-result-item resource-list-row"
+                  :class="{
+                    'resource-list-row--divided': index < streamPreviewSubtitleDataList.length - 1,
+                  }"
                 >
                   <SubtitleItem
                     :subtitle="item"
                     :media-source="activeSearchParams.media_source || undefined"
                     :media-id="activeSearchParams.media_id || undefined"
                   />
-                  <VDivider v-if="index < streamPreviewSubtitleDataList.length - 1" class="my-2" />
+                  <VDivider v-if="!isDesktopLayout && index < streamPreviewSubtitleDataList.length - 1" class="my-2" />
                 </div>
               </div>
               <div v-else-if="isSubtitleSearch && rawSubtitleDataList.length > 0" class="resource-list">
                 <ProgressiveCardGrid
                   :items="rawSubtitleDataList"
                   :columns="1"
-                  :gap="8"
+                  :gap="isDesktopLayout ? 0 : 8"
                   :estimated-item-height="190"
                   :overscan-rows="6"
                   :get-item-key="getSubtitleItemKey"
                 >
                   <template #default="{ item, index }">
-                    <SubtitleItem
-                      :subtitle="item"
-                      :media-source="activeSearchParams.media_source || undefined"
-                      :media-id="activeSearchParams.media_id || undefined"
-                    />
-                    <VDivider v-if="index < rawSubtitleDataList.length - 1" class="my-2" />
+                    <div
+                      class="resource-list-row"
+                      :class="{
+                        'resource-list-row--divided':
+                          index !== undefined
+                            ? index < rawSubtitleDataList.length - 1
+                            : item !== rawSubtitleDataList[rawSubtitleDataList.length - 1],
+                      }"
+                    >
+                      <SubtitleItem
+                        :subtitle="item"
+                        :media-source="activeSearchParams.media_source || undefined"
+                        :media-id="activeSearchParams.media_id || undefined"
+                      />
+                      <VDivider
+                        v-if="
+                          !isDesktopLayout &&
+                          (index !== undefined
+                            ? index < rawSubtitleDataList.length - 1
+                            : item !== rawSubtitleDataList[rawSubtitleDataList.length - 1])
+                        "
+                        class="my-2"
+                      />
+                    </div>
                   </template>
                 </ProgressiveCardGrid>
               </div>
@@ -1982,24 +2007,45 @@ useNativePageHeader({
                 <div
                   v-for="(item, index) in streamPreviewDataList"
                   :key="getTorrentItemKey(item, index)"
-                  class="stream-result-item"
+                  class="stream-result-item resource-list-row"
+                  :class="{
+                    'resource-list-row--divided': index < streamPreviewDataList.length - 1,
+                  }"
                 >
                   <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
-                  <VDivider v-if="index < streamPreviewDataList.length - 1" class="my-2" />
+                  <VDivider v-if="!isDesktopLayout && index < streamPreviewDataList.length - 1" class="my-2" />
                 </div>
               </div>
               <div v-else-if="!isSubtitleSearch && visibleRowDataList.length > 0" class="resource-list">
                 <ProgressiveCardGrid
                   :items="visibleRowDataList"
                   :columns="1"
-                  :gap="8"
+                  :gap="isDesktopLayout ? 0 : 8"
                   :estimated-item-height="240"
                   :overscan-rows="6"
                   :get-item-key="getTorrentItemKey"
                 >
                   <template #default="{ item, index }">
-                    <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
-                    <VDivider v-if="index < visibleRowDataList.length - 1" class="my-2" />
+                    <div
+                      class="resource-list-row"
+                      :class="{
+                        'resource-list-row--divided':
+                          index !== undefined
+                            ? index < visibleRowDataList.length - 1
+                            : item !== visibleRowDataList[visibleRowDataList.length - 1],
+                      }"
+                    >
+                      <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
+                      <VDivider
+                        v-if="
+                          !isDesktopLayout &&
+                          (index !== undefined
+                            ? index < visibleRowDataList.length - 1
+                            : item !== visibleRowDataList[visibleRowDataList.length - 1])
+                        "
+                        class="my-2"
+                      />
+                    </div>
                   </template>
                 </ProgressiveCardGrid>
               </div>
@@ -2253,6 +2299,15 @@ useNativePageHeader({
 /* 列表视图样式 */
 .resource-list-container {
   padding: 8px;
+}
+
+.resource-list-container--desktop {
+  overflow: hidden;
+  padding: 0;
+}
+
+.resource-list-container--desktop .resource-list-row--divided {
+  border-block-end: 1px solid var(--mp-list-row-divider);
 }
 
 .resource-list {

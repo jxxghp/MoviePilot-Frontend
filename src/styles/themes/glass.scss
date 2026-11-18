@@ -1501,8 +1501,8 @@ html[data-theme='glass'] {
       background-color: var(--glass-overlay-surface) !important;
     }
 
-    // 设置项卡片共用悬浮材质，目录等通过内部控件操作的卡片也需要一致的投影。
-    .v-card--link:hover,
+    // 顶层可交互卡片共用悬浮材质；嵌套在父卡片/弹窗内的子项与显式扁平项保持无外投影。
+    .v-card--link:not(.no-blur, :is(.v-card, .v-sheet) .v-card):hover,
     .app-card-colorful:hover {
       border-color: var(--glass-border-hover) !important;
       box-shadow: var(--glass-shadow-hover) !important;
@@ -2074,6 +2074,14 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   --glass-button-surface-hover: rgba(118, 118, 128, 14%);
   --glass-shadow: 0 10px 28px rgba(0, 0, 0, 8%), inset 0 1px 0 rgba(255, 255, 255, 70%);
   --glass-shadow-raised: 0 16px 40px rgba(0, 0, 0, 12%), inset 0 1px 0 rgba(255, 255, 255, 80%);
+  --glass-shadow-hover: 0 14px 32px rgba(0, 0, 0, 10%), inset 0 1px 0 rgba(255, 255, 255, 78%);
+  --glass-nav-active-background: linear-gradient(
+    90deg,
+    rgba(var(--v-theme-primary), 78%),
+    rgba(var(--v-theme-primary), 92%)
+  );
+  --glass-nav-active-border: 1px solid rgba(var(--v-theme-primary), 62%);
+  --glass-nav-active-shadow: 0 6px 16px rgba(var(--v-theme-primary), 20%), inset 0 1px 0 rgba(255, 255, 255, 38%);
   --glass-v3-fill: clamp(0.5, calc(0.5 + var(--glass-surface-density, 0.62) * 0.28), 0.84);
   --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 6%);
   --glass-v3-hover-shadow: 0 16px 34px rgba(0, 0, 0, 10%);
@@ -2110,10 +2118,95 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     );
   }
 
-  // tonal 的文字与底层共用 currentColor，保留语义色；只有实心填充需要修正浅色前景。
-  .v-btn:is(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
-  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat),
+  // 浅色玻璃下实心有色按钮与主 FAB 提升透光语义饱和度并保留高对比 on-* 前景，与非玻璃浅色主题区分度一致。
+  .v-btn.bg-primary {
+    border-color: rgba(var(--v-theme-primary), 62%) !important;
+    background-color: rgba(var(--v-theme-primary), 84%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    color: rgb(var(--v-theme-on-primary, 255, 255, 255)) !important;
+  }
+
+  .v-btn.bg-secondary {
+    border-color: rgba(var(--v-theme-secondary), 62%) !important;
+    background-color: rgba(var(--v-theme-secondary), 84%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    color: rgb(var(--v-theme-on-secondary, 255, 255, 255)) !important;
+  }
+
+  .v-btn.bg-success {
+    border-color: rgba(var(--v-theme-success), 62%) !important;
+    background-color: rgba(var(--v-theme-success), 84%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    color: rgb(var(--v-theme-on-success, 255, 255, 255)) !important;
+  }
+
+  .v-btn.bg-info {
+    border-color: rgba(var(--v-theme-info), 62%) !important;
+    background-color: rgba(var(--v-theme-info), 84%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    color: rgb(var(--v-theme-on-info, 255, 255, 255)) !important;
+  }
+
+  .v-btn.bg-warning {
+    border-color: rgba(var(--v-theme-warning), 64%) !important;
+    background-color: rgba(var(--v-theme-warning), 86%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    color: rgb(var(--v-theme-on-warning, 255, 255, 255)) !important;
+  }
+
+  .v-btn.bg-error {
+    border-color: rgba(var(--v-theme-error), 62%) !important;
+    background-color: rgba(var(--v-theme-error), 84%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    color: rgb(var(--v-theme-on-error, 255, 255, 255)) !important;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .v-btn.bg-primary:hover {
+      border-color: rgba(var(--v-theme-primary), 76%) !important;
+      background-color: rgba(var(--v-theme-primary), 92%) !important;
+    }
+
+    .v-btn.bg-secondary:hover {
+      border-color: rgba(var(--v-theme-secondary), 76%) !important;
+      background-color: rgba(var(--v-theme-secondary), 92%) !important;
+    }
+
+    .v-btn.bg-success:hover {
+      border-color: rgba(var(--v-theme-success), 76%) !important;
+      background-color: rgba(var(--v-theme-success), 92%) !important;
+    }
+
+    .v-btn.bg-info:hover {
+      border-color: rgba(var(--v-theme-info), 76%) !important;
+      background-color: rgba(var(--v-theme-info), 92%) !important;
+    }
+
+    .v-btn.bg-warning:hover {
+      border-color: rgba(var(--v-theme-warning), 78%) !important;
+      background-color: rgba(var(--v-theme-warning), 93%) !important;
+    }
+
+    .v-btn.bg-error:hover {
+      border-color: rgba(var(--v-theme-error), 76%) !important;
+      background-color: rgba(var(--v-theme-error), 92%) !important;
+    }
+  }
+
+  .app-confirm-dialog-actions .v-btn.v-btn--variant-tonal {
+    color: rgb(var(--v-theme-secondary)) !important;
+  }
+
   .layout-vertical-nav .nav-link > .router-link-exact-active {
+    color: rgb(var(--v-theme-on-primary, 255, 255, 255)) !important;
+  }
+
+  .footer-nav-card .footer-nav-btn.footer-nav-btn-active {
+    background: rgba(var(--v-theme-primary), 14%) !important;
+  }
+
+  // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景。
+  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat) {
     color: rgb(var(--v-theme-on-surface)) !important;
   }
 

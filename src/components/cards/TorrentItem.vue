@@ -15,6 +15,7 @@ import {
   type TorrentPromotionKind,
 } from '@/utils/torrent'
 import MusicMatchBadge from '@/components/misc/MusicMatchBadge.vue'
+import { useDisplay } from 'vuetify'
 
 const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
 
@@ -23,6 +24,8 @@ const props = defineProps({
   torrent: Object as PropType<Context>,
   targetMusicType: String,
 })
+const display = useDisplay()
+const isDesktopLayout = computed(() => display.mdAndUp.value)
 const globalSettingsStore = useGlobalSettingsStore()
 
 // 种子信息
@@ -118,8 +121,12 @@ watch(
   <div class="torrent-item-hover-area w-100">
     <VListItem
       :value="props.torrent?.torrent_info?.enclosure"
-      class="app-hover-lift-card pa-3 mb-2 rounded torrent-item overflow-hidden"
-      :class="{ 'border-start border-success border-3 opacity-85': isDownloaded }"
+      class="pa-3 torrent-item overflow-hidden"
+      :class="{
+        'app-hover-lift-card mb-2 rounded': !isDesktopLayout,
+        'torrent-item--desktop no-blur': isDesktopLayout,
+        'border-start border-success border-3 opacity-85': isDownloaded,
+      }"
       @click="handleAddDownload"
     >
       <!-- 优惠标签 -->
@@ -229,7 +236,7 @@ watch(
 
       <template v-slot:append>
         <div class="torrent-item-actions d-flex flex-row flex-sm-column align-center align-sm-end gap-2">
-          <div class="d-flex align-center gap-3">
+          <div class="d-flex align-center gap-3 num">
             <span v-if="torrent?.seeders" class="d-flex align-center font-weight-bold">
               <VIcon size="small" color="success" icon="mdi-arrow-up" class="mr-1"></VIcon>
               {{ torrent?.seeders }}
@@ -297,9 +304,38 @@ watch(
   border: var(--app-card-light-border);
 }
 
-.torrent-item-hover-area:hover .torrent-item {
+.torrent-item-hover-area:hover .torrent-item:not(.torrent-item--desktop) {
   border-color: rgba(var(--v-theme-primary), 0.3);
   transform: translate3d(0, -0.25rem, 0);
+}
+
+.torrent-item--desktop {
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  padding-inline: 16px !important;
+  transition: background-color 150ms ease;
+}
+
+.torrent-item--desktop :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+
+.torrent-item--desktop:not(.border-success) {
+  border: 0;
+}
+
+.torrent-item--desktop.border-success {
+  border-block: 0;
+  border-inline-end: 0;
+}
+
+.torrent-item-hover-area:hover .torrent-item--desktop {
+  background-color: var(--mp-list-row-hover) !important;
+  box-shadow: none !important;
+  transform: none;
 }
 
 .chip-season {

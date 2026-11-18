@@ -329,7 +329,12 @@ onMounted(() => {
         class="site-resource-controls px-3 pt-3 pb-2"
         :class="{ 'site-resource-controls--collapsed': isMobileSearchCollapsed && isMobileLayout }"
       >
-        <VSheet v-if="!isMobileSearchCollapsed || !isMobileLayout" class="site-resource-filter-panel" elevation="0">
+        <VSheet
+          v-if="!isMobileSearchCollapsed || !isMobileLayout"
+          class="site-resource-filter-panel"
+          :class="{ 'no-blur': !isMobileLayout }"
+          elevation="0"
+        >
           <VRow class="site-resource-filter-row">
             <VCol cols="12" md="5" class="site-resource-filter-cell">
               <VTextField
@@ -449,125 +454,135 @@ onMounted(() => {
           @scroll.passive="handleResourceScroll"
         >
           <div class="site-resource-list px-3 pb-4">
-            <ProgressiveCardGrid
-              :items="sortedResourceList"
-              :columns="1"
-              :gap="12"
-              :estimated-item-height="estimatedResourceItemHeight"
-              :overscan-rows="6"
-              virtualize-in-overlay
-              :get-item-key="getResourceItemKey"
+            <div
+              class="site-resource-list__surface"
+              :class="{ 'site-resource-list__surface--desktop': !isMobileLayout }"
             >
-              <template #default="{ item }">
-                <VCard
-                  v-native-card-menu="nativeResourceMenu(item)"
-                  class="site-resource-item"
-                  variant="flat"
-                  @click="addDownload(item)"
-                >
-                  <VCardText class="site-resource-item__body pa-3">
-                    <div class="site-resource-item__layout">
-                      <div class="site-resource-item__main">
-                        <div class="site-resource-title-content">
-                          <div class="site-resource-item__title text-body-1 font-weight-medium">
-                            {{ item.title || '-' }}
+              <ProgressiveCardGrid
+                :items="sortedResourceList"
+                :columns="1"
+                :gap="isMobileLayout ? 12 : 0"
+                :estimated-item-height="estimatedResourceItemHeight"
+                :overscan-rows="6"
+                virtualize-in-overlay
+                :get-item-key="getResourceItemKey"
+              >
+                <template #default="{ item }">
+                  <VCard
+                    v-native-card-menu="nativeResourceMenu(item)"
+                    class="site-resource-item"
+                    :class="{
+                      'site-resource-item--desktop no-blur': !isMobileLayout,
+                      'site-resource-item--divided':
+                        !isMobileLayout && item !== sortedResourceList[sortedResourceList.length - 1],
+                    }"
+                    variant="flat"
+                    @click="addDownload(item)"
+                  >
+                    <VCardText class="site-resource-item__body pa-3">
+                      <div class="site-resource-item__layout">
+                        <div class="site-resource-item__main">
+                          <div class="site-resource-title-content">
+                            <div class="site-resource-item__title text-body-1 font-weight-medium">
+                              {{ item.title || '-' }}
+                            </div>
+                            <div
+                              v-if="item.description"
+                              class="site-resource-item__description mt-1 text-body-2 text-medium-emphasis"
+                            >
+                              {{ item.description }}
+                            </div>
                           </div>
+
                           <div
-                            v-if="item.description"
-                            class="site-resource-item__description mt-1 text-body-2 text-medium-emphasis"
+                            class="site-resource-item__chips mt-2"
+                            :aria-label="
+                              [t('dialog.siteResource.resourceCategory'), t('dialog.siteResource.tags')].join(' · ')
+                            "
                           >
-                            {{ item.description }}
+                            <VChip
+                              v-if="getTorrentPromotionKind(item)"
+                              :color="getVolumeFactorColor(item)"
+                              variant="tonal"
+                              size="small"
+                            >
+                              {{ item.volume_factor }}
+                            </VChip>
+                            <VChip v-if="item.hit_and_run" color="error" variant="tonal" size="small"> H&amp;R </VChip>
+                            <VChip v-if="item.freedate_diff" color="secondary" variant="tonal" size="small">
+                              {{ item.freedate_diff }}
+                            </VChip>
+                            <VChip v-if="item.category" color="primary" variant="tonal" size="small">
+                              {{ t('dialog.siteResource.resourceCategory') }}：{{ item.category }}
+                            </VChip>
+                            <VChip v-for="label in item.labels" :key="label" color="info" variant="tonal" size="small">
+                              {{ label }}
+                            </VChip>
                           </div>
                         </div>
 
-                        <div
-                          class="site-resource-item__chips mt-2"
-                          :aria-label="
-                            [t('dialog.siteResource.resourceCategory'), t('dialog.siteResource.tags')].join(' · ')
-                          "
-                        >
-                          <VChip
-                            v-if="getTorrentPromotionKind(item)"
-                            :color="getVolumeFactorColor(item)"
-                            variant="tonal"
-                            size="small"
-                          >
-                            {{ item.volume_factor }}
-                          </VChip>
-                          <VChip v-if="item.hit_and_run" color="error" variant="tonal" size="small"> H&amp;R </VChip>
-                          <VChip v-if="item.freedate_diff" color="secondary" variant="tonal" size="small">
-                            {{ item.freedate_diff }}
-                          </VChip>
-                          <VChip v-if="item.category" color="primary" variant="tonal" size="small">
-                            {{ t('dialog.siteResource.resourceCategory') }}：{{ item.category }}
-                          </VChip>
-                          <VChip v-for="label in item.labels" :key="label" color="info" variant="tonal" size="small">
-                            {{ label }}
-                          </VChip>
+                        <div class="site-resource-more-menu" @click.stop>
+                          <VMenu location="bottom end" :close-on-content-click="true">
+                            <template #activator="{ props: menuProps }">
+                              <VBtn
+                                v-bind="menuProps"
+                                data-native-card-menu-trigger
+                                icon
+                                variant="text"
+                                size="small"
+                                class="site-resource-more-btn"
+                                :aria-label="t('dialog.siteResource.more')"
+                              >
+                                <VIcon icon="mdi-dots-vertical" />
+                              </VBtn>
+                            </template>
+                            <VList density="compact" class="site-resource-menu">
+                              <VListItem :disabled="!item.page_url" @click="openTorrentDetail(item.page_url || '')">
+                                <template #prepend>
+                                  <VIcon icon="mdi-open-in-new" />
+                                </template>
+                                <VListItemTitle>{{ t('dialog.siteResource.viewDetails') }}</VListItemTitle>
+                              </VListItem>
+                              <VListItem
+                                v-if="item.enclosure?.startsWith('http')"
+                                @click="downloadTorrentFile(item.enclosure)"
+                              >
+                                <template #prepend>
+                                  <VIcon icon="mdi-download-outline" />
+                                </template>
+                                <VListItemTitle>{{ t('dialog.siteResource.downloadTorrent') }}</VListItemTitle>
+                              </VListItem>
+                            </VList>
+                          </VMenu>
                         </div>
-                      </div>
 
-                      <div class="site-resource-more-menu" @click.stop>
-                        <VMenu location="bottom end" :close-on-content-click="true">
-                          <template #activator="{ props: menuProps }">
-                            <VBtn
-                              v-bind="menuProps"
-                              data-native-card-menu-trigger
-                              icon
-                              variant="text"
-                              size="small"
-                              class="site-resource-more-btn"
-                              :aria-label="t('dialog.siteResource.more')"
-                            >
-                              <VIcon icon="mdi-dots-vertical" />
-                            </VBtn>
-                          </template>
-                          <VList density="compact" class="site-resource-menu">
-                            <VListItem :disabled="!item.page_url" @click="openTorrentDetail(item.page_url || '')">
-                              <template #prepend>
-                                <VIcon icon="mdi-open-in-new" />
-                              </template>
-                              <VListItemTitle>{{ t('dialog.siteResource.viewDetails') }}</VListItemTitle>
-                            </VListItem>
-                            <VListItem
-                              v-if="item.enclosure?.startsWith('http')"
-                              @click="downloadTorrentFile(item.enclosure)"
-                            >
-                              <template #prepend>
-                                <VIcon icon="mdi-download-outline" />
-                              </template>
-                              <VListItemTitle>{{ t('dialog.siteResource.downloadTorrent') }}</VListItemTitle>
-                            </VListItem>
-                          </VList>
-                        </VMenu>
-                      </div>
-
-                      <div class="site-resource-item__metrics">
-                        <div class="site-resource-metric site-resource-metric--time">
-                          <VIcon icon="mdi-clock-outline" size="18" />
-                          <span class="site-resource-metric__copy">
-                            <span class="site-resource-metric__value">{{ item.date_elapsed || '-' }}</span>
-                            <span v-if="item.pubdate" class="site-resource-metric__caption">{{ item.pubdate }}</span>
-                          </span>
-                        </div>
-                        <div class="site-resource-metric">
-                          <VIcon icon="mdi-harddisk" size="18" />
-                          <span class="site-resource-metric__value">{{ formatFileSize(item.size) }}</span>
-                        </div>
-                        <div class="site-resource-metric site-resource-metric--success">
-                          <VIcon icon="mdi-account-group-outline" size="18" />
-                          <span class="site-resource-metric__value">{{ item.seeders }}</span>
-                        </div>
-                        <div class="site-resource-metric site-resource-metric--info">
-                          <VIcon icon="mdi-download-outline" size="18" />
-                          <span class="site-resource-metric__value">{{ item.peers }}</span>
+                        <div class="site-resource-item__metrics num">
+                          <div class="site-resource-metric site-resource-metric--time">
+                            <VIcon icon="mdi-clock-outline" size="18" />
+                            <span class="site-resource-metric__copy">
+                              <span class="site-resource-metric__value">{{ item.date_elapsed || '-' }}</span>
+                              <span v-if="item.pubdate" class="site-resource-metric__caption">{{ item.pubdate }}</span>
+                            </span>
+                          </div>
+                          <div class="site-resource-metric">
+                            <VIcon icon="mdi-harddisk" size="18" />
+                            <span class="site-resource-metric__value">{{ formatFileSize(item.size) }}</span>
+                          </div>
+                          <div class="site-resource-metric site-resource-metric--success">
+                            <VIcon icon="mdi-account-group-outline" size="18" />
+                            <span class="site-resource-metric__value">{{ item.seeders }}</span>
+                          </div>
+                          <div class="site-resource-metric site-resource-metric--info">
+                            <VIcon icon="mdi-download-outline" size="18" />
+                            <span class="site-resource-metric__value">{{ item.peers }}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </VCardText>
-                </VCard>
-              </template>
-            </ProgressiveCardGrid>
+                    </VCardText>
+                  </VCard>
+                </template>
+              </ProgressiveCardGrid>
+            </div>
 
             <div v-if="resourceLoadingMore" data-testid="resource-load-more" class="site-resource-load-state">
               <VProgressLinear color="primary" indeterminate rounded />
@@ -733,16 +748,14 @@ onMounted(() => {
   border-radius: var(--app-grouped-list-radius);
   background: var(--app-grouped-list-background);
   backdrop-filter: var(--app-grouped-list-backdrop-filter);
-  box-shadow: var(--app-surface-shadow);
-  transition:
-    background-color var(--mp-motion-duration-page) var(--mp-motion-ease-standard),
-    box-shadow var(--mp-motion-duration-page) var(--mp-motion-ease-standard);
+  box-shadow: none !important;
+  transition: background-color var(--mp-motion-duration-page) var(--mp-motion-ease-standard);
   cursor: pointer;
 }
 
 .site-resource-item:hover {
   background: var(--app-grouped-list-hover-background);
-  box-shadow: var(--app-surface-hover-shadow);
+  box-shadow: none !important;
 }
 
 .site-resource-item__layout {
@@ -885,12 +898,52 @@ onMounted(() => {
     block-size: min(88vh, 960px);
   }
 
+  .site-resource-filter-panel {
+    border: 1px solid var(--mp-list-row-divider) !important;
+    border-radius: var(--app-field-radius);
+    backdrop-filter: none !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  .site-resource-list__surface--desktop {
+    overflow: hidden;
+    border: 1px solid var(--mp-list-row-divider);
+    border-radius: var(--app-field-radius);
+    background: transparent;
+  }
+
+  .site-resource-dialog .site-resource-item--desktop.v-card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  .site-resource-dialog .site-resource-item--desktop.site-resource-item--divided.v-card {
+    border-block-end: 1px solid var(--mp-list-row-divider) !important;
+  }
+
+  .site-resource-dialog .site-resource-item--desktop.v-card:hover {
+    border-color: transparent !important;
+    background: var(--mp-list-row-hover) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  .site-resource-dialog .site-resource-item--desktop.site-resource-item--divided.v-card:hover {
+    border-block-end-color: var(--mp-list-row-divider) !important;
+  }
+
   .site-resource-item__metrics {
     align-self: stretch;
     grid-column: 3;
     margin-block-start: 0;
     border-block-start: 0;
-    border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+    border-inline-start: 1px solid var(--mp-list-row-divider);
   }
 
   .site-resource-item__layout {
@@ -917,7 +970,7 @@ onMounted(() => {
   }
 
   .site-resource-metric + .site-resource-metric {
-    border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+    border-inline-start: 1px solid var(--mp-list-row-divider);
   }
 }
 

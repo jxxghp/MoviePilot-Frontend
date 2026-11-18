@@ -2304,6 +2304,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
     v-if="isDesktop"
     ref="desktopHistoryRef"
     class="transfer-history-desktop-page"
+    data-glass-optical-mode="static-material"
     :style="{ blockSize: `${desktopPageHeight}px` }"
   >
     <header ref="desktopToolbarRef" class="transfer-history-desktop-toolbar">
@@ -2493,6 +2494,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
       height="100%"
       :item-height="100"
       class="transfer-history-desktop-virtual"
+      data-glass-optical-surface
       :aria-label="t('transferHistory.desktop.title')"
     >
       <template v-slot:group-header="{ item, columns, toggleGroup, isGroupOpen }">
@@ -3197,32 +3199,17 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .transfer-history-desktop-search .v-field__prepend-inner {
   color: rgba(var(--v-theme-on-surface), 0.45);
 }
-// 自定义桌面卡片复用全局表面与阴影 token；主题只替换材质，不改变布局。
-.transfer-history-desktop-page {
-  --history-desktop-surface: var(--app-grouped-list-background);
-  --history-desktop-border: var(--app-surface-border);
-  --history-desktop-backdrop-filter: var(--app-grouped-list-backdrop-filter);
-}
-.transfer-history-desktop-selection,
-.transfer-history-desktop-record,
-.transfer-history-desktop-group-summary,
-.transfer-history-desktop-page .transfer-history-album-summary {
-  border: var(--history-desktop-border);
-  border-radius: var(--app-surface-radius);
-  background: var(--history-desktop-surface);
-  box-shadow: var(--history-desktop-shadow, var(--app-card-rest-shadow));
-  backdrop-filter: var(--history-desktop-backdrop-filter);
-  -webkit-backdrop-filter: var(--history-desktop-backdrop-filter);
-}
-.transfer-history-desktop-record:hover,
-.transfer-history-desktop-group-summary:hover,
-.transfer-history-desktop-page .transfer-history-album-summary:hover {
-  box-shadow: var(--history-desktop-shadow-hover, var(--app-card-hover-shadow));
-}
+// 桌面端整理历史由外层表格容器承接整体大玻璃卡片，内部记录行仅使用透明细分割线与轻量悬停。
 .transfer-history-desktop-selection {
   flex-wrap: wrap;
   padding: 8px 16px;
-  min-block-size: 58px;
+  min-block-size: 54px;
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-field-radius);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-card-rest-shadow);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
 }
 .transfer-history-desktop-selection > .v-input {
   flex: 0 0 auto;
@@ -3242,27 +3229,60 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
   font-size: 0.85rem;
 }
 
-/* 虚拟表格仅提供排序、分组和测高；一行一个跨列卡片，取消表头与表格边框。 */
+/* 虚拟表格承载单一整体大玻璃/平面容器材质；内部记录行透明平铺，不再逐行叠加玻璃效果。 */
 .transfer-history-desktop-virtual.v-table {
   flex: 1 1 0;
   min-block-size: 0;
-  background: transparent;
+  overflow: hidden;
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-card-rest-shadow);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
+}
+html[data-theme='glass'] .transfer-history-desktop-page {
+  .transfer-history-desktop-selection,
+  .transfer-history-desktop-virtual.v-table {
+    border: 1px solid var(--glass-border) !important;
+    background: var(--glass-v3-card-background) !important;
+    box-shadow: var(--glass-v3-surface-edge, inset 0 1px 0 var(--glass-highlight)), var(--glass-v3-shadow) !important;
+    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+  }
 }
 .transfer-history-desktop-virtual > .v-table__wrapper {
-  padding-inline: 1px;
+  padding-inline: 0;
   // 队列悬浮按钮压在列表右下角，末尾留白让最后一条记录能滚到按钮上方。
   padding-block-end: var(--app-fab-clearance);
-  // 滚动裁切边与卡片同圆角，滚出视口的卡片不再被直角切断；圆角裁切不影响子级玻璃采样。
-  border-radius: var(--app-surface-radius);
+  border-radius: inherit;
 }
 .transfer-history-desktop-virtual table {
   table-layout: fixed;
 }
 .transfer-history-desktop-virtual .transfer-history-desktop-record-row > td,
 .transfer-history-desktop-virtual .transfer-history-desktop-group-row > td {
-  padding: 0 0 8px !important;
+  padding: 0 !important;
   border: 0 !important;
   block-size: auto !important;
+  background: transparent !important;
+}
+.transfer-history-desktop-virtual > .v-table__wrapper > table > tbody > tr:hover > td {
+  background: transparent !important;
+}
+.transfer-history-desktop-record,
+.transfer-history-desktop-group-summary,
+.transfer-history-desktop-page .transfer-history-album-summary {
+  border: 0;
+  border-block-end: 1px solid var(--mp-list-row-divider);
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.transfer-history-desktop-group-summary,
+.transfer-history-desktop-page .transfer-history-album-summary {
+  background: var(--mp-list-group-bg);
 }
 .transfer-history-desktop-record {
   display: grid;
@@ -3270,56 +3290,26 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
   grid-template-columns: 36px minmax(9.5rem, 12.5rem) minmax(0, 1fr) minmax(12rem, 14rem);
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 10px 16px;
+  background: transparent;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+    background-color 150ms ease,
+    box-shadow 150ms ease;
 }
-// 子项卡片缩进一级，保留右侧对齐和虚拟列表原有的测高方式。
+// 子项记录缩进一级，保持整行悬停底色与底部分割线连续。
 .transfer-history-desktop-record--child {
-  margin-inline-start: 24px;
+  padding-inline-start: 40px;
 }
-.transfer-history-desktop-record:hover {
-  border-color: rgba(var(--v-theme-primary), 0.35);
+.transfer-history-desktop-record:hover,
+.transfer-history-desktop-group-summary:hover,
+.transfer-history-desktop-page .transfer-history-album-summary:hover {
+  background: var(--mp-list-row-hover);
+  box-shadow: none;
 }
-.transfer-history-desktop-record--selected {
-  border: 1px solid rgba(var(--v-theme-primary), 0.55);
-  background:
-    linear-gradient(var(--app-grouped-list-active-background), var(--app-grouped-list-active-background)),
-    var(--history-desktop-surface);
-}
-// 虚拟表格只承载滚动；玻璃材质由可见卡片采样，避免外层与深色底叠加。
-html[data-theme='glass'] .transfer-history-desktop-page {
-  --history-desktop-surface: var(--glass-v3-card-background);
-  --history-desktop-border: 1px solid var(--glass-border);
-  --history-desktop-backdrop-filter: var(--glass-native-surface-backdrop-filter);
-  // 密集列表行只保留玻璃边缘高光，外投影会渗进卡片间距，叠成一层发灰的列表背景。
-  --history-desktop-shadow: var(--glass-dashboard-shadow);
-  --history-desktop-shadow-hover: var(--glass-dashboard-shadow-hover);
-  .transfer-history-desktop-virtual.v-table {
-    background: transparent !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  .transfer-history-desktop-record:hover {
-    border-color: var(--glass-border-hover);
-  }
-
-  // 保留选择状态的主色提示，同时透出同一套玻璃材料。
-  .transfer-history-desktop-record--selected,
-  .transfer-history-desktop-record--selected:hover {
-    border-color: rgba(var(--v-theme-primary), 0.55);
-    background:
-      linear-gradient(var(--app-grouped-list-active-background), var(--app-grouped-list-active-background)),
-      var(--history-desktop-surface);
-  }
-
-  .transfer-history-desktop-virtual > .v-table__wrapper > table > tbody > tr:hover > td {
-    background: transparent;
-  }
+.transfer-history-desktop-record--selected,
+.transfer-history-desktop-record--selected:hover {
+  background: rgba(var(--v-theme-primary), 0.1);
+  box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
 }
 .transfer-history-desktop-record .v-selection-control {
   min-block-size: 36px;

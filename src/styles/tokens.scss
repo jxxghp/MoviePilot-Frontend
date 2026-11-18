@@ -60,11 +60,15 @@ html {
   --mp-card-dock-border: var(--mp-border-subtle);
   --radius: var(--app-theme-surface-radius);
   --mp-bottom-clearance: var(--app-fab-clearance);
+
+  // 桌面端长列表行级令牌：外层保留整体容器表面，内部列表项仅用细分割线与轻量悬停反馈
+  --mp-list-group-bg: rgba(24, 24, 27, 0.028);
+  --mp-list-row-divider: rgba(24, 24, 27, 0.075);
+  --mp-list-row-hover: rgba(24, 24, 27, 0.035);
 }
 
-// 深色配色切换表面明度阶梯、细线对比度与柔和胶囊透明度
-html[data-glass-color-scheme='dark'],
-html[data-theme='glass']:not([data-glass-color-scheme='light']) {
+// 深色配色切换表面明度阶梯、细线对比度与柔和胶囊透明度；使用 :where 保持零属性权重，避免压过下方玻璃材质覆盖
+html:where([data-glass-color-scheme='dark'], [data-theme='glass']:not([data-glass-color-scheme='light'])) {
   --mp-bg-rgb: 11, 19, 34;
   --mp-surface-rgb: 24, 34, 53;
   --mp-popover-rgb: 32, 44, 66;
@@ -80,20 +84,29 @@ html[data-theme='glass']:not([data-glass-color-scheme='light']) {
   --mp-border: rgba(255, 255, 255, 0.08);
   --mp-border-subtle: rgba(255, 255, 255, 0.05);
   --mp-input: rgba(255, 255, 255, 0.14);
+  --mp-list-group-bg: rgba(255, 255, 255, 0.03);
+  --mp-list-row-divider: rgba(255, 255, 255, 0.075);
+  --mp-list-row-hover: rgba(255, 255, 255, 0.04);
 }
 
-// 玻璃材质透出底层壁纸，卡片与弹层改走共享玻璃透射表面，次级底座保持静态吸光
+// 玻璃材质透出底层壁纸，次级子面板采用半透明吸收层而非实色底，长列表内部行保持透明与轻量交互
 html[data-theme='glass'] {
   --mp-bg: transparent;
   --mp-surface: var(--glass-surface);
   --mp-card: var(--glass-surface);
-  --mp-muted: rgba(15, 19, 26, 0.18);
+  --mp-muted: rgba(255, 255, 255, 0.055);
   --mp-popover: var(--glass-popup-surface, var(--glass-overlay-surface));
   --mp-border: var(--glass-border);
+  --mp-list-group-bg: rgba(255, 255, 255, 0.04);
+  --mp-list-row-divider: rgba(255, 255, 255, 0.09);
+  --mp-list-row-hover: rgba(255, 255, 255, 0.055);
 }
 
 html[data-theme='glass'][data-glass-color-scheme='light'] {
   --mp-muted: rgba(24, 24, 27, 0.045);
+  --mp-list-group-bg: rgba(15, 23, 42, 0.03);
+  --mp-list-row-divider: rgba(15, 23, 42, 0.08);
+  --mp-list-row-hover: rgba(15, 23, 42, 0.04);
 }
 
 // 在 Vuetify 实际挂载主题变量的节点重新求值依赖动态主色与强调度的语义令牌
