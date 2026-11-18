@@ -13,7 +13,6 @@ import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
 import TransferHistoryMaintenancePanel from '@/components/system/TransferHistoryMaintenancePanel.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
-import { filterAvailableServiceOptions } from '@/api/constants'
 import { useDisplay } from 'vuetify'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
@@ -292,13 +291,9 @@ const { moduleOptions, loadModuleCatalog, refreshModuleCatalog } = useModuleCata
 const downloaderCatalogOptions = moduleOptions('downloader')
 const mediaServerCatalogOptions = moduleOptions('mediaserver')
 
-// 已有服务全部关闭时隐藏新增菜单中的同类型，保留配置卡片上的开关作为重新启用入口。
-const availableDownloaderOptions = computed(() =>
-  filterAvailableServiceOptions(downloaderCatalogOptions.value, downloaders.value),
-)
-const availableMediaServerOptions = computed(() =>
-  filterAvailableServiceOptions(mediaServerCatalogOptions.value, mediaServers.value),
-)
+// 服务目录中的类型可创建多个配置，已有卡片的启用状态不影响新增入口。
+const availableDownloaderOptions = downloaderCatalogOptions
+const availableMediaServerOptions = mediaServerCatalogOptions
 
 // 提示框
 const $toast = useToast()

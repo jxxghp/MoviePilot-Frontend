@@ -284,10 +284,15 @@ describe('AccountSettingNotification', () => {
     await user.click(await screen.findByText('Telegram', { selector: '.v-list-item-title' }))
     expect(screen.getByText('通知1 / telegram')).toBeInTheDocument()
 
+    await user.click(channelCard.getAllByRole('button').at(-1)!)
+    await user.click(await screen.findByText('Telegram', { selector: '.v-list-item-title' }))
+    expect(screen.getByText('通知2 / telegram')).toBeInTheDocument()
+
     await user.click(channelCard.getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(mocks.apiPost).toHaveBeenCalledWith('notification/config', [
         expect.objectContaining({ id: expect.any(String), name: '通知1', type: 'telegram' }),
+        expect.objectContaining({ id: expect.any(String), name: '通知2', type: 'telegram' }),
       ]),
     )
   })
