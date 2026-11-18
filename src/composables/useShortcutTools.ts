@@ -106,7 +106,8 @@ export function useShortcutTools() {
       subtitle: t('shortcut.scheduler.subtitle'),
       icon: SCHEDULER_SHORTCUT_ICON,
       dialog: 'scheduler',
-      bodyClass: 'scheduler-shortcut-dialog-body pa-0',
+      // 表格紧贴标题分隔线，由弹窗外壳保留顶部圆角。
+      bodyClass: 'scheduler-shortcut-dialog-body pa-0 app-table-flush-top',
       cardClass: 'scheduler-shortcut-dialog-card',
       component: AccountSettingService,
       maxWidth: '60rem',

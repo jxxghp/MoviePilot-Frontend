@@ -1471,6 +1471,14 @@ html .v-table {
   border-radius: var(--app-surface-radius);
 }
 
+// 紧接标题的贴边表格由外层卡片负责顶部轮廓，避免内层顶角在标题分隔线处形成缺口。
+html .v-card > :is(.v-card-item, .v-card-title, .v-card-subtitle, .v-toolbar, .v-divider) + .v-table,
+html .app-table-flush-top > :is(.v-card, .v-table),
+html .app-table-flush-top > .v-card > .v-table {
+  border-start-start-radius: 0 !important;
+  border-start-end-radius: 0 !important;
+}
+
 .v-divider {
   border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));
   opacity: 0.75;
