@@ -140,7 +140,8 @@ describe('SiteCard interactions', () => {
   })
 
   it.each([
-    ['success', 200, { success: true }, 'success'],
+    ['web success', 200, { message: '网页可访问（未验证用户认证接口）', success: true }, 'success'],
+    ['API success', 200, { message: '连接成功', success: true }, 'success'],
     ['business failure', 200, { message: '认证失败', success: false }, 'error'],
   ] as const)(
     'reports connectivity %s and refreshes the current domain',
@@ -154,6 +155,8 @@ describe('SiteCard interactions', () => {
       await waitFor(() => expect(requested).toHaveBeenCalledOnce())
       const toast = toastType === 'success' ? mocks.toastSuccess : mocks.toastError
       await waitFor(() => expect(toast).toHaveBeenCalledOnce())
+      expect(toast).toHaveBeenCalledWith(response.message)
+      expect(mocks.toastSuccess).not.toHaveBeenCalledWith(expect.stringContaining('可正常使用'))
       expect(emitted('refresh-stats')).toEqual([[site.domain]])
       expect(getTestButton(container)).not.toBeDisabled()
     },
