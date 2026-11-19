@@ -3,6 +3,18 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 describe('horizontal navigation alignment', () => {
+  it('lets the horizontal search shrink before fixed navbar actions', () => {
+    const layout = readFileSync(resolve('src/layouts/default/components/DefaultLayout.vue'), 'utf8')
+    const horizontalActions = layout.slice(
+      layout.indexOf('.theme-navbar-actions--horizontal {'),
+      layout.indexOf('\n}\n\n.theme-horizontal-nav {', layout.indexOf('.theme-navbar-actions--horizontal {')),
+    )
+
+    expect(horizontalActions).toContain('min-inline-size: 0')
+    expect(horizontalActions).toContain('flex: 0 1 clamp(12rem, 20vw, 17.5rem)')
+    expect(horizontalActions).toContain('min-inline-size: 8rem')
+  })
+
   it('keeps the horizontal navbar full width while page content remains boxed', () => {
     const layout = readFileSync(resolve('src/@layouts/components/VerticalNavLayout.vue'), 'utf8')
     const horizontalLayout = layout.slice(
