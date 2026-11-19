@@ -192,19 +192,6 @@ function getEpisodeStatusColor(status: EpisodeStatus) {
 }
 
 /**
- * 返回集状态对应的图标。
- */
-function getEpisodeStatusIcon(status: EpisodeStatus) {
-  const iconMap: Record<EpisodeStatus, string> = {
-    library: 'mdi-check-circle-outline',
-    download: 'mdi-download-circle-outline',
-    missing: 'mdi-clock-outline',
-  }
-
-  return iconMap[status]
-}
-
-/**
  * 返回订阅状态对应的本地化展示文案。
  */
 function getSubscribeStateText(state?: string) {
@@ -407,13 +394,15 @@ onBeforeMount(() => {
 
 <template>
   <VDialog
+    class="subscribe-files-dialog-root"
+    content-class="subscribe-files-dialog-content"
     scrollable
     :aria-label="t('subscribe.fileStatistics')"
-    max-width="74rem"
-    :height="display.mdAndUp.value ? '90vh' : undefined"
+    max-width="76rem"
+    :height="display.mdAndUp.value ? 'min(88dvh, 56rem)' : undefined"
     :fullscreen="!display.mdAndUp.value"
   >
-    <VCard class="subscribe-files-dialog no-blur" :class="{ 'subscribe-files-dialog--native': nativeChromeActive }">
+    <VCard class="subscribe-files-dialog" :class="{ 'subscribe-files-dialog--native': nativeChromeActive }">
       <VBtn
         data-native-dialog-close
         class="subscribe-files-dialog__close"
@@ -428,44 +417,44 @@ onBeforeMount(() => {
 
       <div v-else class="subscribe-files-dialog__body">
         <div v-if="loadError" class="subscribe-files-empty subscribe-files-empty--standalone">
-          <VIcon icon="mdi-folder-alert-outline" size="40" />
-          <div>{{ t('error.serverError') }}</div>
-          <VBtn color="primary" prepend-icon="mdi-refresh" @click="loadSubscribeFilesInfo">
+          <VIcon icon="mdi-folder-alert-outline" size="36" />
+          <strong>{{ t('error.serverError') }}</strong>
+          <VBtn color="primary" variant="tonal" size="small" prepend-icon="mdi-refresh" @click="loadSubscribeFilesInfo">
             {{ t('common.retry') }}
           </VBtn>
         </div>
 
         <div v-else-if="subScribeInfo?.subscribe" class="subscribe-files-shell">
           <section class="subscribe-files-hero" :style="heroStyle">
-            <div class="subscribe-files-hero__shade" />
+            <div v-if="heroBackdropUrl" class="subscribe-files-hero__backdrop" />
             <div class="subscribe-files-hero__content">
               <div class="subscribe-files-poster-card">
-                <VImg :src="posterUrl" cover class="subscribe-files-poster-card__image">
+                <VImg v-if="posterUrl" :src="posterUrl" cover class="subscribe-files-poster-card__image">
                   <template #placeholder>
                     <VSkeletonLoader class="w-100 h-100" />
                   </template>
                 </VImg>
-                <div class="subscribe-files-poster-card__caption">
-                  <span>{{ subscribe?.name }}</span>
+                <div v-else class="subscribe-files-poster-card__empty">
+                  <VIcon icon="mdi-movie-open-outline" size="28" />
                 </div>
               </div>
 
               <div class="subscribe-files-hero__meta">
                 <div class="subscribe-files-hero__eyebrow">
-                  <VIcon icon="mdi-folder-play-outline" size="18" />
+                  <VIcon icon="mdi-folder-play-outline" size="15" />
                   <span>{{ t('dialog.subscribeFiles.title') }}</span>
                 </div>
                 <h2 class="subscribe-files-hero__title">{{ subscribe?.name }}</h2>
-                <div class="subscribe-files-hero__chips">
-                  <VChip v-if="subscribe?.season != null" color="primary" variant="flat" size="small">
+                <div class="subscribe-files-hero__chips num">
+                  <VChip v-if="subscribe?.season != null" color="primary" variant="tonal" size="small">
                     {{ t('dialog.subscribeFiles.season', { number: subscribe.season }) }}
                   </VChip>
                   <VChip v-if="subscribe?.year" variant="tonal" size="small">{{ subscribe.year }}</VChip>
                   <VChip
                     :color="getSubscribeStateColor(subscribe?.state)"
-                    variant="flat"
+                    variant="tonal"
                     size="small"
-                    prepend-icon="mdi-check-circle"
+                    prepend-icon="mdi-check-circle-outline"
                   >
                     {{ getSubscribeStateText(subscribe?.state) }}
                   </VChip>
@@ -473,22 +462,26 @@ onBeforeMount(() => {
                 <p class="subscribe-files-hero__description">
                   {{ selectedEpisode?.description || subscribe?.description || t('dialog.subscribeFiles.noOverview') }}
                 </p>
-                <div class="subscribe-files-stats">
-                  <div v-for="item in statItems" :key="item.key" class="subscribe-files-stat-card">
-                    <div class="subscribe-files-stat-card__icon">
-                      <VIcon :icon="item.icon" :color="item.color" size="22" />
-                    </div>
-                    <div class="subscribe-files-stat-card__content">
-                      <div class="subscribe-files-stat-card__label">{{ item.label }}</div>
-                      <div class="subscribe-files-stat-card__value">{{ item.value }}/{{ item.total }}</div>
-                    </div>
-                    <VProgressLinear
-                      :model-value="calcPercent(item.value, item.total)"
-                      :color="item.color"
-                      height="3"
-                      rounded
-                    />
+              </div>
+
+              <div class="subscribe-files-stats">
+                <div v-for="item in statItems" :key="item.key" class="subscribe-files-stat-card">
+                  <div
+                    class="subscribe-files-stat-card__icon"
+                    :class="`subscribe-files-stat-card__icon--${item.color}`"
+                  >
+                    <VIcon :icon="item.icon" size="18" />
                   </div>
+                  <div class="subscribe-files-stat-card__content">
+                    <div class="subscribe-files-stat-card__label">{{ item.label }}</div>
+                    <div class="subscribe-files-stat-card__value num">{{ item.value }}/{{ item.total }}</div>
+                  </div>
+                  <VProgressLinear
+                    :model-value="calcPercent(item.value, item.total)"
+                    :color="item.color"
+                    height="4"
+                    rounded
+                  />
                 </div>
               </div>
             </div>
@@ -497,11 +490,11 @@ onBeforeMount(() => {
           <section class="subscribe-files-content">
             <aside v-if="display.mdAndUp.value" class="subscribe-files-episode-rail">
               <div class="subscribe-files-episode-rail__header">
-                <div>
+                <div class="subscribe-files-episode-rail__heading">
                   <span>{{ t('dialog.subscribeFiles.episodeList') }}</span>
-                  <strong>{{ t('dialog.subscribeFiles.episodeTotal', { count: totalCount }) }}</strong>
+                  <strong class="num">{{ t('dialog.subscribeFiles.episodeTotal', { count: totalCount }) }}</strong>
                 </div>
-                <VChip size="small" color="warning" variant="tonal">
+                <VChip size="x-small" color="warning" variant="tonal" class="num">
                   {{ t('dialog.subscribeFiles.missingCount', { count: missingCount }) }}
                 </VChip>
               </div>
@@ -517,46 +510,21 @@ onBeforeMount(() => {
                   type="button"
                   @click="selectEpisode(episode.episodeNumber)"
                 >
-                  <span class="subscribe-files-episode-item__label">{{ episode.episodeLabel }}</span>
+                  <span class="subscribe-files-episode-item__label num">{{ episode.episodeLabel }}</span>
                   <span class="subscribe-files-episode-item__title">{{ episode.title }}</span>
                   <VChip :color="getEpisodeStatusColor(episode.status)" variant="tonal" size="x-small">
                     {{ getEpisodeStatusText(episode.status) }}
                   </VChip>
-                  <VIcon
-                    class="subscribe-files-episode-item__icon"
-                    :icon="getEpisodeStatusIcon(episode.status)"
-                    :color="getEpisodeStatusColor(episode.status)"
-                    size="18"
-                  />
                 </button>
               </div>
             </aside>
 
             <main class="subscribe-files-main">
-              <div class="subscribe-files-tabs">
-                <VBtnToggle
-                  v-model="activeTab"
-                  mandatory
-                  divided
-                  class="subscribe-files-tab-group"
-                  selected-class="subscribe-files-tab-group__button--active"
-                >
-                  <VBtn value="download" class="subscribe-files-tab-group__button">
-                    <VIcon size="20" start icon="mdi-download" />
-                    {{ t('dialog.subscribeFiles.downloadTab') }}
-                  </VBtn>
-                  <VBtn value="library" class="subscribe-files-tab-group__button">
-                    <VIcon size="20" start icon="mdi-filmstrip-box-multiple" />
-                    {{ t('dialog.subscribeFiles.libraryTab') }}
-                  </VBtn>
-                </VBtnToggle>
-              </div>
-
-              <div v-if="display.mdAndUp.value" class="subscribe-files-detail">
-                <div class="subscribe-files-detail__header">
-                  <div>
+              <div class="subscribe-files-toolbar">
+                <div v-if="display.mdAndUp.value" class="subscribe-files-detail__header">
+                  <div class="subscribe-files-detail__heading">
                     <div class="subscribe-files-detail__title">
-                      <span>{{ selectedEpisode?.episodeLabel }}</span>
+                      <span class="num">{{ selectedEpisode?.episodeLabel }}</span>
                       <strong>{{ selectedEpisode?.title }}</strong>
                     </div>
                     <div class="subscribe-files-detail__subtitle">
@@ -573,6 +541,27 @@ onBeforeMount(() => {
                   </VChip>
                 </div>
 
+                <div class="subscribe-files-tabs">
+                  <VBtnToggle
+                    v-model="activeTab"
+                    mandatory
+                    density="compact"
+                    class="subscribe-files-tab-group"
+                    selected-class="subscribe-files-tab-group__button--active"
+                  >
+                    <VBtn value="download" variant="text" class="subscribe-files-tab-group__button">
+                      <VIcon size="17" start icon="mdi-download-outline" />
+                      {{ t('dialog.subscribeFiles.downloadTab') }}
+                    </VBtn>
+                    <VBtn value="library" variant="text" class="subscribe-files-tab-group__button">
+                      <VIcon size="17" start icon="mdi-filmstrip-box-multiple" />
+                      {{ t('dialog.subscribeFiles.libraryTab') }}
+                    </VBtn>
+                  </VBtnToggle>
+                </div>
+              </div>
+
+              <div v-if="display.mdAndUp.value" class="subscribe-files-detail">
                 <transition name="fade-slide" mode="out-in">
                   <div :key="activeTab" class="subscribe-files-file-list">
                     <template v-if="selectedFiles.length">
@@ -581,21 +570,29 @@ onBeforeMount(() => {
                         :key="resolveFileKey(activeTab, file, index)"
                         class="subscribe-files-file-card"
                       >
-                        <div class="subscribe-files-file-card__media">
+                        <div
+                          class="subscribe-files-file-card__media"
+                          :class="`subscribe-files-file-card__media--${activeTab === 'download' ? 'info' : 'success'}`"
+                        >
                           <VIcon
-                            :icon="activeTab === 'download' ? 'mdi-play' : 'mdi-server-network'"
-                            :color="activeTab === 'download' ? 'info' : 'success'"
-                            size="20"
+                            :icon="activeTab === 'download' ? 'mdi-cloud-download-outline' : 'mdi-server-network'"
+                            size="18"
                           />
                         </div>
                         <div class="subscribe-files-file-card__content">
                           <div class="subscribe-files-file-card__topline">
-                            <VChip v-if="resolveResolutionLabel(file)" color="primary" variant="tonal" size="x-small">
+                            <VChip
+                              v-if="resolveResolutionLabel(file)"
+                              color="primary"
+                              variant="tonal"
+                              size="x-small"
+                              class="num"
+                            >
                               {{ resolveResolutionLabel(file) }}
                             </VChip>
                             <VChip
                               v-if="activeTab === 'download' && (file as SubscribeDownloadFileInfo).site_name"
-                              color="primary"
+                              color="secondary"
                               variant="tonal"
                               size="x-small"
                             >
@@ -611,7 +608,11 @@ onBeforeMount(() => {
                             >
                               {{ resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo) }}
                             </VChip>
-                            <VChip :color="activeTab === 'download' ? 'info' : 'success'" variant="flat" size="x-small">
+                            <VChip
+                              :color="activeTab === 'download' ? 'info' : 'success'"
+                              variant="tonal"
+                              size="x-small"
+                            >
                               {{
                                 activeTab === 'download'
                                   ? t('dialog.subscribeFiles.statusDownloaded')
@@ -627,7 +628,14 @@ onBeforeMount(() => {
                                 : activeSectionTitle
                             }}
                           </h3>
-                          <div v-if="activeTab === 'download'" class="subscribe-files-file-card__meta">
+                          <div
+                            v-if="
+                              activeTab === 'download' &&
+                              ((file as SubscribeDownloadFileInfo).downloader ||
+                                (file as SubscribeDownloadFileInfo).hash)
+                            "
+                            class="subscribe-files-file-card__meta num"
+                          >
                             <span v-if="(file as SubscribeDownloadFileInfo).downloader">
                               {{ t('dialog.subscribeFiles.downloader') }}：{{
                                 (file as SubscribeDownloadFileInfo).downloader
@@ -638,37 +646,40 @@ onBeforeMount(() => {
                             </span>
                           </div>
                           <div class="subscribe-files-path-block">
-                            <div class="subscribe-files-path-block__label">
-                              <VIcon
-                                :icon="
-                                  activeTab === 'library' && isDetailUrl(file.file_path)
-                                    ? 'mdi-open-in-new'
-                                    : 'mdi-folder-outline'
-                                "
-                                size="16"
-                              />
-                              {{ t('dialog.subscribeFiles.filePath') }}
+                            <div class="subscribe-files-path-block__main">
+                              <span class="subscribe-files-path-block__label">
+                                <VIcon
+                                  :icon="
+                                    activeTab === 'library' && isDetailUrl(file.file_path)
+                                      ? 'mdi-open-in-new'
+                                      : 'mdi-folder-outline'
+                                  "
+                                  size="14"
+                                />
+                                {{ t('dialog.subscribeFiles.filePath') }}
+                              </span>
+                              <a
+                                v-if="activeTab === 'library' && isDetailUrl(file.file_path)"
+                                class="subscribe-files-path-link"
+                                :href="file.file_path"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {{ file.file_path }}
+                              </a>
+                              <code v-else>
+                                {{
+                                  activeTab === 'library'
+                                    ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
+                                    : file.file_path || t('dialog.subscribeFiles.noPath')
+                                }}
+                              </code>
                             </div>
-                            <a
-                              v-if="activeTab === 'library' && isDetailUrl(file.file_path)"
-                              class="subscribe-files-path-link"
-                              :href="file.file_path"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {{ file.file_path }}
-                            </a>
-                            <code v-else>
-                              {{
-                                activeTab === 'library'
-                                  ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
-                                  : file.file_path || t('dialog.subscribeFiles.noPath')
-                              }}
-                            </code>
                             <VBtn
                               icon="mdi-content-copy"
-                              variant="tonal"
+                              variant="text"
                               size="small"
+                              class="subscribe-files-copy-btn"
                               :disabled="!file.file_path"
                               :aria-label="t('dialog.subscribeFiles.copyPath')"
                               @click="copyPath(file.file_path)"
@@ -679,7 +690,7 @@ onBeforeMount(() => {
                     </template>
 
                     <div v-else class="subscribe-files-empty">
-                      <VIcon icon="mdi-folder-search-outline" size="34" />
+                      <VIcon icon="mdi-folder-search-outline" size="32" />
                       <div>{{ t('dialog.subscribeFiles.noTabFiles', { tab: activeSectionTitle }) }}</div>
                     </div>
                   </div>
@@ -694,12 +705,12 @@ onBeforeMount(() => {
                   :class="`subscribe-files-mobile-card--${episode.status}`"
                 >
                   <div class="subscribe-files-mobile-card__header">
-                    <div class="subscribe-files-mobile-card__episode">{{ episode.episodeLabel }}</div>
+                    <div class="subscribe-files-mobile-card__episode num">{{ episode.episodeLabel }}</div>
                     <div class="subscribe-files-mobile-card__title">
                       <strong>{{ episode.title }}</strong>
                       <span>{{ activeSectionTitle }}</span>
                     </div>
-                    <VChip :color="getEpisodeStatusColor(episode.status)" variant="tonal" size="small">
+                    <VChip :color="getEpisodeStatusColor(episode.status)" variant="tonal" size="x-small">
                       {{ getEpisodeStatusText(episode.status) }}
                     </VChip>
                   </div>
@@ -711,12 +722,18 @@ onBeforeMount(() => {
                       class="subscribe-files-mobile-file"
                     >
                       <div class="subscribe-files-mobile-file__chips">
-                        <VChip v-if="resolveResolutionLabel(file)" color="primary" variant="tonal" size="x-small">
+                        <VChip
+                          v-if="resolveResolutionLabel(file)"
+                          color="primary"
+                          variant="tonal"
+                          size="x-small"
+                          class="num"
+                        >
                           {{ resolveResolutionLabel(file) }}
                         </VChip>
                         <VChip
                           v-if="activeTab === 'download' && (file as SubscribeDownloadFileInfo).site_name"
-                          color="primary"
+                          color="secondary"
                           variant="tonal"
                           size="x-small"
                         >
@@ -736,27 +753,46 @@ onBeforeMount(() => {
                           (file as SubscribeDownloadFileInfo).torrent_title || t('dialog.subscribeFiles.unknownTorrent')
                         }}
                       </div>
-                      <div class="subscribe-files-path-block subscribe-files-path-block--mobile">
-                        <a
-                          v-if="activeTab === 'library' && isDetailUrl(file.file_path)"
-                          class="subscribe-files-path-link"
-                          :href="file.file_path"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {{ file.file_path }}
-                        </a>
-                        <code v-else>
-                          {{
-                            activeTab === 'library'
-                              ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
-                              : file.file_path || t('dialog.subscribeFiles.noPath')
+                      <div
+                        v-if="
+                          activeTab === 'download' &&
+                          ((file as SubscribeDownloadFileInfo).downloader || (file as SubscribeDownloadFileInfo).hash)
+                        "
+                        class="subscribe-files-file-card__meta num"
+                      >
+                        <span v-if="(file as SubscribeDownloadFileInfo).downloader">
+                          {{ t('dialog.subscribeFiles.downloader') }}：{{
+                            (file as SubscribeDownloadFileInfo).downloader
                           }}
-                        </code>
+                        </span>
+                        <span v-if="(file as SubscribeDownloadFileInfo).hash">
+                          Hash：{{ (file as SubscribeDownloadFileInfo).hash }}
+                        </span>
+                      </div>
+                      <div class="subscribe-files-path-block subscribe-files-path-block--mobile">
+                        <div class="subscribe-files-path-block__main">
+                          <a
+                            v-if="activeTab === 'library' && isDetailUrl(file.file_path)"
+                            class="subscribe-files-path-link"
+                            :href="file.file_path"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {{ file.file_path }}
+                          </a>
+                          <code v-else>
+                            {{
+                              activeTab === 'library'
+                                ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
+                                : file.file_path || t('dialog.subscribeFiles.noPath')
+                            }}
+                          </code>
+                        </div>
                         <VBtn
                           icon="mdi-content-copy"
-                          variant="tonal"
+                          variant="text"
                           size="small"
+                          class="subscribe-files-copy-btn"
                           :disabled="!file.file_path"
                           :aria-label="t('dialog.subscribeFiles.copyPath')"
                           @click="copyPath(file.file_path)"
@@ -775,8 +811,8 @@ onBeforeMount(() => {
         </div>
 
         <div v-else class="subscribe-files-empty subscribe-files-empty--standalone">
-          <VIcon icon="mdi-folder-alert-outline" size="40" />
-          <div>{{ t('dialog.subscribeFiles.noData') }}</div>
+          <VIcon icon="mdi-folder-alert-outline" size="36" />
+          <strong>{{ t('dialog.subscribeFiles.noData') }}</strong>
         </div>
       </div>
     </VCard>
@@ -784,40 +820,23 @@ onBeforeMount(() => {
 </template>
 
 <style lang="scss" scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .subscribe-files-dialog {
   display: flex;
   overflow: hidden;
   flex: 1 1 auto;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-theme-on-surface), var(--sfd-border-opacity));
-  backdrop-filter: blur(var(--sfd-blur)) saturate(1.18);
-  background:
-    linear-gradient(145deg, rgba(var(--v-theme-primary), var(--sfd-accent-opacity)), transparent 42%),
-    rgba(var(--v-theme-surface), var(--sfd-dialog-opacity));
   block-size: 100%;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   inline-size: 100%;
   min-block-size: 0;
-
-  --sfd-accent-opacity: 0.1;
-  --sfd-blur: 18px;
-  --sfd-border-opacity: 0.14;
-  --sfd-dialog-opacity: 0.9;
-  --sfd-hero-end-opacity: 0.88;
-  --sfd-hero-mid-opacity: 0.62;
-  --sfd-hero-shade-opacity: 0.92;
-  --sfd-hero-start-opacity: 0.98;
-  --sfd-panel-opacity: 0.12;
-  --sfd-panel-strong-opacity: 0.18;
-  --sfd-code-opacity: 0.16;
-  --sfd-muted-opacity: 0.7;
 }
 
 .subscribe-files-dialog__close {
   position: absolute;
   z-index: 8;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background: rgba(var(--v-theme-surface), 0.22);
+  color: var(--mp-muted-fg);
   inset-block-start: 0.75rem;
   inset-inline-end: 0.75rem;
 }
@@ -825,7 +844,7 @@ onBeforeMount(() => {
 .subscribe-files-dialog__body {
   display: flex;
   overflow: hidden;
-  flex: 1 1 0;
+  flex: 1 1 0%;
   flex-direction: column;
   min-block-size: 0;
 }
@@ -833,7 +852,7 @@ onBeforeMount(() => {
 .subscribe-files-shell {
   display: flex;
   overflow: hidden;
-  flex: 1 1 0;
+  flex: 1 1 0%;
   flex-direction: column;
   min-block-size: 0;
 }
@@ -842,29 +861,27 @@ onBeforeMount(() => {
   position: relative;
   overflow: hidden;
   flex: 0 0 auto;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(var(--v-theme-surface), var(--sfd-hero-start-opacity)),
-      rgba(var(--v-theme-surface), var(--sfd-hero-mid-opacity)) 48%,
-      rgba(var(--v-theme-surface), var(--sfd-hero-end-opacity))
-    ),
-    var(--subscribe-files-backdrop) center / cover;
+  border-block-end: 1px solid var(--mp-border);
+}
+
+/* 背景剧照仅做极轻柔氛围晕染，确保深浅与玻璃四态下前景文字始终锐利可读。 */
+.subscribe-files-hero__backdrop {
+  position: absolute;
+  background-image: var(--subscribe-files-backdrop);
+  background-position: center;
+  background-size: cover;
+  filter: blur(22px) saturate(1.1);
+  inset: -1.5rem;
+  opacity: 0.12;
+  pointer-events: none;
 }
 
 /* 原生 Sheet 已提供外框，头部作为独立卡片留白，避免沿用网页贴边的半圆角。 */
 .subscribe-files-dialog--native .subscribe-files-hero {
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
   margin-block: 0.75rem 0;
   margin-inline: 1rem;
-}
-
-.subscribe-files-hero__shade {
-  position: absolute;
-  background:
-    radial-gradient(circle at 24% 8%, rgba(var(--v-theme-primary), 0.24), transparent 34%),
-    linear-gradient(180deg, transparent, rgba(var(--v-theme-surface), var(--sfd-hero-shade-opacity)) 94%);
-  inset: 0;
 }
 
 .subscribe-files-hero__content {
@@ -872,102 +889,99 @@ onBeforeMount(() => {
   z-index: 1;
   display: grid;
   align-items: center;
-  gap: 1.5rem;
-  grid-template-columns: 7.25rem minmax(0, 1fr);
-  padding-block: 1.25rem;
+  gap: 1.25rem;
+  grid-template-columns: 4.75rem minmax(0, 1fr) 20rem;
+  padding-block: 1.125rem;
   padding-inline: 1.5rem;
 }
 
 .subscribe-files-poster-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
-  border-radius: calc(var(--app-surface-radius) + 0.25rem);
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
   aspect-ratio: 2 / 3;
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-strong-opacity));
+  background: var(--mp-muted);
+  block-size: 7.125rem;
+  inline-size: 4.75rem;
 }
 
 .subscribe-files-poster-card__image {
   block-size: 100%;
 }
 
-.subscribe-files-poster-card__caption {
-  position: absolute;
-  display: flex;
-  align-items: flex-end;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 72%));
-  color: white;
-  font-size: 0.85rem;
-  font-weight: 700;
-  inset-block-end: 0;
-  inset-inline: 0;
-  line-height: 1.25;
-  padding-block: 1rem 0.65rem;
-  padding-inline: 0.65rem;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 45%);
+.subscribe-files-poster-card__empty {
+  display: grid;
+  block-size: 100%;
+  color: var(--mp-faint);
+  place-items: center;
 }
 
 .subscribe-files-hero__meta {
+  display: flex;
   min-inline-size: 0;
-  padding-inline-end: 2.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .subscribe-files-hero__eyebrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.85rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
   font-weight: 600;
-  gap: 0.35rem;
-  letter-spacing: 0.04em;
+  gap: 0.3rem;
+  letter-spacing: 0.02em;
 }
 
 .subscribe-files-hero__title {
   overflow: hidden;
-  font-size: 1.85rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  line-height: 1.15;
-  margin-block: 0.45rem 0.4rem;
+  margin: 0;
+  color: var(--mp-fg);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .subscribe-files-hero__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.375rem;
+  margin-block-start: 0.1rem;
 }
 
 .subscribe-files-hero__description {
   display: -webkit-box;
   overflow: hidden;
+  margin: 0.15rem 0 0;
   -webkit-box-orient: vertical;
-  color: rgba(var(--v-theme-on-surface), 0.76);
-  font-size: 0.86rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  line-height: 1.5;
-  margin-block: 0.55rem 0;
-  max-inline-size: 40rem;
+  line-height: 1.45;
+  max-inline-size: 38rem;
 }
 
 .subscribe-files-stats {
   display: grid;
-  gap: 0.6rem;
+  align-self: end;
+  gap: 0.625rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-block-start: 0.65rem;
-  max-inline-size: 36rem;
+  padding-block-start: 1.5rem;
 }
 
 .subscribe-files-stat-card {
   display: grid;
   align-items: center;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
+  background: var(--mp-muted);
   gap: 0.5rem;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .subscribe-files-stat-card > .v-progress-linear {
@@ -980,42 +994,60 @@ onBeforeMount(() => {
 
 .subscribe-files-stat-card__icon {
   display: grid;
-  border-radius: 50%;
-  background: rgba(var(--v-theme-on-surface), 0.06);
+  border: 1px solid var(--mp-border);
+  border-radius: 0.5rem;
+  background: var(--mp-card);
   block-size: 2rem;
   inline-size: 2rem;
   place-items: center;
 }
 
+.subscribe-files-stat-card__icon--info {
+  border-color: var(--mp-info-border);
+  background: var(--mp-info-soft);
+  color: rgb(var(--v-theme-info));
+}
+
+.subscribe-files-stat-card__icon--success {
+  border-color: var(--mp-success-border);
+  background: var(--mp-success-soft);
+  color: rgb(var(--v-theme-success));
+}
+
 .subscribe-files-stat-card__label {
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.74rem;
+  overflow: hidden;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .subscribe-files-stat-card__value {
-  font-size: 1.1rem;
-  font-weight: 800;
-  line-height: 1.15;
+  color: var(--mp-fg);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .subscribe-files-content {
   display: grid;
   overflow: hidden;
-  flex: 1 1 0;
-  gap: 0.75rem;
+  flex: 1 1 0%;
+  gap: 1rem;
   grid-template-columns: 17rem minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  min-block-size: 12rem;
-  padding-block: 0 1rem;
-  padding-inline: 1rem;
+  min-block-size: 0;
+  padding-block: 1rem 1.25rem;
+  padding-inline: 1.5rem;
 }
 
 .subscribe-files-episode-rail,
 .subscribe-files-main {
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
+  background: var(--mp-list-group-bg);
   block-size: 100%;
   min-block-size: 0;
 }
@@ -1023,113 +1055,188 @@ onBeforeMount(() => {
 .subscribe-files-episode-rail {
   display: flex;
   flex-direction: column;
-  min-block-size: 0;
 }
 
 .subscribe-files-episode-rail__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem;
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border-block-end: 1px solid var(--mp-border);
+  gap: 0.5rem;
 }
 
-.subscribe-files-episode-rail__header div {
-  display: grid;
-  gap: 0.15rem;
+.subscribe-files-episode-rail__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 
-.subscribe-files-episode-rail__header span {
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.85rem;
+.subscribe-files-episode-rail__heading span {
+  color: var(--mp-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.subscribe-files-episode-rail__heading strong {
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .subscribe-files-episode-list {
   display: flex;
-  overflow: auto;
-  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 0%;
   flex-direction: column;
-  padding: 0.6rem;
-  gap: 0.35rem;
+  padding: 0.5rem;
+  gap: 0.25rem;
   min-block-size: 0;
+  overscroll-behavior: contain;
 }
 
 .subscribe-files-episode-item {
   display: grid;
+  flex: 0 0 auto;
   align-items: center;
-  padding: 0.65rem;
+  padding: 0.5rem 0.625rem;
   border: 1px solid transparent;
-  border-radius: calc(var(--app-surface-radius) - 0.25rem);
+  border-radius: calc(var(--app-control-radius) - 4px);
   background: transparent;
-  color: rgb(var(--v-theme-on-surface));
-  column-gap: 0.65rem;
+  color: var(--mp-fg);
+  column-gap: 0.5rem;
   cursor: pointer;
-  grid-template-columns: 2.75rem minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   text-align: start;
   transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.18s ease;
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.subscribe-files-episode-item:hover,
-.subscribe-files-episode-item--active {
-  border-color: rgba(var(--v-theme-primary), 0.38);
-  background: rgba(var(--v-theme-primary), 0.12);
+.subscribe-files-episode-item:hover {
+  background: var(--mp-list-row-hover);
 }
 
 .subscribe-files-episode-item--active {
-  transform: translateX(2px);
+  border-color: var(--mp-primary-border);
+  background: var(--mp-primary-soft);
+}
+
+.subscribe-files-episode-item--active:hover {
+  background: var(--mp-primary-soft);
 }
 
 .subscribe-files-episode-item__label {
-  display: grid;
-  border-radius: 0.75rem;
-  background: rgba(var(--v-theme-primary), 0.18);
-  block-size: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1875rem 0.45rem;
+  border: 1px solid var(--mp-border);
+  border-radius: 0.45rem;
+  background: var(--mp-muted);
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  min-inline-size: 2.35rem;
+}
+
+.subscribe-files-episode-item--active .subscribe-files-episode-item__label {
+  border-color: var(--mp-primary-border);
+  background: rgba(var(--v-theme-primary), 0.14);
   color: rgb(var(--v-theme-primary));
-  font-weight: 800;
-  inline-size: 2.4rem;
-  place-items: center;
 }
 
 .subscribe-files-episode-item__title {
   overflow: hidden;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.subscribe-files-episode-item__icon {
-  opacity: 0.9;
+.subscribe-files-episode-item--active .subscribe-files-episode-item__title {
+  font-weight: 600;
 }
 
 .subscribe-files-main {
   display: flex;
   flex-direction: column;
-  min-block-size: 0;
+}
+
+.subscribe-files-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-block-end: 1px solid var(--mp-border);
+  gap: 0.75rem;
+}
+
+.subscribe-files-detail__header {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.subscribe-files-detail__heading {
+  min-inline-size: 0;
+}
+
+.subscribe-files-detail__title {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.subscribe-files-detail__title span {
+  flex: 0 0 auto;
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.subscribe-files-detail__title strong {
+  overflow: hidden;
+  color: var(--mp-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscribe-files-detail__subtitle {
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .subscribe-files-tabs {
-  padding-block: 0.75rem 0;
-  padding-inline: 0.75rem;
+  flex: 0 0 auto;
 }
 
 .subscribe-files-tab-group {
   display: grid;
   overflow: hidden;
-  padding: 0.25rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
-  gap: 0.35rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
+  background: var(--mp-muted);
+  block-size: auto;
+  gap: 0.25rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  inline-size: min(28rem, 100%);
 }
 
 .subscribe-files-tab-group :deep(.v-btn) {
-  min-inline-size: 0;
+  block-size: 2rem !important;
+  min-inline-size: 7.25rem;
+  padding-inline: 0.75rem;
 }
 
 .subscribe-files-tab-group :deep(.v-btn__content) {
@@ -1137,86 +1244,72 @@ onBeforeMount(() => {
   white-space: nowrap;
 }
 
-.subscribe-files-tab-group :deep(.v-icon) {
-  flex: 0 0 auto;
-}
-
 .subscribe-files-tab-group__button {
-  border-radius: calc(var(--app-control-radius) - 0.15rem);
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  font-weight: 700;
+  border: 1px solid transparent !important;
+  border-radius: calc(var(--app-control-radius) - 4px) !important;
+  color: var(--mp-muted-fg) !important;
+  font-size: 0.8125rem;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
 .subscribe-files-tab-group__button--active {
-  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.92), rgba(var(--v-theme-primary), 0.68));
-  color: rgb(var(--v-theme-on-primary));
+  border-color: var(--mp-primary-border) !important;
+  background-color: var(--mp-primary-soft) !important;
+  color: rgb(var(--v-theme-primary)) !important;
 }
 
 .subscribe-files-detail {
   display: flex;
-  flex: 1 1 auto;
+  overflow: hidden;
+  flex: 1 1 0%;
   flex-direction: column;
-  padding: 0.75rem;
+  padding: 0.875rem 1rem;
   min-block-size: 0;
-}
-
-.subscribe-files-detail__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-block-end: 0.75rem;
-}
-
-.subscribe-files-detail__title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-
-.subscribe-files-detail__title span {
-  color: rgb(var(--v-theme-primary));
-  font-weight: 800;
-}
-
-.subscribe-files-detail__title strong {
-  font-size: 1.1rem;
-}
-
-.subscribe-files-detail__subtitle {
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.85rem;
-  margin-block-start: 0.2rem;
 }
 
 .subscribe-files-file-list {
   display: flex;
-  overflow: auto;
-  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 0%;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.75rem;
   min-block-size: 0;
-  padding-block-end: 0.25rem;
+  overscroll-behavior: contain;
 }
 
 .subscribe-files-file-card {
   display: grid;
-  padding: 0.9rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
-  gap: 0.8rem;
+  flex: 0 0 auto;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
+  background: var(--mp-card);
+  gap: 0.875rem;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
 .subscribe-files-file-card__media {
   display: grid;
-  border-radius: 0.85rem;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  block-size: 2.5rem;
-  inline-size: 2.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: 0.625rem;
+  background: var(--mp-muted);
+  block-size: 2.25rem;
+  inline-size: 2.25rem;
   place-items: center;
+}
+
+.subscribe-files-file-card__media--info {
+  border-color: var(--mp-info-border);
+  background: var(--mp-info-soft);
+  color: rgb(var(--v-theme-info));
+}
+
+.subscribe-files-file-card__media--success {
+  border-color: var(--mp-success-border);
+  background: var(--mp-success-soft);
+  color: rgb(var(--v-theme-success));
 }
 
 .subscribe-files-file-card__content {
@@ -1231,52 +1324,63 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-file-card__title {
-  overflow: hidden;
-  font-size: 0.96rem;
-  font-weight: 700;
-  line-height: 1.5;
-  margin-block: 0.6rem 0.35rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin: 0.45rem 0 0.25rem;
+  color: var(--mp-fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .subscribe-files-file-card__meta {
   display: flex;
   flex-wrap: wrap;
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.78rem;
-  gap: 0.4rem 0.8rem;
-  margin-block-end: 0.65rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  gap: 0.25rem 0.875rem;
+  margin-block-end: 0.5rem;
 }
 
 .subscribe-files-path-block {
   display: grid;
   align-items: center;
-  padding: 0.65rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: calc(var(--app-surface-radius) - 0.25rem);
-  background: rgba(var(--v-theme-on-surface), var(--sfd-code-opacity));
-  gap: 0.55rem;
+  padding: 0.5rem 0.625rem 0.5rem 0.75rem;
+  border: 1px solid var(--mp-border-subtle);
+  border-radius: calc(var(--app-control-radius) - 4px);
+  background: var(--mp-muted);
+  gap: 0.5rem;
   grid-template-columns: minmax(0, 1fr) auto;
+  margin-block-start: 0.45rem;
+}
+
+.subscribe-files-path-block__main {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .subscribe-files-path-block__label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.78rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.72rem;
+  font-weight: 500;
   gap: 0.25rem;
-  grid-column: 1 / -1;
 }
 
 .subscribe-files-path-block code,
 .subscribe-files-path-link {
-  overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), 0.88);
+  display: block;
+  min-inline-size: 0;
+  color: var(--mp-fg);
   font-family: 'JetBrains Mono', SFMono-Regular, Consolas, monospace;
-  font-size: 0.8rem;
-  line-height: 1.55;
+  font-size: 0.78rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-all;
 }
 
 .subscribe-files-path-link {
@@ -1286,108 +1390,142 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-path-link:hover {
-  opacity: 0.88;
+  opacity: 0.85;
+}
+
+.subscribe-files-copy-btn {
+  color: var(--mp-muted-fg);
 }
 
 .subscribe-files-empty {
-  display: grid;
-  align-content: center;
-  border: 1px dashed rgba(var(--v-theme-on-surface), 0.16);
-  border-radius: var(--app-surface-radius);
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  gap: 0.5rem;
-  justify-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  border: 1px dashed var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
+  color: var(--mp-muted-fg);
+  font-size: 0.875rem;
+  gap: 0.625rem;
   min-block-size: 12rem;
+  text-align: center;
+}
+
+.subscribe-files-empty strong {
+  color: var(--mp-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
 .subscribe-files-empty--standalone {
   margin: 1.5rem;
-  min-block-size: 24rem;
+  min-block-size: 20rem;
 }
 
 .subscribe-files-mobile-list {
   display: flex;
-  overflow: hidden auto;
-  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 0%;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.75rem;
   min-block-size: 0;
-  padding-block: 0.85rem 1rem;
-  padding-inline: 1rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-block: 0.5rem 1.25rem;
+  padding-inline: calc(1rem + env(safe-area-inset-left, 0px)) calc(1rem + env(safe-area-inset-right, 0px));
 }
 
+/* 移动端分集卡片禁止在纵向 Flex 列表内被压缩，避免多集时卡片高度塌陷裁切文件列表。 */
 .subscribe-files-mobile-card {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
+  flex: 0 0 auto;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
+  background: var(--mp-list-group-bg);
 }
 
 .subscribe-files-mobile-card__header {
   display: grid;
   align-items: center;
-  padding: 0.85rem;
-  gap: 0.65rem;
-  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  padding: 0.75rem 0.875rem;
+  gap: 0.625rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .subscribe-files-mobile-card__episode {
-  display: grid;
-  flex-shrink: 0;
-  border-radius: 0.8rem;
-  background: rgba(var(--v-theme-primary), 0.18);
-  block-size: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--mp-primary-border);
+  border-radius: 0.5rem;
+  background: var(--mp-primary-soft);
   color: rgb(var(--v-theme-primary));
-  font-size: 1.05rem;
-  font-weight: 800;
-  inline-size: 3rem;
-  min-inline-size: 3rem;
-  place-items: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  min-inline-size: 2.5rem;
 }
 
 .subscribe-files-mobile-card__title {
-  display: grid;
+  display: flex;
   min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .subscribe-files-mobile-card__title strong {
   overflow: hidden;
+  color: var(--mp-fg);
+  font-size: 0.875rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .subscribe-files-mobile-card__title span,
 .subscribe-files-mobile-card__empty {
-  color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.8rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
 }
 
 .subscribe-files-mobile-card__files {
-  display: grid;
-  padding: 0.85rem;
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 0.875rem;
+  border-block-start: 1px solid var(--mp-border);
   gap: 0.75rem;
 }
 
 .subscribe-files-mobile-file {
-  display: grid;
-  gap: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.subscribe-files-mobile-file + .subscribe-files-mobile-file {
+  padding-block-start: 0.75rem;
+  border-block-start: 1px solid var(--mp-border-subtle);
 }
 
 .subscribe-files-mobile-file__title {
-  overflow: hidden;
-  font-size: 0.86rem;
+  color: var(--mp-fg);
+  font-size: 0.8125rem;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .subscribe-files-path-block--mobile {
-  grid-template-columns: minmax(0, 1fr) auto;
+  margin-block-start: 0.1rem;
 }
 
 .subscribe-files-mobile-card__empty {
-  padding-block: 0 0.85rem;
-  padding-inline: 0.85rem;
+  border-block-start: 1px solid var(--mp-border-subtle);
+  padding-block: 0.625rem 0.75rem;
+  padding-inline: 0.875rem;
 }
 
 .fade-slide-enter-active,
@@ -1403,82 +1541,28 @@ onBeforeMount(() => {
   transform: translateY(0.25rem);
 }
 
-.subscribe-files-dialog[data-glass-color-scheme='light'] {
-  --sfd-accent-opacity: 0.08;
-  --sfd-border-opacity: 0.11;
-  --sfd-dialog-opacity: 0.96;
-  --sfd-panel-opacity: 0.62;
-  --sfd-panel-strong-opacity: 0.76;
-  --sfd-code-opacity: 0.05;
-  --sfd-muted-opacity: 0.68;
-}
-
-@media (width <= 960px) {
-  .subscribe-files-dialog {
-    border: 0;
-    block-size: 100%;
-    min-block-size: 100%;
-  }
-
-  .subscribe-files-dialog__body {
-    flex: 1 1 auto;
-    block-size: 100%;
-    min-block-size: 0;
-  }
-
-  .subscribe-files-shell {
-    flex: 1 1 auto;
-    block-size: 100%;
-    min-block-size: 0;
-  }
-
-  .subscribe-files-hero {
-    flex: 0 0 auto;
-  }
-
+@media (width >= 960px) and (width <= 1180px) {
   .subscribe-files-hero__content {
-    display: grid;
-    align-items: center;
-    padding-block: 0.75rem;
-    padding-inline: 1rem;
-    gap: 0.875rem;
-    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: 1rem;
+    grid-template-columns: 4rem minmax(0, 1fr) 15.5rem;
+    padding-block: 0.875rem;
+    padding-inline: 1.25rem;
   }
 
   .subscribe-files-poster-card {
-    border-radius: 1rem;
-  }
-
-  .subscribe-files-poster-card__caption {
-    display: none;
-  }
-
-  .subscribe-files-hero__meta {
-    padding-inline-end: 2.25rem;
-  }
-
-  .subscribe-files-hero__eyebrow {
-    display: none;
-  }
-
-  .subscribe-files-hero__title {
-    font-size: 1.35rem;
-    margin-block: 0 0.35rem;
-  }
-
-  .subscribe-files-hero__description {
-    display: none;
+    block-size: 6rem;
+    inline-size: 4rem;
   }
 
   .subscribe-files-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin-block-start: 0.5rem;
+    padding-block-start: 1.25rem;
+  }
+
+  .subscribe-files-stat-card__icon {
+    display: none;
   }
 
   .subscribe-files-stat-card {
-    padding: 0.5rem 0.6rem;
-    gap: 0.4rem;
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1489,75 +1573,161 @@ onBeforeMount(() => {
     gap: 0.35rem;
   }
 
-  .subscribe-files-stat-card__label,
-  .subscribe-files-stat-card__value {
-    white-space: nowrap;
+  .subscribe-files-content {
+    gap: 0.75rem;
+    grid-template-columns: 14.25rem minmax(0, 1fr);
+    padding-block: 0.75rem 1rem;
+    padding-inline: 1.25rem;
+  }
+}
+
+@media (width >= 960px) and (height <= 680px) {
+  .subscribe-files-hero__content {
+    gap: 0.875rem 1rem;
+    grid-template-columns: 3.75rem minmax(0, 1fr) 18rem;
+    padding-block: 0.75rem;
+  }
+
+  .subscribe-files-poster-card {
+    block-size: 5.625rem;
+    inline-size: 3.75rem;
+  }
+
+  .subscribe-files-hero__description {
+    display: none;
+  }
+
+  .subscribe-files-stats {
+    padding-block-start: 1.25rem;
+  }
+
+  .subscribe-files-content {
+    padding-block: 0.75rem 1rem;
+  }
+}
+
+@media (width < 960px) {
+  :global(.v-dialog.v-dialog--fullscreen > .v-overlay__content.subscribe-files-dialog-content) {
+    overflow: hidden;
+  }
+
+  .subscribe-files-dialog {
+    block-size: 100%;
+    max-block-size: 100%;
+    min-block-size: 0;
+  }
+
+  .subscribe-files-dialog__close {
+    inset-block-start: 0.5rem;
+    inset-inline-end: calc(0.5rem + env(safe-area-inset-right, 0px));
+  }
+
+  .subscribe-files-hero__content {
+    align-items: center;
+    gap: 0.625rem 0.75rem;
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    padding: 0.75rem calc(1rem + env(safe-area-inset-right, 0px)) 0.75rem calc(1rem + env(safe-area-inset-left, 0px));
+  }
+
+  .subscribe-files-poster-card {
+    block-size: 4.875rem;
+    inline-size: 3.25rem;
+  }
+
+  .subscribe-files-hero__meta {
+    gap: 0.2rem;
+    padding-inline-end: 2.25rem;
+  }
+
+  .subscribe-files-hero__eyebrow {
+    font-size: 0.7rem;
+  }
+
+  .subscribe-files-hero__title {
+    font-size: 1.0625rem;
+  }
+
+  .subscribe-files-hero__description {
+    display: none;
+  }
+
+  .subscribe-files-stats {
+    gap: 0.5rem;
+    grid-column: 1 / -1;
+    max-inline-size: none;
+    padding-block-start: 0;
+  }
+
+  .subscribe-files-stat-card {
+    padding: 0.4375rem 0.625rem;
+    gap: 0.3rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .subscribe-files-stat-card__icon {
     display: none;
   }
 
+  .subscribe-files-stat-card__content {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.375rem;
+  }
+
   .subscribe-files-stat-card__value {
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
 
   .subscribe-files-content {
     display: flex;
-    flex: 1 1 auto;
+    overflow: hidden;
+    flex: 1 1 0%;
     flex-direction: column;
     padding: 0;
+    gap: 0;
     min-block-size: 0;
   }
 
   .subscribe-files-main {
     display: flex;
     overflow: hidden;
-    flex: 1 1 auto;
+    flex: 1 1 0%;
     flex-direction: column;
     border: 0;
     border-radius: 0;
     background: transparent;
+    block-size: auto;
     min-block-size: 0;
   }
 
-  .subscribe-files-tabs {
-    flex: 0 0 auto;
-    padding-block: 0.75rem 0.25rem;
-    padding-inline: 0.75rem;
+  .subscribe-files-toolbar {
+    padding: 0.625rem calc(1rem + env(safe-area-inset-right, 0px)) 0.375rem calc(1rem + env(safe-area-inset-left, 0px));
+    border-block-end: 0;
   }
 
+  .subscribe-files-tabs,
   .subscribe-files-tab-group {
     inline-size: 100%;
   }
 
-  .subscribe-files-mobile-card__header {
-    align-items: start;
-    gap: 0.5rem 0.75rem;
-    grid-template-columns: 3rem minmax(0, 1fr);
-    grid-template-rows: auto auto;
-  }
-
-  .subscribe-files-mobile-card__episode {
-    align-self: start;
-    grid-row: 1 / span 2;
-  }
-
-  .subscribe-files-mobile-card__title {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .subscribe-files-mobile-card__header .v-chip {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
+  .subscribe-files-tab-group :deep(.v-btn) {
+    min-inline-size: 0;
   }
 }
 
-@media (width <= 560px) {
-  .subscribe-files-hero__content {
-    grid-template-columns: 5.25rem minmax(0, 1fr);
+@media (width < 960px) and (height <= 580px) {
+  .subscribe-files-shell {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .subscribe-files-content,
+  .subscribe-files-main,
+  .subscribe-files-mobile-list {
+    overflow: visible;
+    flex: 0 0 auto;
   }
 }
 </style>
