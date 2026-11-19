@@ -301,6 +301,8 @@ const $toast = useToast()
 
 // 高级设置对话框
 const advancedDialog = ref(false)
+// 前端可独立更新；旧后端未声明此设置时不展示或提交未知字段。
+const knowledgeSettingAvailable = ref(false)
 
 interface ModuleSettingInfo {
   id: string
@@ -925,6 +927,7 @@ async function loadSystemSettings(refresh = false) {
   invalidateLlmTestState()
   try {
     const result = await getSharedConfiguration<Record<string, unknown>>('system/env', refresh)
+    knowledgeSettingAvailable.value = typeof result.AI_AGENT_KNOWLEDGE_ENABLE === 'boolean'
     const defaultSyncInterval = Number(result.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
     legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
     // 将API返回的值赋值给SystemSettings
@@ -1124,7 +1127,9 @@ async function saveAdvancedSettings() {
   }
 
   // 同时保存高级设置和刮削开关设置
-  const advancedResult = await saveSystemSetting(SystemSettings.value.Advanced)
+  const advancedSettings: Record<string, unknown> = { ...SystemSettings.value.Advanced }
+  if (!knowledgeSettingAvailable.value) delete advancedSettings.AI_AGENT_KNOWLEDGE_ENABLE
+  const advancedResult = await saveSystemSetting(advancedSettings)
   const scrapingResult = await saveScrapingSwitchs()
 
   if (advancedResult) {
@@ -3414,7 +3419,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <VWindowItem value="dev">
             <div>
               <VRow>
-                <VCol cols="12" md="6">
+                <VCol v-if="knowledgeSettingAvailable" cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.AI_AGENT_KNOWLEDGE_ENABLE"
                     :label="t('setting.system.aiAgentKnowledgeEnable')"
