@@ -1673,6 +1673,7 @@ export default {
     library: 'My Media Library',
     playing: 'Continue Watching',
     latest: 'Latest Imports',
+    openInServer: 'Open in {server}',
     noLatest: 'No recent imports',
     noPlaying: 'No continue-watching items',
     noLibrary: 'No media library data',

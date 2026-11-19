@@ -7,7 +7,7 @@ import noImage from '@images/no-image.jpeg'
 import { useGlobalSettingsStore } from '@/stores'
 import { useNativePageHeader } from '@/native/page'
 import { getProxyImageUrl } from '@/utils/imageUtils'
-import { playMediaServerLibraryItem } from '@/utils/mediaPlayback'
+import { getNativePlaybackArtworkURL, playMediaServerLibraryItem } from '@/utils/mediaPlayback'
 import { useI18n } from 'vue-i18n'
 
 /** 媒体库搜索支持的结果筛选类型。 */
@@ -193,7 +193,23 @@ async function openEpisodePicker(item: MediaServerPlayItem) {
 function playTrack(item: MediaServerPlayItem) {
   const itemId = item.item_id || item.id
   if (!itemId || !item.server) return
-  playMediaServerLibraryItem(String(itemId), item.title, item.server)
+  const queue = results.value
+    .filter(track => track.type === '音乐' && (track.item_id || track.id) && track.server)
+    .map(track => ({
+      itemId: String(track.item_id || track.id),
+      title: track.title,
+      server: track.server,
+      ...(getNativePlaybackArtworkURL(track.image, track.use_cookies)
+        ? { artworkURL: getNativePlaybackArtworkURL(track.image, track.use_cookies) }
+        : {}),
+    }))
+  playMediaServerLibraryItem(
+    String(itemId),
+    item.title,
+    item.server,
+    getNativePlaybackArtworkURL(item.image, item.use_cookies),
+    queue,
+  )
 }
 
 /** 按所选季集条目打开原生视频播放器，并将服务器来源一并传给后端。 */

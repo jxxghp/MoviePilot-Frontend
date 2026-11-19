@@ -140,7 +140,7 @@ async function playCurrentTrack() {
   if (!music.value || isStartingPlayback.value) return
   isStartingPlayback.value = true
   try {
-    await playMusicTrack(music.value)
+    await playMusicTrack(music.value, albumTracks.value)
   } catch (error) {
     console.error(error)
     $toast.error(t('music.playbackFailed'))

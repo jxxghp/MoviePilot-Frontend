@@ -106,7 +106,12 @@ describe('媒体库全局搜索结果', () => {
 
     await user.click(await screen.findByRole('button', { name: '晴天, 音乐' }))
     await waitFor(() => expect(playbackEvents).toHaveLength(2))
-    expect(playbackEvents[1]?.detail).toEqual({ itemId: 'track-1', title: '晴天', server: 'Jellyfin-音乐' })
+    const artwork = new URL(String(playbackEvents[1]?.detail.artworkURL))
+    expect(artwork.origin).toBe(window.location.origin)
+    expect(artwork.searchParams.get('imgurl')).toBe('https://media.example/poster/track-1')
+    expect(playbackEvents[1]?.detail).toEqual(
+      expect.objectContaining({ itemId: 'track-1', title: '晴天', server: 'Jellyfin-音乐' }),
+    )
   })
 
   it('集元数据失败仍可选择已入库集，原生关闭执行统一按钮且不会播放', async () => {

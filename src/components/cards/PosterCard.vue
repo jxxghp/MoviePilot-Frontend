@@ -3,16 +3,22 @@ import type { PropType } from 'vue'
 import type { MediaServerPlayItem } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
 import { openMediaServerItem } from '@/utils/appDeepLink'
+import { vNativeCardMenu } from '@/native/card'
+import { nativeChromeActive } from '@/native/layout'
+import { createNativeDashboardMediaCardMenu } from '@/utils/nativeDashboardMediaCard'
 import { useGlobalSettingsStore } from '@/stores'
 import { getProxyImageUrl } from '@/utils/imageUtils'
+import { useI18n } from 'vue-i18n'
 
 // 输入参数
 const props = defineProps({
   media: Object as PropType<MediaServerPlayItem>,
+  server: String,
   width: String,
   height: String,
 })
 const globalSettingsStore = useGlobalSettingsStore()
+const { t } = useI18n()
 
 // 图片加载状态
 const isImageLoaded = ref(false)
@@ -51,18 +57,34 @@ async function goPlay(isHovering: boolean | null = false) {
     await openMediaServerItem(props.media)
   }
 }
+
+/** App 长按菜单仅提供当前媒体的本地播放与原媒体服务器打开入口。 */
+const nativeCardMenu = computed(() =>
+  createNativeDashboardMediaCardMenu(
+    () => props.media,
+    () => props.server,
+    {
+      play: t('file.play'),
+      mediaServer: t('notificationSwitch.mediaServer'),
+      openInServer: server => t('dashboard.openInServer', { server }),
+    },
+  ),
+)
 </script>
 
 <template>
   <VHover>
     <template #default="hover">
-      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <!-- Web 的 Hover 命中区域保持静止；App 不上浮卡片，避免位置变化撤销原生长按菜单。 -->
       <div v-bind="hover.props" class="poster-card-hover-area">
         <VCard
+          v-native-card-menu="nativeCardMenu"
           :style="cardStyle"
+          :role="nativeChromeActive ? 'group' : undefined"
+          :aria-label="nativeChromeActive ? props.media?.title : undefined"
           class="app-hover-lift-card outline-none ring-gray-500"
           :class="{
-            'app-hover-lift-card--hovering': hover.isHovering,
+            'app-hover-lift-card--hovering': hover.isHovering && !nativeChromeActive,
             'ring-1': isImageLoaded,
           }"
         >

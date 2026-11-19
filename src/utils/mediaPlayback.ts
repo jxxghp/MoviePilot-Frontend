@@ -1,6 +1,7 @@
 import api from '@/api'
-import type { FileItem } from '@/api/types'
+import type { FileItem, MediaInfo } from '@/api/types'
 import { nativeChromeActive } from '@/native/layout'
+import { getProxyImageUrl } from '@/utils/imageUtils'
 
 /** 已匹配到实际媒体服务器的单曲身份，后续播放继续绑定同一配置。 */
 interface MusicStreamMatch {
@@ -72,6 +73,18 @@ export function canUseNativeMediaPlayback(): boolean {
   return typeof window !== 'undefined' && nativeChromeActive.value && window.MoviePilotNative?.playbackVersion === 1
 }
 
+/** 为原生播放器生成当前实例图片代理地址，不直接向外站暴露原始封面地址。 */
+export function getNativePlaybackArtworkURL(imageURL?: string, useCookies = false): string | undefined {
+  if (!imageURL || !/^https?:\/\//i.test(imageURL)) return undefined
+  try {
+    const proxied = getProxyImageUrl(imageURL, { useCookies, maxWidth: 720, quality: 88 })
+    const url = new URL(proxied, document.baseURI)
+    return url.origin === window.location.origin ? url.href : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** 检查文件管理条目是否为本地支持的视频、音频或 STRM 文件。 */
 export function isLocalPlayableMediaFile(item: Partial<Pick<FileItem, 'storage' | 'type' | 'path'>>): boolean {
   if (item.storage !== 'local' || item.type !== 'file' || !item.path) return false
@@ -88,11 +101,25 @@ export function getLocalPlaybackMediaType(file: Pick<FileItem, 'name' | 'path'>)
 }
 
 /** 将媒体库搜索命中的单集或单曲按服务器来源送入 App 原生播放器。 */
-export function playMediaServerLibraryItem(itemId: string, title: string, server?: string): boolean {
+export function playMediaServerLibraryItem(
+  itemId: string,
+  title: string,
+  server?: string,
+  artworkURL?: string,
+  queue?: Array<{ itemId: string; title: string; server?: string; artworkURL?: string }>,
+): boolean {
   if (!canUseNativeMediaPlayback() || !itemId || !title) return false
   window.dispatchEvent(
     new CustomEvent('moviepilot:playback-open', {
-      detail: { itemId, title, ...(server ? { server } : {}) },
+      detail: {
+        itemId,
+        title,
+        ...(server ? { server } : {}),
+        ...(artworkURL ? { artworkURL } : {}),
+        ...(queue && queue.length > 1
+          ? { queue, queueIndex: queue.findIndex(item => item.itemId === itemId && item.server === server) }
+          : {}),
+      },
     }),
   )
   return true
@@ -129,44 +156,96 @@ export async function playLocalMediaFile(
 }
 
 /** 把音乐元数据实体匹配为媒体服务器单曲 ID，再交给原生音频播放器。 */
-export async function playMusicTrack(music: {
-  media_source?: string
-  media_id?: string
-  music_type?: string
-  title?: string
-  artists?: string[]
-  artist?: string
-  album?: string
-  album_artist?: string
-  year?: number | string
-  track_number?: number
-  disc_number?: number
-}): Promise<boolean> {
+export async function playMusicTrack(
+  music: {
+    media_source?: string
+    media_id?: string
+    music_type?: string
+    title?: string
+    artists?: string[]
+    artist?: string
+    album?: string
+    album_artist?: string
+    cover_url?: string
+    poster_path?: string
+    year?: number | string
+    track_number?: number
+    disc_number?: number
+  },
+  playlist?: MediaInfo[],
+): Promise<boolean> {
   if (!canUseNativeMediaPlayback() || music.music_type === 'album' || music.music_type === 'artist') return false
   if (!music.media_source || !music.media_id || !music.title) return false
-  const manifest = await api.post<MusicStreamMatch>(
-    'mediaserver/stream-info/music',
-    {
-      media_source: music.media_source,
-      media_id: music.media_id,
-      title: music.title,
-      artists: music.artists || [],
-      artist: music.artist,
-      album: music.album,
-      album_artist: music.album_artist,
-      year: music.year ? Number(music.year) : undefined,
-      track_number: music.track_number,
-      disc_number: music.disc_number,
-    },
-    { feedback: 'silent' },
+  const tracks = playlist?.filter(
+    track =>
+      track.media_source &&
+      track.media_id &&
+      track.title &&
+      track.music_type !== 'album' &&
+      track.music_type !== 'artist',
   )
-  if (!manifest?.item_id) throw new Error('missing_music_stream')
+  const selectedIndex =
+    tracks?.findIndex(track => track.media_source === music.media_source && track.media_id === music.media_id) ?? -1
+  const orderedTracks =
+    tracks && selectedIndex >= 0
+      ? tracks.length > 100 && selectedIndex >= 100
+        ? [...tracks.slice(0, 99), tracks[selectedIndex]]
+        : tracks.slice(0, 100)
+      : [music]
+  const matches = await Promise.all(
+    orderedTracks.map(async track => {
+      try {
+        const match = await api.post<MusicStreamMatch>(
+          'mediaserver/stream-info/music',
+          {
+            media_source: track.media_source,
+            media_id: track.media_id,
+            title: track.title,
+            artists: track.artists || [],
+            artist: track.artist,
+            album: track.album,
+            album_artist: track.album_artist,
+            year: track.year ? Number(track.year) : undefined,
+            track_number: track.track_number,
+            disc_number: track.disc_number,
+          },
+          { feedback: 'silent' },
+        )
+        return match?.item_id ? { track, match } : undefined
+      } catch {
+        return undefined
+      }
+    }),
+  )
+  const queue = matches.filter((item): item is NonNullable<typeof item> => Boolean(item))
+  const index =
+    selectedIndex >= 0
+      ? queue.findIndex(
+          item => item.track.media_source === music.media_source && item.track.media_id === music.media_id,
+        )
+      : 0
+  const current = queue[index]
+  if (!current) throw new Error('missing_music_stream')
+  const artworkURL = getNativePlaybackArtworkURL(music.cover_url || music.poster_path)
+  const nativeQueue = queue.map(({ track, match }) => {
+    const trackArtworkURL = getNativePlaybackArtworkURL(
+      track.cover_url || track.poster_path || music.cover_url || music.poster_path,
+    )
+    return {
+      itemId: match.item_id,
+      title: match.title || track.title || '',
+      ...(match.server ? { server: match.server } : {}),
+      ...(trackArtworkURL ? { artworkURL: trackArtworkURL } : {}),
+    }
+  })
   window.dispatchEvent(
     new CustomEvent('moviepilot:playback-open', {
       detail: {
-        itemId: manifest.item_id,
-        title: manifest.title || music.title,
-        ...(manifest.server ? { server: manifest.server } : {}),
+        itemId: current.match.item_id,
+        title: current.match.title || music.title,
+        ...(current.match.server ? { server: current.match.server } : {}),
+        ...(artworkURL ? { artworkURL } : {}),
+        ...(nativeQueue.length > 1 ? { queue: nativeQueue, queueIndex: index } : {}),
       },
     }),
   )
