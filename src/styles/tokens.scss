@@ -25,7 +25,8 @@ html {
   --mp-popover: rgb(var(--mp-popover-rgb));
   --mp-fg: rgb(var(--v-theme-on-surface, var(--mp-fg-rgb)));
   --mp-muted-fg: rgba(var(--v-theme-on-surface, var(--mp-fg-rgb)), var(--v-medium-emphasis-opacity, 0.72));
-  --mp-faint: rgba(var(--v-theme-on-surface, var(--mp-fg-rgb)), 0.46);
+  --mp-faint-alpha: 0.46;
+  --mp-faint: rgba(var(--v-theme-on-surface, var(--mp-fg-rgb)), var(--mp-faint-alpha));
 
   // 压在海报或剧照底图上的文字与压暗遮罩不随浅色主题反转为深色
   --mp-on-media: #f8fafc;
@@ -84,9 +85,9 @@ html:where([data-glass-color-scheme='dark'], [data-theme='glass']:not([data-glas
   --mp-border: rgba(255, 255, 255, 0.08);
   --mp-border-subtle: rgba(255, 255, 255, 0.05);
   --mp-input: rgba(255, 255, 255, 0.14);
-  --mp-list-group-bg: rgba(255, 255, 255, 0.03);
-  --mp-list-row-divider: rgba(255, 255, 255, 0.075);
-  --mp-list-row-hover: rgba(255, 255, 255, 0.04);
+  --mp-list-group-bg: rgba(255, 255, 255, 0.035);
+  --mp-list-row-divider: rgba(255, 255, 255, 0.08);
+  --mp-list-row-hover: rgba(255, 255, 255, 0.08);
 }
 
 // 玻璃材质透出底层壁纸，次级子面板采用半透明吸收层而非实色底，长列表内部行保持透明与轻量交互
@@ -94,26 +95,27 @@ html[data-theme='glass'] {
   --mp-bg: transparent;
   --mp-surface: var(--glass-surface);
   --mp-card: var(--glass-surface);
+  --mp-faint-alpha: 0.6;
   --mp-muted: rgba(255, 255, 255, 0.055);
   --mp-popover: var(--glass-popup-surface, var(--glass-overlay-surface));
   --mp-border: var(--glass-border);
-  --mp-list-group-bg: rgba(255, 255, 255, 0.04);
+  --mp-list-group-bg: rgba(255, 255, 255, 0.035);
   --mp-list-row-divider: rgba(255, 255, 255, 0.09);
-  --mp-list-row-hover: rgba(255, 255, 255, 0.055);
+  --mp-list-row-hover: rgba(255, 255, 255, 0.085);
 }
 
 html[data-theme='glass'][data-glass-color-scheme='light'] {
   --mp-muted: rgba(24, 24, 27, 0.045);
   --mp-list-group-bg: rgba(15, 23, 42, 0.03);
-  --mp-list-row-divider: rgba(15, 23, 42, 0.08);
-  --mp-list-row-hover: rgba(15, 23, 42, 0.04);
+  --mp-list-row-divider: rgba(15, 23, 42, 0.09);
+  --mp-list-row-hover: rgba(15, 23, 42, 0.065);
 }
 
 // 在 Vuetify 实际挂载主题变量的节点重新求值依赖动态主色与强调度的语义令牌
 :where(.v-theme--glass, .v-theme--plain) {
   --mp-fg: rgb(var(--v-theme-on-surface));
   --mp-muted-fg: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  --mp-faint: rgba(var(--v-theme-on-surface), 0.46);
+  --mp-faint: rgba(var(--v-theme-on-surface), var(--mp-faint-alpha));
   --mp-ring: color-mix(in oklab, rgb(var(--v-theme-primary)) 68%, transparent);
   --mp-success-soft: rgba(var(--v-theme-success), var(--mp-badge-soft-alpha));
   --mp-success-border: rgba(var(--v-theme-success), var(--mp-badge-border-alpha));

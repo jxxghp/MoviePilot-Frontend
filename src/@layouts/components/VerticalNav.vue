@@ -69,7 +69,7 @@ function handleNavScroll(evt: Event) {
           <h1 class="leading-normal text-xl">
             <span class="moviepilot-wordmark">MOVIEPILOT</span>
             <span
-              class="runtime-version text-sm text-gray-500 d-inline-flex align-center"
+              class="runtime-version text-sm text-medium-emphasis d-inline-flex align-center"
               :class="{
                 'runtime-version--free-threaded': pythonFreeThreaded,
                 'runtime-version--degraded': runtimeGilFallback,

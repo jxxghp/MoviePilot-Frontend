@@ -1128,33 +1128,33 @@ useNativePageHeader({
               rel="noopener noreferrer"
             >
               <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
               >
-                <VIcon icon="mdi-link" />
+                <VIcon icon="mdi-link" size="16" />
                 <span class="ms-1">TheMovieDb</span>
               </div>
             </a>
             <div v-if="mediaDetail.douban_id" class="mb-2 mr-2 inline-flex last:mr-0" @click="handleDoubanClick">
               <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
               >
-                <VIcon icon="mdi-link" />
+                <VIcon icon="mdi-link" size="16" />
                 <span class="ms-1">豆瓣</span>
               </div>
             </div>
             <a v-if="mediaDetail.imdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getImdbLink()" target="_blank">
               <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
               >
-                <VIcon icon="mdi-link" />
+                <VIcon icon="mdi-link" size="16" />
                 <span class="ms-1">IMDb</span>
               </div>
             </a>
             <a v-if="mediaDetail.tvdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getTvdbLink()" target="_blank">
               <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
               >
-                <VIcon icon="mdi-link" />
+                <VIcon icon="mdi-link" size="16" />
                 <span class="ms-1">TheTvDb</span>
               </div>
             </a>
@@ -1165,9 +1165,9 @@ useNativePageHeader({
               target="_blank"
             >
               <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
               >
-                <VIcon icon="mdi-link" />
+                <VIcon icon="mdi-link" size="16" />
                 <span class="ms-1">Bangumi</span>
               </div>
             </a>
@@ -1178,9 +1178,9 @@ useNativePageHeader({
               target="_blank"
             >
               <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
               >
-                <VIcon icon="mdi-link" />
+                <VIcon icon="mdi-link" size="16" />
                 <span class="ms-1">AniList</span>
               </div>
             </a>
@@ -1294,11 +1294,11 @@ useNativePageHeader({
                 <VExpansionPanelText>
                   <template #default>
                     <LoadingBanner v-if="!seasonEpisodesInfo[season.season_number || 0]" class="mt-3" />
-                    <div class="flex flex-col justify-center divide-y divide-gray-700">
+                    <div class="media-episode-list flex flex-col justify-center">
                       <div
                         v-for="episode in seasonEpisodesInfo[season.season_number || 0]"
                         :key="episode.episode_number"
-                        class="flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4"
+                        class="media-episode-row flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4"
                       >
                         <div class="episode-info flex-1">
                           <VIcon
@@ -1310,9 +1310,9 @@ useNativePageHeader({
                           />
                           <div class="flex flex-col space-y-2 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-2">
                             <h3 class="text-lg">{{ episode.episode_number }} - {{ episode.name }}</h3>
-                            <div class="flex items-center space-x-2">
+                            <div v-if="episode.air_date" class="flex items-center space-x-2">
                               <span
-                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap cursor-default bg-gray-700 !text-gray-300"
+                                class="media-episode-date px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap cursor-default"
                               >
                                 {{ episode.air_date }}
                               </span>
@@ -1797,6 +1797,16 @@ a.crew-name {
   box-shadow: var(--glass-control-shadow-hover);
 }
 
+.media-episode-row + .media-episode-row {
+  border-block-start: 1px solid var(--mp-list-row-divider);
+}
+
+.media-episode-date {
+  border: 1px solid var(--mp-border);
+  background-color: var(--mp-muted);
+  color: var(--mp-muted-fg);
+}
+
 .media-status {
   margin-block-end: 0.5rem;
 }
@@ -2093,40 +2103,39 @@ a.crew-name {
 }
 
 .media-facts {
-  border-width: 1px;
-  border-color: rgb(55 65 81 / var(--tw-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-surface-radius);
+  background-color: var(--mp-surface);
   font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.25rem;
+}
 
-  --tw-border-opacity: 1;
-  --tw-bg-opacity: 1;
-  --tw-text-opacity: 1;
+.media-detail-glass .media-facts {
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
 }
 
 .media-ratings {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-color: rgb(55 65 81 / var(--tw-border-opacity));
-  border-block-end-width: 1px;
+  border-block-end: 1px solid var(--mp-border);
   font-weight: 500;
   padding-block: 0.5rem;
   padding-inline: 1rem;
-
-  --tw-border-opacity: 1;
 }
 
 .media-fact {
   display: flex;
   justify-content: space-between;
-  border-color: rgb(55 65 81 / var(--tw-border-opacity));
-  border-block-end-width: 1px;
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 0.5rem;
   padding-inline: 1rem;
-
-  --tw-border-opacity: 1;
 }
 
 .media-overview h2 {

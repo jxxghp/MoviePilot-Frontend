@@ -81,4 +81,18 @@ describe('glass appearance preference', () => {
       window.removeEventListener('moviepilot-theme-primary-color-change', listener)
     }
   })
+
+  it('defines explicit on-colors and light-safe variables instead of leaking dark variables into light mode', () => {
+    const darkPalette = getGlassThemePalette('dark')
+    const lightPalette = getGlassThemePalette('light')
+
+    expect(darkPalette.colors['on-info']).toBe('#07101C')
+    expect(darkPalette.colors['on-error']).toBe('#230808')
+    expect(lightPalette.colors['on-info']).toBe('#FFFFFF')
+    expect(lightPalette.colors['on-error']).toBe('#FFFFFF')
+    expect(lightPalette.variables['code-color']).toBe('#B45309')
+    expect(lightPalette.variables['overlay-scrim-opacity']).toBe(0.36)
+    expect(lightPalette.variables['table-header-background']).toBe('rgba(24, 24, 27, 0.04)')
+    expect(lightPalette.variables['custom-background']).toBe('rgba(24, 24, 27, 0.04)')
+  })
 })

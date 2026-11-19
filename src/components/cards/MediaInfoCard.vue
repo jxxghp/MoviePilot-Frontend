@@ -209,24 +209,22 @@ watch(musicCover, () => {
             <!-- 类型 -->
             <VChip
               v-if="context?.media_info?.type || context?.meta_info?.type"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-blue-500"
+              variant="tonal"
+              color="info"
+              class="me-1 mb-1"
             >
               {{ context?.media_info?.type || context?.meta_info?.type }}
             </VChip>
             <!-- 音乐实体类型 -->
-            <VChip
-              v-if="isMusic && context?.media_info?.music_type"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-blue-500"
-            >
+            <VChip v-if="isMusic && context?.media_info?.music_type" variant="tonal" color="info" class="me-1 mb-1">
               {{ musicTypeLabel }}
             </VChip>
             <!-- 音乐分类 -->
             <VChip
               v-if="isMusic && (context?.media_info?.metadata_category || context?.media_info?.album_type)"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-purple-500"
+              variant="tonal"
+              color="primary"
+              class="me-1 mb-1"
             >
               {{ context?.media_info?.metadata_category || context?.media_info?.album_type }}
             </VChip>
@@ -234,8 +232,9 @@ watch(musicCover, () => {
             <VChip
               v-for="genre in isMusic ? context?.media_info?.genres : []"
               :key="genre"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-purple-500"
+              variant="tonal"
+              color="primary"
+              class="me-1 mb-1"
             >
               {{ genre }}
             </VChip>
@@ -243,79 +242,58 @@ watch(musicCover, () => {
             <VChip
               v-for="audioChip in isMusic ? musicAudioChips : []"
               :key="audioChip"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-orange-500"
+              variant="tonal"
+              color="warning"
+              class="me-1 mb-1"
             >
               {{ audioChip }}
             </VChip>
             <!-- ISRC -->
-            <VChip
-              v-if="isMusic && context?.media_info?.isrc"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-red-500"
-            >
+            <VChip v-if="isMusic && context?.media_info?.isrc" variant="tonal" color="error" class="me-1 mb-1">
               {{ context?.media_info?.isrc }}
             </VChip>
             <!-- MusicBrainz 外链 -->
             <VChip
               v-if="isMusic && musicLink"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-green-500"
+              variant="tonal"
+              color="success"
+              class="me-1 mb-1"
               @click="openMusicDetail"
             >
               详情
             </VChip>
             <!-- 二级分类 -->
-            <VChip
-              v-if="!isMusic && context?.media_info?.category"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-blue-500"
-            >
+            <VChip v-if="!isMusic && context?.media_info?.category" variant="tonal" color="info" class="me-1 mb-1">
               {{ context?.media_info?.category }}
             </VChip>
             <!-- TMDBID -->
             <VChip
               v-if="!isMusic && context?.media_info?.tmdb_id"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-green-500"
+              variant="tonal"
+              color="success"
+              class="me-1 mb-1"
               @click="openTmdbPage(context?.media_info?.type || '', context?.media_info?.tmdb_id)"
             >
               {{ context?.media_info?.tmdb_id }}
             </VChip>
             <!-- meta_info（音乐不显示影视资源信息） -->
             <template v-if="!isMusic">
-              <VChip
-                v-if="context?.meta_info?.web_source"
-                variant="elevated"
-                class="me-1 mb-1 text-white bg-purple-500"
-              >
+              <VChip v-if="context?.meta_info?.web_source" variant="tonal" color="primary" class="me-1 mb-1">
                 {{ context?.meta_info?.web_source }}
               </VChip>
-              <VChip v-if="context?.meta_info?.edition" variant="elevated" class="me-1 mb-1 text-white bg-red-500">
+              <VChip v-if="context?.meta_info?.edition" variant="tonal" color="error" class="me-1 mb-1">
                 {{ context?.meta_info?.edition }}
               </VChip>
-              <VChip v-if="context?.meta_info?.resource_pix" variant="elevated" class="me-1 mb-1 text-white bg-red-500">
+              <VChip v-if="context?.meta_info?.resource_pix" variant="tonal" color="error" class="me-1 mb-1">
                 {{ context?.meta_info?.resource_pix }}
               </VChip>
-              <VChip
-                v-if="context?.meta_info?.video_encode"
-                variant="elevated"
-                class="me-1 mb-1 text-white bg-orange-500"
-              >
+              <VChip v-if="context?.meta_info?.video_encode" variant="tonal" color="warning" class="me-1 mb-1">
                 {{ context?.meta_info?.video_encode }}
               </VChip>
-              <VChip
-                v-if="context?.meta_info?.audio_encode"
-                variant="elevated"
-                class="me-1 mb-1 text-white bg-orange-500"
-              >
+              <VChip v-if="context?.meta_info?.audio_encode" variant="tonal" color="warning" class="me-1 mb-1">
                 {{ context?.meta_info?.audio_encode }}
               </VChip>
-              <VChip
-                v-if="context?.meta_info?.resource_team"
-                variant="elevated"
-                class="me-1 mb-1 text-white bg-cyan-500"
-              >
+              <VChip v-if="context?.meta_info?.resource_team" variant="tonal" color="secondary" class="me-1 mb-1">
                 {{ context?.meta_info?.resource_team }}
               </VChip>
             </template>

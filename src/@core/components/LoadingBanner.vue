@@ -6,7 +6,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <div class="w-full text-center text-gray-500 text-sm flex flex-col items-center my-5">
+  <div class="w-full text-center text-medium-emphasis text-sm flex flex-col items-center my-5">
     <div class="initial-loading-container">
       <div class="initial-loading-content">
         <div class="wave-loader">

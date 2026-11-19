@@ -424,15 +424,18 @@ function dispatchThemeCustomizerChange(settings: ThemeCustomizerSettings) {
   )
 }
 
-/** 根据背景亮度选择可读的前景色。 */
+/** 根据 WCAG 相对亮度选择对比度更高的前景色。 */
 function getTextColorForHex(backgroundColor: string) {
   const hex = backgroundColor.replace('#', '')
-  const red = Number.parseInt(hex.slice(0, 2), 16)
-  const green = Number.parseInt(hex.slice(2, 4), 16)
-  const blue = Number.parseInt(hex.slice(4, 6), 16)
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+  const channels = [0, 2, 4].map(offset => {
+    const srgb = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255
+    return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4
+  })
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+  const whiteContrast = 1.05 / (luminance + 0.05)
+  const darkContrast = (luminance + 0.05) / 0.075
 
-  return luminance > 0.68 ? '#3A3541' : '#FFFFFF'
+  return darkContrast > whiteContrast ? '#18181B' : '#FFFFFF'
 }
 
 /** 将主色写入所有 Vuetify 运行时主题。 */

@@ -150,9 +150,13 @@ html[data-theme='glass'] {
   --glass-control-shortcut-color: rgba(var(--v-theme-on-surface), 68%);
   // 小标签由透光底色与镜面高光承载材质，不为每个标签重复采样背景；光学预算留给主要表面。
   --glass-chip-backdrop-filter: none;
+  --glass-chip-base-opacity: 36%;
   --glass-chip-sheen:
     linear-gradient(135deg, rgba(255, 255, 255, 12%), transparent 38%, rgba(255, 255, 255, 3%) 72%, transparent),
-    linear-gradient(rgba(var(--glass-material-rgb), 36%), rgba(var(--glass-material-rgb), 36%));
+    linear-gradient(
+      rgba(var(--glass-material-rgb), var(--glass-chip-base-opacity)),
+      rgba(var(--glass-material-rgb), var(--glass-chip-base-opacity))
+    );
   --glass-chip-tint-opacity: calc(0.22 + var(--glass-tint-density, 0.65) * 0.18);
   --glass-button-surface: rgba(255, 255, 255, 8%);
   --glass-button-surface-hover: rgba(255, 255, 255, 12%);
@@ -895,7 +899,7 @@ html[data-theme='glass'] {
 
   .v-field input::placeholder,
   .v-field textarea::placeholder {
-    color: rgba(var(--v-theme-on-surface), 38%);
+    color: rgba(var(--v-theme-on-surface), 50%);
     opacity: 1;
   }
 
@@ -971,28 +975,28 @@ html[data-theme='glass'] {
   }
 
   .v-btn.bg-primary {
-    border-color: rgba(var(--v-theme-primary), 48%);
-    background-color: rgba(var(--v-theme-primary), 34%) !important;
+    border-color: rgba(var(--v-theme-primary), 56%);
+    background-color: rgba(var(--v-theme-primary), 46%) !important;
   }
 
   .v-btn.bg-success {
-    border-color: rgba(var(--v-theme-success), 48%);
-    background-color: rgba(var(--v-theme-success), 34%) !important;
+    border-color: rgba(var(--v-theme-success), 56%);
+    background-color: rgba(var(--v-theme-success), 46%) !important;
   }
 
   .v-btn.bg-info {
-    border-color: rgba(var(--v-theme-info), 48%);
-    background-color: rgba(var(--v-theme-info), 34%) !important;
+    border-color: rgba(var(--v-theme-info), 56%);
+    background-color: rgba(var(--v-theme-info), 46%) !important;
   }
 
   .v-btn.bg-warning {
-    border-color: rgba(var(--v-theme-warning), 48%);
-    background-color: rgba(var(--v-theme-warning), 34%) !important;
+    border-color: rgba(var(--v-theme-warning), 58%);
+    background-color: rgba(var(--v-theme-warning), 48%) !important;
   }
 
   .v-btn.bg-error {
-    border-color: rgba(var(--v-theme-error), 48%);
-    background-color: rgba(var(--v-theme-error), 34%) !important;
+    border-color: rgba(var(--v-theme-error), 56%);
+    background-color: rgba(var(--v-theme-error), 46%) !important;
   }
 
   :where(.v-btn, .v-card--link, [role='button']):focus-visible {
@@ -1472,28 +1476,28 @@ html[data-theme='glass'] {
     }
 
     .v-btn.bg-primary:hover {
-      border-color: rgba(var(--v-theme-primary), 62%);
-      background-color: rgba(var(--v-theme-primary), 42%) !important;
+      border-color: rgba(var(--v-theme-primary), 70%);
+      background-color: rgba(var(--v-theme-primary), 56%) !important;
     }
 
     .v-btn.bg-success:hover {
-      border-color: rgba(var(--v-theme-success), 62%);
-      background-color: rgba(var(--v-theme-success), 42%) !important;
+      border-color: rgba(var(--v-theme-success), 70%);
+      background-color: rgba(var(--v-theme-success), 56%) !important;
     }
 
     .v-btn.bg-info:hover {
-      border-color: rgba(var(--v-theme-info), 62%);
-      background-color: rgba(var(--v-theme-info), 42%) !important;
+      border-color: rgba(var(--v-theme-info), 70%);
+      background-color: rgba(var(--v-theme-info), 56%) !important;
     }
 
     .v-btn.bg-warning:hover {
-      border-color: rgba(var(--v-theme-warning), 62%);
-      background-color: rgba(var(--v-theme-warning), 42%) !important;
+      border-color: rgba(var(--v-theme-warning), 72%);
+      background-color: rgba(var(--v-theme-warning), 58%) !important;
     }
 
     .v-btn.bg-error:hover {
-      border-color: rgba(var(--v-theme-error), 62%);
-      background-color: rgba(var(--v-theme-error), 42%) !important;
+      border-color: rgba(var(--v-theme-error), 70%);
+      background-color: rgba(var(--v-theme-error), 56%) !important;
     }
 
     // FAB 悬浮时保持弹出菜单材质，仅通过描边和阴影反馈交互，避免背景进一步透明。
@@ -2063,18 +2067,28 @@ html[data-theme='glass'][data-glass-color-scheme='light'] {
 }
 
 html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance][data-glass-ui-style] {
-  --glass-control: rgba(118, 118, 128, 8%);
-  --glass-control-prominent: rgba(118, 118, 128, 8%);
-  --glass-control-prominent-focus: color-mix(in srgb, rgba(118, 118, 128, 10%) 84%, rgba(var(--v-theme-primary), 16%));
-  --glass-border: rgba(60, 60, 67, calc(0.06 + var(--glass-reflection, 0.5) * 0.12));
-  --glass-border-raised: rgba(60, 60, 67, calc(0.08 + var(--glass-reflection, 0.5) * 0.14));
+  --glass-control: rgba(118, 118, 128, 9%);
+  --glass-control-prominent: rgba(118, 118, 128, 10%);
+  --glass-control-prominent-focus: color-mix(in srgb, rgba(118, 118, 128, 12%) 84%, rgba(var(--v-theme-primary), 16%));
+  --glass-border: rgba(60, 60, 67, calc(0.07 + var(--glass-reflection, 0.5) * 0.12));
+  --glass-border-raised: rgba(60, 60, 67, calc(0.09 + var(--glass-reflection, 0.5) * 0.14));
   --glass-border-hover: rgba(60, 60, 67, 24%);
-  --glass-control-prominent-border: rgba(60, 60, 67, 14%);
-  --glass-button-surface: rgba(118, 118, 128, 8%);
-  --glass-button-surface-hover: rgba(118, 118, 128, 14%);
+  --glass-control-prominent-border: rgba(60, 60, 67, 15%);
+  --glass-control-shortcut-background: rgba(60, 60, 67, 7%);
+  --glass-control-shortcut-border: rgba(60, 60, 67, 14%);
+  --glass-chip-base-opacity: 16%;
+  --glass-chip-tint-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.14);
+  --glass-button-surface: rgba(118, 118, 128, 9%);
+  --glass-button-surface-hover: rgba(118, 118, 128, 15%);
   --glass-shadow: 0 10px 28px rgba(0, 0, 0, 8%), inset 0 1px 0 rgba(255, 255, 255, 70%);
   --glass-shadow-raised: 0 16px 40px rgba(0, 0, 0, 12%), inset 0 1px 0 rgba(255, 255, 255, 80%);
   --glass-shadow-hover: 0 14px 32px rgba(0, 0, 0, 10%), inset 0 1px 0 rgba(255, 255, 255, 78%);
+  --glass-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%), inset 0 -1px 0 rgba(15, 23, 42, 6%);
+  --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 78%), inset 0 -1px 0 rgba(15, 23, 42, 8%);
+  --glass-control-shadow-active: inset 0 1px 0 rgba(15, 23, 42, 8%), inset 0 -1px 0 rgba(255, 255, 255, 40%);
+  --glass-overlay-scrim: rgba(15, 23, 42, 18%);
+  --app-grouped-list-separator-color: rgba(60, 60, 67, 11%);
+  --app-grouped-list-hover-background: rgba(60, 60, 67, 6%);
   --glass-nav-active-background: linear-gradient(
     90deg,
     rgba(var(--v-theme-primary), 78%),
@@ -2082,23 +2096,31 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   );
   --glass-nav-active-border: 1px solid rgba(var(--v-theme-primary), 62%);
   --glass-nav-active-shadow: 0 6px 16px rgba(var(--v-theme-primary), 20%), inset 0 1px 0 rgba(255, 255, 255, 38%);
-  --glass-v3-fill: clamp(0.5, calc(0.5 + var(--glass-surface-density, 0.62) * 0.28), 0.84);
+  --glass-v3-fill: clamp(0.54, calc(0.52 + var(--glass-surface-density, 0.62) * 0.28), 0.86);
   --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 6%);
   --glass-v3-hover-shadow: 0 16px 34px rgba(0, 0, 0, 10%);
-  --glass-popup-surface: rgba(255, 255, 255, calc(0.64 + var(--glass-surface-density, 0.62) * 0.2));
+  --glass-popup-surface: rgba(255, 255, 255, calc(0.68 + var(--glass-surface-density, 0.62) * 0.2));
+  --glass-overlay-surface: var(--glass-popup-surface);
   --glass-navbar-frosted-background:
     linear-gradient(rgba(255, 255, 255, 24%), rgba(255, 255, 255, 24%)), var(--glass-v3-card-background);
 
+  &[data-glass-appearance='frosted'] {
+    --glass-popup-surface: rgba(255, 255, 255, calc(0.72 + var(--glass-surface-density, 0.86) * 0.16));
+    --glass-overlay-surface: var(--glass-popup-surface);
+  }
+
   &[data-glass-ui-style='clear'] {
-    --glass-popup-surface: rgba(255, 255, 255, calc(0.48 + var(--glass-surface-density, 0.62) * 0.2));
+    --glass-popup-surface: rgba(255, 255, 255, calc(0.52 + var(--glass-surface-density, 0.62) * 0.2));
+    --glass-overlay-surface: var(--glass-popup-surface);
   }
 
   &[data-glass-appearance='tinted'] {
     --glass-popup-surface: color-mix(
       in srgb,
-      rgba(255, 255, 255, calc(0.66 + var(--glass-surface-density, 0.72) * 0.2)) 94%,
+      rgba(255, 255, 255, calc(0.68 + var(--glass-surface-density, 0.72) * 0.2)) 94%,
       rgba(var(--glass-material-accent-rgb), 24%)
     );
+    --glass-overlay-surface: var(--glass-popup-surface);
   }
 }
 
@@ -2218,5 +2240,42 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
 
   .plugin-card__banner .text-gray-200 {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)) !important;
+  }
+
+  // 浅色玻璃下表格、代码编辑器、日志行与权限面板改用冷灰吸收层，避免白底叠白雾失去轮廓。
+  .v-field.v-field--variant-outlined {
+    box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 7%);
+  }
+
+  .v-table {
+    .v-table__wrapper > table > thead {
+      background-color: rgba(15, 23, 42, 4.5%);
+    }
+
+    .v-table__wrapper > table > tbody > tr:hover > td {
+      background-color: rgba(15, 23, 42, 4%);
+    }
+  }
+
+  .ace_editor .ace_marker-layer .ace_active-line,
+  .ace_editor .ace_marker-layer .ace_selection {
+    background: rgba(var(--v-theme-primary), 12%) !important;
+  }
+
+  .logging-view,
+  .logging-view.is-dark-theme {
+    --logging-record-bg-even: rgba(15, 23, 42, 3.8%);
+    --logging-record-bg-odd: rgba(15, 23, 42, 1.6%);
+    --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%);
+  }
+
+  .user-permission-editor {
+    --permission-editor-muted-border: 1px solid rgba(60, 60, 67, 12%);
+    --permission-editor-hover-bg: rgba(60, 60, 67, 6%);
+    --permission-editor-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%);
+  }
+
+  .ai-agent-settings-card {
+    border: 1px solid var(--glass-border) !important;
   }
 }

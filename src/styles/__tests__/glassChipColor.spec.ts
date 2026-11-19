@@ -131,4 +131,11 @@ describe('glass chip colors', () => {
     expect(mutedRules[darkFallbackIndex].selector).toContain(':where(')
     expect(mutedRules[glassMutedIndex].selector).toContain('[data-theme=')
   })
+
+  it('defines cool-slate light glass overrides for tables, ace selection, logging stripes, and frosted overlays', () => {
+    expect(css).toContain('--glass-chip-base-opacity: 16%')
+    expect(css).toContain('--logging-record-bg-even: rgba(15, 23, 42, 3.8%)')
+    expect(css).toContain('--permission-editor-muted-border: 1px solid rgba(60, 60, 67, 12%)')
+    expect(css).toContain('background-color: rgba(15, 23, 42, 0.045)')
+  })
 })
