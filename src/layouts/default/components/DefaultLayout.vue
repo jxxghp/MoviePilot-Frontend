@@ -784,10 +784,12 @@ onMounted(async () => {
   grid-column: 3;
   grid-row: 1;
   gap: 0.85rem;
+  min-inline-size: 0;
 
   :deep(.search-desktop-activator) {
-    flex-basis: clamp(12rem, 20vw, 17.5rem);
-    inline-size: clamp(12rem, 20vw, 17.5rem);
+    flex: 0 1 clamp(12rem, 20vw, 17.5rem);
+    inline-size: auto;
+    min-inline-size: 8rem;
   }
 
   :deep(.ms-2),
