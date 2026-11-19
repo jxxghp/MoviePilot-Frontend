@@ -3418,6 +3418,8 @@ export default {
       log: 'Log',
       data: 'Data',
       lab: 'Lab',
+      aiAgentKnowledgeEnable: 'Use centralized Agent knowledge',
+      aiAgentKnowledgeEnableHint: 'Let the Agent look up MP and PT knowledge when needed. No extra setup is required.',
       downloaderSaveSuccess: 'Downloader settings saved successfully',
       downloaderSaveFailed: 'Failed to save downloader settings!',
       defaultDownloaderNotice: 'No default downloader set, [{name}] has been set as the default downloader',

@@ -1424,6 +1424,29 @@ describe('AccountSettingSystem', () => {
     expect(useGlobalSettingsStore(pinia).globalSettings.COMMUNITY_MEDALS_ENABLED).toBe(false)
   })
 
+  it.each([true, false])('loads the lab knowledge switch %s and saves its opposite', async enabled => {
+    systemEnv.AI_AGENT_KNOWLEDGE_ENABLE = enabled
+    await renderSettings()
+    const dialog = await openAdvancedTab('实验室')
+    const knowledgeSwitch = dialog.getByLabelText('Agent 使用中心知识')
+    expect((knowledgeSwitch as HTMLInputElement).checked).toBe(enabled)
+    await fireEvent.click(knowledgeSwitch)
+    expect((knowledgeSwitch as HTMLInputElement).checked).toBe(!enabled)
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ AI_AGENT_KNOWLEDGE_ENABLE: !enabled }))
+  })
+
+  it('does not submit the knowledge setting to an older backend that does not declare it', async () => {
+    delete systemEnv.AI_AGENT_KNOWLEDGE_ENABLE
+    await renderSettings()
+    const dialog = await openAdvancedTab('实验室')
+    expect(dialog.queryByLabelText('Agent 使用中心知识')).not.toBeInTheDocument()
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).not.toHaveProperty('AI_AGENT_KNOWLEDGE_ENABLE')
+  })
+
   it('loads a disabled CUE setting and allows enabling it without online music modules', async () => {
     systemEnv.MUSIC_CUE_ENABLE = false
     systemEnv.MODULE_ENABLE = { MusicBrainzModule: false, TheAudioDbModule: false }
