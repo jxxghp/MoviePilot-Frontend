@@ -47,7 +47,6 @@ const poster = computed(() =>
 )
 const subtitle = computed(() =>
   [
-    props.subscription.name,
     props.subscription.year,
     props.subscription.type === '电视剧' ? formatSeasonLabel(props.subscription.season, t('media.specials')) : '',
     props.subscription.total_episode
@@ -228,6 +227,7 @@ function clearFilters() {
 function title(value: string) {
   return t(`subscriptionActivity.kind.${value}`)
 }
+
 /** 返回业务事件图标，沿用项目 MDI 图标体系。 */
 function icon(value: string) {
   return (
@@ -243,10 +243,21 @@ function icon(value: string) {
     )[value] || 'mdi-history'
   )
 }
+
+/** 返回事件图标对应的语义色调，保证浅色与深色主题下清晰可辨。 */
+function kindTone(value: string) {
+  if (value === 'completed') return 'success'
+  if (value === 'status') return 'warning'
+  if (value === 'search') return 'info'
+  if (value === 'refresh') return 'primary'
+  return 'neutral'
+}
+
 /** 格式化活动发生时刻，统一跟随浏览器的本地时区。 */
 function time(value: string) {
   return new Date(value).toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit', hour12: false })
 }
+
 /** 按用户本地日期显示日期分组和今天、昨天提示。 */
 function dateLabel(value: string) {
   const date = new Date(value)
@@ -259,8 +270,10 @@ function dateLabel(value: string) {
       : date.toDateString() === yesterday.toDateString()
         ? t('subscriptionActivity.yesterday')
         : ''
-  return `${date.toLocaleDateString(locale.value, { year: 'numeric', month: 'long', day: 'numeric' })}   ${suffix}`
+  const dateText = date.toLocaleDateString(locale.value, { year: 'numeric', month: 'long', day: 'numeric' })
+  return suffix ? `${dateText} · ${suffix}` : dateText
 }
+
 /** 汇总轮次计数；共享 RSS 候选与本订阅相关资源使用不同口径。 */
 function summary(event: SubscriptionActivityEvent) {
   const c = event.counts
@@ -292,12 +305,14 @@ function summary(event: SubscriptionActivityEvent) {
       .join(' · ')
   return t(`subscriptionActivity.summary.${event.kind}`)
 }
+
 /** 翻译规则字段，并为未来兼容字段保留可读的名称。 */
 function fieldLabel(field: string) {
   const key = `subscriptionActivity.fields.${field}`
   const label = t(key)
   return label === key ? field : label
 }
+
 /** 将冻结的规则值转换为紧凑文本。 */
 function valueLabel(value: unknown, field?: string): string {
   if (field === 'state' && ['N', 'R', 'S', 'P'].includes(String(value)))
@@ -315,12 +330,14 @@ function valueLabel(value: unknown, field?: string): string {
   if (Array.isArray(value)) return value.join(', ') || t('subscriptionActivity.unset')
   return String(value)
 }
+
 /** 返回本轮过滤条件，不随当前订阅设置变化而改变历史解释。 */
 function rules(event: SubscriptionActivityEvent) {
   return Object.entries(event.details.rules || {}).filter(
     ([, value]) => value !== null && value !== '' && value !== 0 && (!Array.isArray(value) || value.length),
   )
 }
+
 /** 用业务状态决定提示色；空结果不会被渲染成错误。 */
 function tone(status: string) {
   return ['waiting', 'running'].includes(status)
@@ -331,6 +348,7 @@ function tone(status: string) {
         ? 'success'
         : 'neutral'
 }
+
 /** 切换某轮站点详情，保留独立的展开状态。 */
 function toggleSites(eventId: string) {
   const next = new Set(siteDetails.value)
@@ -338,6 +356,7 @@ function toggleSites(eventId: string) {
   else next.add(eventId)
   siteDetails.value = next
 }
+
 /** 返回轮次关键阶段与计数，搜索和刷新共用详情结构。 */
 function stages(event: SubscriptionActivityEvent) {
   const c = event.counts
@@ -391,48 +410,63 @@ onBeforeUnmount(() => {
   <VDialog
     v-model="visible"
     class="subscription-activity-dialog"
-    max-width="86rem"
+    content-class="subscription-activity-content"
+    max-width="76rem"
+    :height="display.mdAndUp.value ? 'min(88dvh, 56rem)' : undefined"
     :fullscreen="!display.mdAndUp.value"
     scrollable
   >
     <VCard class="subscription-activity">
       <header class="activity-header">
-        <VImg v-if="poster" :src="poster" class="activity-poster" width="108" height="140" cover />
+        <VImg v-if="poster" :src="poster" class="activity-poster" cover />
         <div v-else class="activity-poster activity-poster--empty">
-          <VIcon icon="mdi-movie-open-outline" size="40" />
+          <VIcon icon="mdi-movie-open-outline" size="28" />
         </div>
+
         <div class="activity-heading">
-          <h2 data-native-dialog-title>{{ t('subscriptionActivity.title') }}</h2>
-          <p class="activity-subtitle">{{ subtitle }}</p>
-          <p class="activity-progress-label" v-if="libraryCount !== null">
-            {{ t('subscriptionActivity.libraryProgress', { count: libraryCount, total: subscription.total_episode }) }}
-          </p>
-          <p v-else class="activity-progress-label activity-muted">
-            {{ t(history ? 'subscriptionActivity.completedHistory' : 'subscriptionActivity.libraryUnknown') }}
-          </p>
-          <VProgressLinear
-            v-if="subscription.type === '电视剧' && !history"
-            :model-value="progress"
-            height="8"
-            color="primary"
-            rounded
-            class="activity-progress"
-          />
+          <div class="activity-eyebrow">
+            <VIcon icon="mdi-history" size="15" />
+            <span data-native-dialog-title>{{ t('subscriptionActivity.title') }}</span>
+          </div>
+          <h2 class="activity-title">{{ subscription.name }}</h2>
+          <p v-if="subtitle" class="activity-subtitle">{{ subtitle }}</p>
+          <div class="activity-progress-wrap">
+            <p v-if="libraryCount !== null" class="activity-progress-label num">
+              {{
+                t('subscriptionActivity.libraryProgress', { count: libraryCount, total: subscription.total_episode })
+              }}
+            </p>
+            <p v-else class="activity-progress-label activity-muted">
+              {{ t(history ? 'subscriptionActivity.completedHistory' : 'subscriptionActivity.libraryUnknown') }}
+            </p>
+            <VProgressLinear
+              v-if="subscription.type === '电视剧' && !history"
+              :model-value="progress"
+              height="5"
+              color="primary"
+              rounded
+              class="activity-progress"
+            />
+          </div>
         </div>
+
         <div class="activity-controls">
           <div class="activity-top-actions">
             <VBtn
-              variant="text"
+              variant="tonal"
+              size="small"
               prepend-icon="mdi-text-box-search-outline"
               :disabled="history"
               @click="runtimeLogs = true"
-              >{{ t('subscriptionActivity.runtimeLogs') }}</VBtn
             >
-            <span class="activity-action-divider" />
+              {{ t('subscriptionActivity.runtimeLogs') }}
+            </VBtn>
             <VBtn
               data-native-dialog-close
+              class="activity-close-btn"
               icon="mdi-close"
               variant="text"
+              size="small"
               :aria-label="t('common.close')"
               @click="visible = false"
             />
@@ -442,8 +476,9 @@ onBeforeUnmount(() => {
               v-model="kind"
               :items="kinds"
               :aria-label="t('subscriptionActivity.eventFilter')"
+              prepend-inner-icon="mdi-filter-variant"
               variant="outlined"
-              density="comfortable"
+              density="compact"
               hide-details
             />
             <VSelect
@@ -452,317 +487,377 @@ onBeforeUnmount(() => {
               :aria-label="t('subscriptionActivity.dateFilter')"
               prepend-inner-icon="mdi-calendar-blank-outline"
               variant="outlined"
-              density="comfortable"
+              density="compact"
               hide-details
             />
           </div>
         </div>
       </header>
+
       <div class="activity-scroll" :aria-busy="loading">
         <div v-if="loading && !events.length" class="activity-empty" role="status">
-          <VProgressCircular indeterminate color="primary" /><span>{{ t('common.loading') }}</span>
+          <VProgressCircular indeterminate size="32" width="3" color="primary" />
+          <span>{{ t('common.loading') }}</span>
         </div>
         <div v-else-if="failed && !events.length" class="activity-empty" role="alert">
-          <VIcon icon="mdi-cloud-alert-outline" size="36" /><strong>{{ t('subscriptionActivity.loadFailed') }}</strong>
-          <VBtn variant="tonal" @click="loadEvents()">{{ t('common.retry') }}</VBtn>
+          <VIcon icon="mdi-cloud-alert-outline" size="36" />
+          <strong>{{ t('subscriptionActivity.loadFailed') }}</strong>
+          <VBtn variant="tonal" color="primary" size="small" @click="loadEvents()">{{ t('common.retry') }}</VBtn>
         </div>
         <div v-else-if="!events.length" class="activity-empty">
-          <VIcon icon="mdi-history" size="40" /><strong>{{ t('subscriptionActivity.empty') }}</strong>
-          <VBtn v-if="days || kind" variant="text" @click="clearFilters">{{ t('subscriptionActivity.allTime') }}</VBtn>
+          <VIcon icon="mdi-history" size="36" />
+          <strong>{{ t('subscriptionActivity.empty') }}</strong>
+          <VBtn v-if="days || kind" variant="tonal" size="small" @click="clearFilters">
+            {{ t('subscriptionActivity.allTime') }}
+          </VBtn>
         </div>
+
         <section v-for="group in groups" :key="group.date" class="activity-day">
-          <h3 class="activity-date">{{ group.label }}</h3>
-          <article
-            v-for="event in group.events"
-            :key="event.event_id"
-            class="activity-event"
-            :class="{
-              'activity-event--open': expanded === event.event_id,
-              'activity-event--compact': !['search', 'refresh'].includes(event.kind),
-            }"
-          >
-            <button
-              class="activity-row"
-              :aria-expanded="expanded === event.event_id"
-              :aria-controls="`activity-detail-${event.event_id}`"
-              @click="expanded = expanded === event.event_id ? null : event.event_id"
+          <h3 class="activity-date num">{{ group.label }}</h3>
+          <div class="activity-day-list">
+            <article
+              v-for="event in group.events"
+              :key="event.event_id"
+              class="activity-event"
+              :class="{
+                'activity-event--open': expanded === event.event_id,
+                'activity-event--compact': !['search', 'refresh'].includes(event.kind),
+              }"
             >
-              <span class="activity-icon"><VIcon :icon="icon(event.kind)" size="30" /></span>
-              <time :datetime="event.started_at">{{ time(event.started_at) }}</time>
-              <span class="activity-action"
-                ><strong>{{ title(event.kind) }}</strong
-                ><small v-if="['search', 'refresh'].includes(event.kind)">{{
-                  t(
-                    `subscriptionActivity.source.${event.source === 'manual' || event.source === 'user' || event.source === 'targeted' ? 'user' : 'automatic'}`,
-                  )
-                }}</small></span
+              <button
+                type="button"
+                class="activity-row"
+                :aria-expanded="expanded === event.event_id"
+                :aria-controls="`activity-detail-${event.event_id}`"
+                @click="expanded = expanded === event.event_id ? null : event.event_id"
               >
-              <span
-                v-if="['search', 'refresh'].includes(event.kind)"
-                class="activity-status"
-                :class="`activity-status--${tone(event.status)}`"
-              >
-                <VIcon :icon="statusIcon(event)" size="18" />{{
-                  t(
-                    `subscriptionActivity.status.${event.details.phase === 'queued' && event.status === 'waiting' ? 'queued' : event.status}`,
-                  )
-                }}
-              </span>
-              <span class="activity-summary"
-                ><span>{{ summary(event) }}</span
-                ><small v-if="event.counts.failed_sites">{{
-                  t('subscriptionActivity.failedSites', { count: event.counts.failed_sites })
-                }}</small
-                ><small v-if="event.details.retry_at">{{
-                  t(
-                    event.details.phase === 'queued'
-                      ? 'subscriptionActivity.scheduledAt'
-                      : 'subscriptionActivity.retryAt',
-                    { time: time(event.details.retry_at) },
-                  )
-                }}</small></span
-              >
-              <span
-                class="activity-details-label"
-                v-if="expanded !== event.event_id && ['search', 'refresh'].includes(event.kind)"
-                >{{ t('subscriptionActivity.viewDetails') }}</span
-              >
-              <VIcon
-                :icon="expanded === event.event_id ? 'mdi-chevron-up' : 'mdi-chevron-right'"
-                class="activity-chevron"
-              />
-            </button>
-            <div v-if="expanded === event.event_id" :id="`activity-detail-${event.event_id}`" class="activity-detail">
-              <div v-if="detailLoading.has(event.event_id) && !hasDetails(event)" class="activity-empty" role="status">
-                <VProgressCircular indeterminate size="28" color="primary" /><span>{{ t('common.loading') }}</span>
-              </div>
-              <div
-                v-else-if="detailFailed.has(event.event_id) && !hasDetails(event)"
-                class="activity-empty"
-                role="alert"
-              >
-                <span>{{ t('subscriptionActivity.detailFailed') }}</span
-                ><VBtn variant="tonal" @click="loadDetails(event.event_id)">{{ t('common.retry') }}</VBtn>
-              </div>
-              <template v-else-if="['search', 'refresh'].includes(event.kind)">
-                <p v-if="detailFailed.has(event.event_id)" role="alert" class="activity-muted">
-                  {{ t('subscriptionActivity.detailFailed') }}
-                  <VBtn size="small" variant="text" @click="loadDetails(event.event_id)">{{ t('common.retry') }}</VBtn>
-                </p>
-                <h3>
-                  <VProgressCircular
-                    v-if="detailLoading.has(event.event_id)"
-                    size="18"
-                    width="2"
-                    indeterminate
-                    color="primary"
-                    :aria-label="t('common.loading')"
-                  />
-                  {{
-                    t(
-                      event.counts.submitted
-                        ? 'subscriptionActivity.roundResult'
-                        : 'subscriptionActivity.whyNoDownload',
-                    )
-                  }}
-                </h3>
-                <p class="activity-result">
-                  <strong>{{
-                    t(`subscriptionActivity.${resultKey(event)}`, {
-                      count: event.counts.submitted || event.counts.related || 0,
-                    })
-                  }}</strong>
-                </p>
-                <p class="activity-explanation">
-                  {{
-                    event.details.reason ||
-                    t(
-                      event.counts.submitted
-                        ? 'subscriptionActivity.submittedHint'
-                        : 'subscriptionActivity.waitingHint',
-                    )
-                  }}
-                </p>
-                <div class="activity-stages">
-                  <template v-for="(stage, index) in stages(event)" :key="stage.key">
-                    <div class="activity-stage">
-                      <VIcon
-                        :icon="stage.icon"
-                        size="31"
-                        :class="{ 'activity-stage-success': stage.key === 'qualified' }"
+                <span class="activity-icon" :class="`activity-icon--${kindTone(event.kind)}`">
+                  <VIcon :icon="icon(event.kind)" size="18" />
+                </span>
+                <time class="num" :datetime="event.started_at">{{ time(event.started_at) }}</time>
+                <span class="activity-action">
+                  <strong>{{ title(event.kind) }}</strong>
+                  <small v-if="['search', 'refresh'].includes(event.kind)">
+                    {{
+                      t(
+                        `subscriptionActivity.source.${event.source === 'manual' || event.source === 'user' || event.source === 'targeted' ? 'user' : 'automatic'}`,
+                      )
+                    }}
+                  </small>
+                </span>
+                <span
+                  v-if="['search', 'refresh'].includes(event.kind)"
+                  class="activity-status"
+                  :class="`activity-status--${tone(event.status)}`"
+                >
+                  <VIcon :icon="statusIcon(event)" size="14" />
+                  <span>
+                    {{
+                      t(
+                        `subscriptionActivity.status.${event.details.phase === 'queued' && event.status === 'waiting' ? 'queued' : event.status}`,
+                      )
+                    }}
+                  </span>
+                </span>
+                <span class="activity-summary num">
+                  <span>{{ summary(event) }}</span>
+                  <small v-if="event.counts.failed_sites">
+                    {{ t('subscriptionActivity.failedSites', { count: event.counts.failed_sites }) }}
+                  </small>
+                  <small v-if="event.details.retry_at">
+                    {{
+                      t(
+                        event.details.phase === 'queued'
+                          ? 'subscriptionActivity.scheduledAt'
+                          : 'subscriptionActivity.retryAt',
+                        { time: time(event.details.retry_at) },
+                      )
+                    }}
+                  </small>
+                </span>
+                <span
+                  v-if="expanded !== event.event_id && ['search', 'refresh'].includes(event.kind)"
+                  class="activity-details-label"
+                >
+                  {{ t('subscriptionActivity.viewDetails') }}
+                </span>
+                <VIcon
+                  :icon="expanded === event.event_id ? 'mdi-chevron-up' : 'mdi-chevron-right'"
+                  size="18"
+                  class="activity-chevron"
+                />
+              </button>
+
+              <div v-if="expanded === event.event_id" :id="`activity-detail-${event.event_id}`" class="activity-detail">
+                <div
+                  v-if="detailLoading.has(event.event_id) && !hasDetails(event)"
+                  class="activity-empty activity-empty--inline"
+                  role="status"
+                >
+                  <VProgressCircular indeterminate size="24" width="2.5" color="primary" />
+                  <span>{{ t('common.loading') }}</span>
+                </div>
+                <div
+                  v-else-if="detailFailed.has(event.event_id) && !hasDetails(event)"
+                  class="activity-empty activity-empty--inline"
+                  role="alert"
+                >
+                  <span>{{ t('subscriptionActivity.detailFailed') }}</span>
+                  <VBtn variant="tonal" size="small" @click="loadDetails(event.event_id)">{{ t('common.retry') }}</VBtn>
+                </div>
+                <template v-else-if="['search', 'refresh'].includes(event.kind)">
+                  <p v-if="detailFailed.has(event.event_id)" role="alert" class="activity-muted mb-2">
+                    {{ t('subscriptionActivity.detailFailed') }}
+                    <VBtn size="small" variant="text" @click="loadDetails(event.event_id)">{{
+                      t('common.retry')
+                    }}</VBtn>
+                  </p>
+                  <div class="activity-detail-summary">
+                    <h3>
+                      <VProgressCircular
+                        v-if="detailLoading.has(event.event_id)"
+                        size="15"
+                        width="2"
+                        indeterminate
+                        color="primary"
+                        :aria-label="t('common.loading')"
                       />
-                      <div>
-                        <span>{{ stage.label }}</span
-                        ><strong
-                          >{{ stage.value }} <small>{{ t('subscriptionActivity.items') }}</small></strong
-                        >
-                      </div>
-                    </div>
-                    <VIcon v-if="index < 3" icon="mdi-chevron-right" class="activity-stage-arrow" />
-                  </template>
-                </div>
-                <p v-if="event.counts.initial_submitted !== undefined" class="activity-explanation mt-3">
-                  {{
-                    t('subscriptionActivity.downloadSummary', {
-                      initial: event.counts.initial_submitted || 0,
-                      upgrade: event.counts.upgrade_submitted || 0,
-                      full: event.counts.full_upgrade_submitted || 0,
-                    })
-                  }}
-                </p>
-                <h4>{{ t('subscriptionActivity.resources', { count: event.counts.related || 0 }) }}</h4>
-                <div class="activity-table-scroll">
-                  <table class="activity-table">
-                    <thead>
-                      <tr>
-                        <th>{{ t('subscriptionActivity.resourceName') }}</th>
-                        <th>{{ t('subscriptionActivity.resourceSite') }}</th>
-                        <th>{{ t('subscriptionActivity.decision') }}</th>
-                        <th>{{ t('subscriptionActivity.submissionType') }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(resource, index) in event.details.resources || []" :key="index">
-                        <td>{{ resource.title }}</td>
-                        <td>{{ resource.site || t('subscriptionActivity.unknownSite') }}</td>
-                        <td>
-                          <VIcon
-                            :icon="
-                              resource.decision === 'submitted'
-                                ? 'mdi-check-circle-outline'
-                                : resource.decision === 'qualified'
-                                  ? 'mdi-check'
-                                  : 'mdi-information-outline'
-                            "
-                            size="19"
-                            :class="resource.decision === 'submitted' ? 'activity-success' : 'activity-muted'"
-                          />
-                          {{ resource.reason || t(`subscriptionActivity.decisionLabel.${resource.decision}`) }}
-                        </td>
-                        <td>
-                          {{
-                            resource.decision === 'submitted'
-                              ? t(
-                                  `subscriptionActivity.downloadType.${subscriptionDownloadKey(resource.subscription_download)}`,
-                                )
-                              : '—'
-                          }}
-                        </td>
-                      </tr>
-                      <tr v-if="!event.details.resources?.length">
-                        <td colspan="4" class="activity-muted">{{ t('subscriptionActivity.noRelatedResources') }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <p v-if="event.details.resources_omitted" class="activity-muted">
-                  {{ t('subscriptionActivity.omitted', { count: event.details.resources_omitted }) }}
-                </p>
-                <div class="activity-disclosures">
-                  <button
-                    v-if="event.details.sites?.length"
-                    class="activity-site-toggle"
-                    :aria-expanded="siteDetails.has(event.event_id)"
-                    @click="toggleSites(event.event_id)"
-                  >
-                    <VIcon icon="mdi-format-list-bulleted" size="22" /><span>{{
-                      t('subscriptionActivity.siteDetails', { count: event.details.sites.length })
-                    }}</span
-                    ><VIcon :icon="siteDetails.has(event.event_id) ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
-                  </button>
-                  <details v-if="rules(event).length" class="activity-rules">
-                    <summary>
                       {{
                         t(
-                          event.details.phase === 'queued'
-                            ? 'subscriptionActivity.queuedRules'
-                            : 'subscriptionActivity.frozenRules',
+                          event.counts.submitted
+                            ? 'subscriptionActivity.roundResult'
+                            : 'subscriptionActivity.whyNoDownload',
                         )
                       }}
-                    </summary>
-                    <dl>
-                      <template v-for="[field, value] in rules(event)" :key="field"
-                        ><dt>{{ fieldLabel(field) }}</dt>
-                        <dd>{{ valueLabel(value, field) }}</dd></template
-                      >
-                    </dl>
-                  </details>
-                </div>
-                <ul v-if="siteDetails.has(event.event_id)" class="activity-site-list">
-                  <li v-for="site in event.details.sites" :key="site.id">
-                    <span>{{ site.name }}</span
-                    ><span>{{ t('subscriptionActivity.siteCandidates', { count: site.candidates }) }}</span
-                    ><span>{{ t(`subscriptionActivity.siteStatus.${site.status}`) }}</span>
-                  </li>
-                </ul>
-                <p v-if="event.kind === 'refresh'" class="activity-footnote">
-                  {{
-                    t('subscriptionActivity.sharedHint', {
-                      shared: event.counts.discovered || 0,
-                      related: event.counts.related || 0,
-                    })
-                  }}
-                </p>
-              </template>
-              <template v-else
-                ><h3>{{ title(event.kind) }}</h3>
-                <p>{{ summary(event) }}</p></template
-              >
-              <details v-if="event.details.attempts && event.details.attempts.length > 1" class="activity-rules">
-                <summary>{{ t('subscriptionActivity.attempts', { count: event.details.attempts.length }) }}</summary>
-                <ol class="activity-attempts">
-                  <li v-for="(attempt, index) in event.details.attempts" :key="index">
-                    <strong
-                      >{{ time(attempt.started_at) }} · {{ t(`subscriptionActivity.status.${attempt.status}`) }}</strong
-                    >
-                    <p>
+                    </h3>
+                    <p class="activity-result num">
+                      <strong>
+                        {{
+                          t(`subscriptionActivity.${resultKey(event)}`, {
+                            count: event.counts.submitted || event.counts.related || 0,
+                          })
+                        }}
+                      </strong>
+                    </p>
+                    <p class="activity-explanation">
                       {{
-                        t('subscriptionActivity.attemptSummary', {
-                          related: attempt.counts.related || 0,
-                          submitted: attempt.counts.submitted || 0,
-                        })
+                        event.details.reason ||
+                        t(
+                          event.counts.submitted
+                            ? 'subscriptionActivity.submittedHint'
+                            : 'subscriptionActivity.waitingHint',
+                        )
                       }}
                     </p>
-                    <dl>
-                      <template
-                        v-for="[field, value] in Object.entries(attempt.rules).filter(
-                          ([, value]) =>
-                            value !== null && value !== '' && value !== 0 && (!Array.isArray(value) || value.length),
-                        )"
-                        :key="field"
-                        ><dt>{{ fieldLabel(field) }}</dt>
-                        <dd>{{ valueLabel(value, field) }}</dd></template
+                  </div>
+
+                  <div class="activity-stages">
+                    <div v-for="stage in stages(event)" :key="stage.key" class="activity-stage">
+                      <span
+                        class="activity-stage-icon"
+                        :class="{ 'activity-stage-icon--success': stage.key === 'qualified' }"
                       >
-                    </dl>
-                  </li>
-                </ol>
-              </details>
-              <details v-if="!['search', 'refresh'].includes(event.kind) && rules(event).length" class="activity-rules">
-                <summary>
-                  {{
-                    t(
-                      event.details.phase === 'queued'
-                        ? 'subscriptionActivity.queuedRules'
-                        : 'subscriptionActivity.frozenRules',
-                    )
-                  }}
-                </summary>
-                <dl>
-                  <template v-for="[field, value] in rules(event)" :key="field"
-                    ><dt>{{ fieldLabel(field) }}</dt>
-                    <dd>{{ valueLabel(value, field) }}</dd></template
-                  >
-                </dl>
-              </details>
-            </div>
-          </article>
+                        <VIcon :icon="stage.icon" size="18" />
+                      </span>
+                      <div class="activity-stage-body">
+                        <span>{{ stage.label }}</span>
+                        <strong class="num">
+                          {{ stage.value }} <small>{{ t('subscriptionActivity.items') }}</small>
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p v-if="event.counts.initial_submitted !== undefined" class="activity-explanation num mt-3">
+                    {{
+                      t('subscriptionActivity.downloadSummary', {
+                        initial: event.counts.initial_submitted || 0,
+                        upgrade: event.counts.upgrade_submitted || 0,
+                        full: event.counts.full_upgrade_submitted || 0,
+                      })
+                    }}
+                  </p>
+
+                  <h4 class="num">{{ t('subscriptionActivity.resources', { count: event.counts.related || 0 }) }}</h4>
+                  <div class="activity-table-scroll">
+                    <table class="activity-table">
+                      <thead>
+                        <tr>
+                          <th>{{ t('subscriptionActivity.resourceName') }}</th>
+                          <th>{{ t('subscriptionActivity.resourceSite') }}</th>
+                          <th>{{ t('subscriptionActivity.decision') }}</th>
+                          <th>{{ t('subscriptionActivity.submissionType') }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(resource, index) in event.details.resources || []" :key="index">
+                          <td class="activity-table-title">{{ resource.title }}</td>
+                          <td class="activity-table-site">
+                            {{ resource.site || t('subscriptionActivity.unknownSite') }}
+                          </td>
+                          <td>
+                            <span class="activity-decision-cell">
+                              <VIcon
+                                :icon="
+                                  resource.decision === 'submitted'
+                                    ? 'mdi-check-circle-outline'
+                                    : resource.decision === 'qualified'
+                                      ? 'mdi-check'
+                                      : 'mdi-information-outline'
+                                "
+                                size="16"
+                                :class="resource.decision === 'submitted' ? 'activity-success' : 'activity-muted'"
+                              />
+                              <span>
+                                {{ resource.reason || t(`subscriptionActivity.decisionLabel.${resource.decision}`) }}
+                              </span>
+                            </span>
+                          </td>
+                          <td>
+                            <span v-if="resource.decision === 'submitted'" class="activity-type-pill">
+                              {{
+                                t(
+                                  `subscriptionActivity.downloadType.${subscriptionDownloadKey(resource.subscription_download)}`,
+                                )
+                              }}
+                            </span>
+                            <span v-else class="activity-muted">—</span>
+                          </td>
+                        </tr>
+                        <tr v-if="!event.details.resources?.length">
+                          <td colspan="4" class="activity-muted">{{ t('subscriptionActivity.noRelatedResources') }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p v-if="event.details.resources_omitted" class="activity-muted num mt-2 mb-0">
+                    {{ t('subscriptionActivity.omitted', { count: event.details.resources_omitted }) }}
+                  </p>
+
+                  <div v-if="event.details.sites?.length || rules(event).length" class="activity-disclosures">
+                    <button
+                      v-if="event.details.sites?.length"
+                      type="button"
+                      class="activity-site-toggle num"
+                      :aria-expanded="siteDetails.has(event.event_id)"
+                      @click="toggleSites(event.event_id)"
+                    >
+                      <VIcon icon="mdi-format-list-bulleted" size="17" />
+                      <span>{{ t('subscriptionActivity.siteDetails', { count: event.details.sites.length }) }}</span>
+                      <VIcon
+                        size="18"
+                        :icon="siteDetails.has(event.event_id) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                      />
+                    </button>
+                    <details v-if="rules(event).length" class="activity-rules">
+                      <summary>
+                        {{
+                          t(
+                            event.details.phase === 'queued'
+                              ? 'subscriptionActivity.queuedRules'
+                              : 'subscriptionActivity.frozenRules',
+                          )
+                        }}
+                      </summary>
+                      <dl>
+                        <template v-for="[field, value] in rules(event)" :key="field">
+                          <dt>{{ fieldLabel(field) }}</dt>
+                          <dd>{{ valueLabel(value, field) }}</dd>
+                        </template>
+                      </dl>
+                    </details>
+                  </div>
+
+                  <ul v-if="siteDetails.has(event.event_id)" class="activity-site-list num">
+                    <li v-for="site in event.details.sites" :key="site.id">
+                      <span class="activity-site-name">{{ site.name }}</span>
+                      <span class="activity-muted">
+                        {{ t('subscriptionActivity.siteCandidates', { count: site.candidates }) }}
+                      </span>
+                      <span>{{ t(`subscriptionActivity.siteStatus.${site.status}`) }}</span>
+                    </li>
+                  </ul>
+
+                  <p v-if="event.kind === 'refresh'" class="activity-footnote num">
+                    {{
+                      t('subscriptionActivity.sharedHint', {
+                        shared: event.counts.discovered || 0,
+                        related: event.counts.related || 0,
+                      })
+                    }}
+                  </p>
+                </template>
+
+                <template v-else>
+                  <h3>{{ title(event.kind) }}</h3>
+                  <p class="activity-explanation mb-0">{{ summary(event) }}</p>
+                </template>
+
+                <details v-if="event.details.attempts && event.details.attempts.length > 1" class="activity-rules mt-3">
+                  <summary class="num">
+                    {{ t('subscriptionActivity.attempts', { count: event.details.attempts.length }) }}
+                  </summary>
+                  <ol class="activity-attempts num">
+                    <li v-for="(attempt, index) in event.details.attempts" :key="index">
+                      <strong>
+                        {{ time(attempt.started_at) }} · {{ t(`subscriptionActivity.status.${attempt.status}`) }}
+                      </strong>
+                      <p>
+                        {{
+                          t('subscriptionActivity.attemptSummary', {
+                            related: attempt.counts.related || 0,
+                            submitted: attempt.counts.submitted || 0,
+                          })
+                        }}
+                      </p>
+                      <dl>
+                        <template
+                          v-for="[field, value] in Object.entries(attempt.rules).filter(
+                            ([, value]) =>
+                              value !== null && value !== '' && value !== 0 && (!Array.isArray(value) || value.length),
+                          )"
+                          :key="field"
+                        >
+                          <dt>{{ fieldLabel(field) }}</dt>
+                          <dd>{{ valueLabel(value, field) }}</dd>
+                        </template>
+                      </dl>
+                    </li>
+                  </ol>
+                </details>
+
+                <details
+                  v-if="!['search', 'refresh'].includes(event.kind) && rules(event).length"
+                  class="activity-rules mt-3"
+                >
+                  <summary>
+                    {{
+                      t(
+                        event.details.phase === 'queued'
+                          ? 'subscriptionActivity.queuedRules'
+                          : 'subscriptionActivity.frozenRules',
+                      )
+                    }}
+                  </summary>
+                  <dl>
+                    <template v-for="[field, value] in rules(event)" :key="field">
+                      <dt>{{ fieldLabel(field) }}</dt>
+                      <dd>{{ valueLabel(value, field) }}</dd>
+                    </template>
+                  </dl>
+                </details>
+              </div>
+            </article>
+          </div>
         </section>
+
         <div v-if="cursor" class="activity-load-more">
-          <VBtn variant="tonal" :loading="loading" @click="loadEvents(true)">{{
-            t(failed ? 'common.retry' : 'subscriptionActivity.loadMore')
-          }}</VBtn>
+          <VBtn variant="tonal" size="small" :loading="loading" @click="loadEvents(true)">
+            {{ t(failed ? 'common.retry' : 'subscriptionActivity.loadMore') }}
+          </VBtn>
         </div>
-        <p v-if="failed && events.length" class="activity-muted text-center" role="alert">
+        <p v-if="failed && events.length" class="activity-muted text-center mt-2 mb-0" role="alert">
           {{ t('subscriptionActivity.loadFailed') }}
         </p>
       </div>
@@ -771,655 +866,858 @@ onBeforeUnmount(() => {
   </VDialog>
 </template>
 
-<style scoped>
-.subscription-activity-dialog :deep(.v-overlay__content) {
-  margin: 15px;
-  max-block-size: calc(100% - 30px);
-  inline-size: calc(100% - 30px);
-}
-.activity-disclosures {
-  display: flex;
-  align-items: start;
-  gap: 24px;
-  margin-block-start: 12px;
-  border: 1px solid var(--activity-border);
-  border-radius: 8px;
-  padding: 7px 16px;
-}
-.activity-disclosures .activity-site-toggle {
-  flex: 1;
-  border: 0;
-  margin: 0;
-  padding: 0;
-}
-.activity-disclosures .activity-rules {
-  margin: 0;
-  padding-block: 1px;
-}
-.activity-attempts {
-  padding-inline-start: 22px;
-}
-.activity-attempts li {
-  margin-block-start: 12px;
-}
+<style scoped lang="scss">
+/* stylelint-disable selector-pseudo-class-no-unknown */
 
 .subscription-activity {
-  --activity-border: rgba(var(--v-theme-on-surface), 0.13);
-  background:
-    linear-gradient(115deg, rgba(var(--v-theme-info), 0.1), rgba(var(--v-theme-primary), 0.07)),
-    rgb(var(--v-theme-surface));
-  border: 1px solid var(--activity-border);
-  border-radius: 16px !important;
-  max-block-size: calc(100dvh - 30px);
-  color: rgb(var(--v-theme-on-surface));
+  display: flex;
+  overflow: hidden;
+  flex: 1 1 auto;
+  flex-direction: column;
+  block-size: 100%;
+  color: var(--mp-fg);
+  min-block-size: 0;
 }
+
 .activity-header {
   display: flex;
-  gap: 30px;
-  padding: 14px 28px;
-  border-block-end: 1px solid var(--activity-border);
-  background: linear-gradient(115deg, rgba(var(--v-theme-primary), 0.045), transparent);
   flex: 0 0 auto;
+  align-items: center;
+  border-block-end: 1px solid var(--mp-border);
+  gap: 1.25rem;
+  padding-block: 1.125rem;
+  padding-inline: 1.5rem;
 }
+
 .activity-poster {
-  flex: 0 0 108px;
-  border: 1px solid rgba(var(--v-theme-info), 0.5);
-  border-radius: 5px;
+  overflow: hidden;
+  flex: 0 0 4.75rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
+  aspect-ratio: 2 / 3;
+  background: var(--mp-muted);
+  block-size: 7.125rem;
+  inline-size: 4.75rem;
 }
+
 .activity-poster--empty {
   display: grid;
+  color: var(--mp-faint);
   place-items: center;
-  background: rgba(var(--v-theme-info), 0.1);
 }
+
 .activity-heading {
-  flex: 1;
+  display: flex;
   min-inline-size: 0;
-  padding-block-start: 7px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
 }
-.activity-heading h2 {
-  font-size: 34px;
+
+.activity-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 0.3rem;
+  letter-spacing: 0.02em;
+}
+
+.activity-title {
+  overflow: hidden;
+  margin: 0;
+  color: var(--mp-fg);
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.3;
-  margin: 0 0 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .activity-subtitle {
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  margin: 0 0 9px;
-  font-size: 18px;
+  overflow: hidden;
+  margin: 0;
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.activity-progress-label {
-  font-size: 18px;
-  margin: 0 0 6px;
-}
-.activity-progress {
-  max-inline-size: 375px;
-}
-.activity-controls {
-  inline-size: 370px;
-  flex: 0 0 370px;
+
+.activity-progress-wrap {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding-block: 3px 14px;
+  gap: 0.35rem;
+  margin-block-start: 0.25rem;
+  max-inline-size: 20rem;
 }
+
+.activity-progress-label {
+  margin: 0;
+  color: var(--mp-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.activity-controls {
+  display: flex;
+  flex: 0 0 21rem;
+  flex-direction: column;
+  align-self: stretch;
+  justify-content: space-between;
+  gap: 0.75rem;
+  inline-size: 21rem;
+}
+
 .activity-top-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 0.5rem;
 }
-.activity-top-actions :deep(.v-btn) {
-  font-size: 17px;
+
+.activity-close-btn {
+  color: var(--mp-muted-fg);
 }
-.activity-action-divider {
-  border-inline-end: 1px solid var(--activity-border);
-  block-size: 30px;
-}
+
 .activity-filters {
-  display: flex;
-  gap: 18px;
+  display: grid;
+  gap: 0.625rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.activity-filters > * {
-  min-inline-size: 0;
-  flex: 1;
-}
+
 .activity-filters :deep(.v-field) {
-  font-size: 16px;
-  border-radius: 8px;
+  border-radius: var(--app-control-radius);
+  font-size: 0.8125rem;
 }
+
+.activity-filters :deep(.v-field__prepend-inner) {
+  color: var(--mp-muted-fg);
+}
+
 .activity-scroll {
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 12px 20px 0;
-  min-block-size: 210px;
+  flex: 1 1 0%;
+  min-block-size: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-block: 1rem 1.5rem;
+  padding-inline: 1.5rem;
 }
-.activity-day {
-  margin-block-end: 15px;
+
+.activity-day + .activity-day {
+  margin-block-start: 1.25rem;
 }
+
 .activity-date {
-  font-size: 20px;
+  margin: 0 0 0.5rem 0.125rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1.45;
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  margin: 0 10px 6px;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
 }
+
+.activity-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .activity-event {
-  background: linear-gradient(100deg, rgba(var(--v-theme-info), 0.075), rgba(var(--v-theme-primary), 0.035));
-  border: 1px solid var(--activity-border);
-  border-radius: 10px;
-  margin-block-end: 10px;
   overflow: hidden;
+  flex: 0 0 auto;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
+  background: var(--mp-list-group-bg);
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease;
 }
+
+.activity-event:hover {
+  border-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 26%, var(--mp-border));
+}
+
 .activity-event--open {
-  border-color: rgba(var(--v-theme-primary), 0.65);
-  box-shadow: inset 3px 0 rgb(var(--v-theme-primary));
+  border-color: var(--mp-primary-border);
 }
+
 .activity-row {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 12px 22px;
-  inline-size: 100%;
-  min-block-size: 76px;
+  padding: 0.75rem 1rem;
+  background: transparent;
   color: inherit;
-  text-align: start;
   cursor: pointer;
+  gap: 0.875rem;
+  inline-size: 100%;
+  min-block-size: 3.5rem;
+  text-align: start;
+  transition: background-color 0.16s ease;
 }
-.activity-row:focus-visible,
-.activity-site-toggle:focus-visible {
-  outline: 2px solid rgb(var(--v-theme-primary));
-  outline-offset: -3px;
+
+.activity-row:hover {
+  background: var(--mp-list-row-hover);
 }
+
+.activity-row:focus-visible {
+  outline: 2px solid var(--mp-ring);
+  outline-offset: -2px;
+}
+
 .activity-icon {
   display: grid;
+  flex: 0 0 2.25rem;
+  border: 1px solid var(--mp-border);
+  border-radius: 0.625rem;
+  background: var(--mp-muted);
+  block-size: 2.25rem;
+  color: var(--mp-muted-fg);
+  inline-size: 2.25rem;
   place-items: center;
-  flex: 0 0 49px;
-  block-size: 49px;
-  border-radius: 50%;
-  background: rgba(var(--v-theme-primary), 0.34);
-  color: #ded0ff;
 }
+
+.activity-icon--primary {
+  border-color: var(--mp-primary-border);
+  background: var(--mp-primary-soft);
+  color: rgb(var(--v-theme-primary));
+}
+
+.activity-icon--info {
+  border-color: var(--mp-info-border);
+  background: var(--mp-info-soft);
+  color: rgb(var(--v-theme-info));
+}
+
+.activity-icon--success {
+  border-color: var(--mp-success-border);
+  background: var(--mp-success-soft);
+  color: rgb(var(--v-theme-success));
+}
+
+.activity-icon--warning {
+  border-color: var(--mp-warning-border);
+  background: var(--mp-warning-soft);
+  color: rgb(var(--v-theme-warning));
+}
+
 .activity-row time {
-  flex: 0 0 60px;
-  font-size: 16px;
+  flex: 0 0 3rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
   font-weight: 600;
 }
+
 .activity-action {
-  flex: 0 0 125px;
   display: flex;
+  flex: 0 0 6.5rem;
   flex-direction: column;
-  gap: 2px;
-}
-.activity-action strong {
-  font-size: 19px;
-  font-weight: 700;
-}
-.activity-action small {
-  font-size: 14px;
-  color: rgba(var(--v-theme-on-surface), 0.67);
-}
-.activity-status {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(var(--v-theme-info), 0.35);
-  border-radius: 22px;
-  color: rgba(var(--v-theme-on-surface), 0.78);
-  padding: 5px 15px;
-  font-size: 15px;
-  background: rgba(var(--v-theme-info), 0.09);
-}
-.activity-status--warning {
-  color: rgb(var(--v-theme-warning));
-  border-color: rgba(var(--v-theme-warning), 0.2);
-  background: rgba(var(--v-theme-warning), 0.16);
-}
-.activity-status--error {
-  color: rgb(var(--v-theme-error));
-  border-color: rgba(var(--v-theme-error), 0.25);
-  background: rgba(var(--v-theme-error), 0.1);
-}
-.activity-status--success {
-  color: rgb(var(--v-theme-success));
-  border-color: rgba(var(--v-theme-success), 0.25);
-  background: rgba(var(--v-theme-success), 0.09);
-}
-.activity-summary {
-  flex: 1;
+  gap: 0.125rem;
   min-inline-size: 0;
-  font-size: 16px;
+}
+
+.activity-action strong {
+  color: var(--mp-fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.activity-action small {
+  color: var(--mp-faint);
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.activity-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0.1875rem 0.625rem;
+  border: 1px solid var(--mp-border);
+  border-radius: 9999px;
+  background: var(--mp-muted);
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  gap: 0.3125rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.activity-status--warning {
+  border-color: var(--mp-warning-border);
+  background: var(--mp-warning-soft);
+  color: rgb(var(--v-theme-warning));
+}
+
+.activity-status--error {
+  border-color: var(--mp-destructive-border);
+  background: var(--mp-destructive-soft);
+  color: rgb(var(--v-theme-error));
+}
+
+.activity-status--success {
+  border-color: var(--mp-success-border);
+  background: var(--mp-success-soft);
+  color: rgb(var(--v-theme-success));
+}
+
+.activity-summary {
   display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 3px;
+  color: var(--mp-fg);
+  font-size: 0.8125rem;
+  gap: 0.15rem;
+  line-height: 1.45;
 }
+
 .activity-summary small {
-  color: rgba(var(--v-theme-on-surface), 0.65);
-  font-size: 13px;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
 }
+
 .activity-details-label {
   flex: 0 0 auto;
-  font-size: 15px;
   color: rgb(var(--v-theme-primary));
+  font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
+
 .activity-chevron {
-  color: rgba(var(--v-theme-on-surface), 0.6);
   flex-shrink: 0;
+  color: var(--mp-faint);
 }
+
 .activity-event--open .activity-chevron {
   color: rgb(var(--v-theme-primary));
 }
-.activity-detail {
-  margin: 0 22px 10px;
-  padding: 14px 24px 8px;
-  border: 1px solid var(--activity-border);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-background), 0.18);
+
+.activity-event--compact .activity-row {
+  min-block-size: 3rem;
+  padding-block: 0.5625rem;
 }
+
+.activity-event--compact .activity-icon {
+  flex-basis: 2rem;
+  block-size: 2rem;
+  inline-size: 2rem;
+}
+
+.activity-event--compact .activity-action {
+  flex-basis: 7.5rem;
+}
+
+.activity-event--compact .activity-summary {
+  border-inline-start: 1px solid var(--mp-border);
+  color: var(--mp-muted-fg);
+  padding-inline-start: 0.875rem;
+}
+
+.activity-detail {
+  padding: 1rem 1.25rem;
+  border-block-start: 1px solid var(--mp-border);
+  background: var(--mp-muted);
+}
+
+.activity-detail-summary {
+  margin-block-end: 0.875rem;
+}
+
 .activity-detail h3 {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  margin: 0 0 0.25rem;
+  color: var(--mp-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  gap: 0.375rem;
+  line-height: 1.4;
+}
+
+.activity-detail h4 {
+  margin: 1rem 0 0.5rem;
+  color: var(--mp-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.activity-result {
+  margin: 0 0 0.2rem;
+  color: var(--mp-fg);
+  font-size: 0.875rem;
+}
+
+.activity-explanation {
+  margin: 0;
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
-.activity-detail h4 {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 9px 0 5px;
-}
-.activity-result {
-  font-size: 19px;
-  margin: 0 0 3px;
-}
-.activity-explanation {
-  font-size: 16px;
-  color: rgba(var(--v-theme-on-surface), 0.75);
-  margin: 0 0 9px;
-}
+
 .activity-stages {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-radius: 8px;
-  background: rgba(var(--v-theme-background), 0.35);
-  padding: 12px 16px;
+  display: grid;
+  gap: 0.625rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+
 .activity-stage {
   display: flex;
-  align-items: center;
-  gap: 18px;
-  flex: 1;
   min-inline-size: 0;
+  align-items: center;
+  padding: 0.6875rem 0.875rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
+  background: var(--mp-card);
+  gap: 0.6875rem;
 }
-.activity-stage > :first-child {
-  box-sizing: content-box;
-  padding: 14px;
-  background: rgba(var(--v-theme-info), 0.12);
-  border-radius: 10px;
+
+.activity-stage-icon {
+  display: grid;
+  flex: 0 0 2.125rem;
+  border: 1px solid var(--mp-info-border);
+  border-radius: 0.5rem;
+  background: var(--mp-info-soft);
+  block-size: 2.125rem;
   color: rgb(var(--v-theme-info));
+  inline-size: 2.125rem;
+  place-items: center;
 }
-.activity-stage > .activity-stage-success {
+
+.activity-stage-icon--success {
+  border-color: var(--mp-success-border);
+  background: var(--mp-success-soft);
   color: rgb(var(--v-theme-success));
 }
-.activity-stage div {
+
+.activity-stage-body {
   display: flex;
+  min-inline-size: 0;
   flex-direction: column;
-  gap: 3px;
-  font-size: 15px;
+  gap: 0.125rem;
 }
-.activity-stage strong {
-  font-size: 27px;
-  line-height: 1.1;
+
+.activity-stage-body > span {
+  overflow: hidden;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.activity-stage small {
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  font-size: 14px;
+
+.activity-stage-body strong {
+  color: var(--mp-fg);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.activity-stage-body small {
+  color: var(--mp-faint);
+  font-size: 0.75rem;
   font-weight: 400;
 }
-.activity-stage-arrow {
-  color: rgb(var(--v-theme-info));
-}
+
 .activity-table-scroll {
   overflow-x: auto;
-  border: 1px solid var(--activity-border);
-  border-radius: 8px;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 2px);
+  background: var(--mp-card);
 }
+
 .activity-table {
-  inline-size: 100%;
   border-collapse: collapse;
-  font-size: 16px;
+  font-size: 0.8125rem;
+  inline-size: 100%;
 }
+
 .activity-table th {
+  border-block-end: 1px solid var(--mp-border);
+  background: var(--mp-list-group-bg);
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding-block: 0.5625rem;
+  padding-inline: 0.875rem;
   text-align: start;
-  font-weight: 400;
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  background: rgba(var(--v-theme-info), 0.075);
+  white-space: nowrap;
 }
-.activity-table td,
-.activity-table th {
-  padding: 6px 18px;
-  border-block-end: 1px solid var(--activity-border);
+
+.activity-table td {
+  border-block-end: 1px solid var(--mp-list-row-divider);
+  color: var(--mp-fg);
+  line-height: 1.45;
+  padding-block: 0.625rem;
+  padding-inline: 0.875rem;
+  vertical-align: middle;
 }
-.activity-table td + td,
-.activity-table th + th {
-  border-inline-start: 1px solid var(--activity-border);
-}
-.activity-table td:first-child {
-  inline-size: 43%;
-  overflow-wrap: anywhere;
-}
-.activity-table td:nth-child(2) {
-  inline-size: 17%;
-}
-.activity-table tr:last-child td {
+
+.activity-table tbody tr:last-child td {
   border-block-end: none;
 }
-.activity-site-toggle {
-  margin-block-start: 12px;
-  padding: 7px 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  inline-size: 100%;
-  border: 1px solid var(--activity-border);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-info), 0.06);
-  text-align: start;
-  color: inherit;
-  cursor: pointer;
-}
-.activity-site-toggle span {
-  flex: 1;
-  font-size: 15px;
-}
-.activity-site-list {
-  list-style: none;
-  margin: 0;
-  padding: 8px 20px;
-}
-.activity-site-list li {
-  display: flex;
-  gap: 16px;
-  padding: 6px 0;
-  border-block-end: 1px solid var(--activity-border);
-  font-size: 14px;
-}
-.activity-site-list li span:first-child {
-  flex: 1;
-}
-.activity-footnote {
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 14px;
-  margin: 12px 0 0;
-}
-.activity-rules {
-  margin-block-start: 9px;
-  font-size: 14px;
-  color: rgba(var(--v-theme-on-surface), 0.72);
-}
-.activity-rules summary {
-  cursor: pointer;
-}
-.activity-rules dl {
-  display: grid;
-  grid-template-columns: minmax(100px, 150px) 1fr;
-  gap: 5px 15px;
-  padding-block: 8px;
-}
-.activity-rules dd {
-  margin: 0;
+
+.activity-table-title {
+  font-weight: 500;
+  inline-size: 44%;
   overflow-wrap: anywhere;
 }
-.activity-event--compact .activity-row {
-  min-block-size: 49px;
-  padding-block: 3px;
+
+.activity-table-site {
+  color: var(--mp-muted-fg) !important;
+  inline-size: 16%;
 }
-.activity-event--compact .activity-icon {
-  flex-basis: 44px;
-  block-size: 44px;
+
+.activity-decision-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
 }
-.activity-event--compact .activity-summary {
-  border-inline-start: 1px solid var(--activity-border);
-  padding-inline-start: 28px;
+
+.activity-type-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--mp-primary-border);
+  border-radius: 9999px;
+  background: var(--mp-primary-soft);
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
-.activity-event--compact .activity-action {
-  flex-basis: 170px;
+
+.activity-disclosures {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin-block-start: 0.75rem;
 }
-.activity-event--compact {
-  margin-block-end: 5px;
+
+.activity-site-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4375rem 0.75rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 4px);
+  background: var(--mp-card);
+  color: var(--mp-fg);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  gap: 0.4375rem;
+  text-align: start;
+  transition: background-color 0.15s ease;
 }
+
+.activity-site-toggle:hover {
+  background: var(--mp-list-row-hover);
+}
+
+.activity-site-toggle:focus-visible {
+  outline: 2px solid var(--mp-ring);
+  outline-offset: -2px;
+}
+
+.activity-rules {
+  padding: 0.4375rem 0.75rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 4px);
+  background: var(--mp-card);
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
+}
+
+.activity-rules summary {
+  color: var(--mp-fg);
+  cursor: pointer;
+  font-weight: 500;
+  user-select: none;
+}
+
+.activity-rules dl {
+  display: grid;
+  margin: 0.5rem 0 0;
+  padding-block-start: 0.5rem;
+  border-block-start: 1px solid var(--mp-border-subtle);
+  gap: 0.375rem 0.875rem;
+  grid-template-columns: minmax(5.5rem, 8.5rem) minmax(0, 1fr);
+}
+
+.activity-rules dt {
+  color: var(--mp-muted-fg);
+}
+
+.activity-rules dd {
+  margin: 0;
+  color: var(--mp-fg);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.activity-site-list {
+  display: grid;
+  margin: 0.5rem 0 0;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--mp-border);
+  border-radius: calc(var(--app-control-radius) - 4px);
+  background: var(--mp-card);
+  list-style: none;
+}
+
+.activity-site-list li {
+  display: flex;
+  align-items: center;
+  padding: 0.4375rem 0;
+  border-block-end: 1px solid var(--mp-list-row-divider);
+  font-size: 0.8125rem;
+  gap: 1rem;
+}
+
+.activity-site-name {
+  flex: 1 1 auto;
+  color: var(--mp-fg);
+  font-weight: 500;
+}
+
+.activity-attempts {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.25rem;
+}
+
+.activity-attempts li + li {
+  margin-block-start: 0.625rem;
+}
+
+.activity-site-list li:last-child {
+  border-block-end: none;
+}
+
+.activity-attempts p {
+  margin: 0.2rem 0;
+}
+
+.activity-footnote {
+  margin: 0.75rem 0 0;
+  color: var(--mp-faint);
+  font-size: 0.75rem;
+}
+
 .activity-muted {
-  color: rgba(var(--v-theme-on-surface), 0.6);
+  color: var(--mp-muted-fg);
 }
+
 .activity-success {
   color: rgb(var(--v-theme-success));
 }
+
 .activity-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 15px;
-  min-block-size: 320px;
+  color: var(--mp-muted-fg);
+  font-size: 0.875rem;
+  gap: 0.75rem;
+  min-block-size: 16rem;
   text-align: center;
-  color: rgba(var(--v-theme-on-surface), 0.7);
 }
+
 .activity-empty strong {
-  font-size: 20px;
+  color: var(--mp-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
+
+.activity-empty--inline {
+  min-block-size: 6rem;
+}
+
 .activity-load-more {
+  padding-block: 1rem 0.25rem;
   text-align: center;
-  padding-block: 12px;
 }
-@media (max-width: 1200px) {
-  .activity-row {
-    gap: 14px;
-  }
-  .activity-action {
-    flex-basis: 106px;
-  }
-  .activity-status {
-    padding-inline: 10px;
-  }
+
+@media (width <= 1200px) {
   .activity-details-label {
     display: none;
   }
+
   .activity-controls {
-    inline-size: 320px;
-    flex-basis: 320px;
+    flex-basis: 18.5rem;
+    inline-size: 18.5rem;
+  }
+
+  .activity-stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 959px) {
-  .subscription-activity-dialog :deep(.v-overlay__content) {
-    margin: 0;
-    max-block-size: 100%;
-    inline-size: 100%;
-  }
-  /* 安全区由头部和滚动区分别承担，覆盖全局全屏卡片将顶部空间合并到底部的样式。 */
-  .subscription-activity-dialog :deep(.v-overlay__content > .subscription-activity) {
-    padding-block-end: 0;
-  }
-  .activity-disclosures {
-    flex-direction: column;
-    gap: 10px;
-  }
-  .activity-disclosures .activity-site-toggle {
-    inline-size: 100%;
-  }
-  .subscription-activity {
-    max-block-size: 100dvh;
-    border-radius: 0 !important;
-  }
-  .activity-header {
-    gap: 15px;
-    padding: calc(18px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 12px
-      calc(16px + env(safe-area-inset-left, 0px));
-    flex-wrap: wrap;
-    position: relative;
-  }
-  .activity-poster {
-    flex-basis: 65px;
-    max-inline-size: 65px;
-    max-block-size: 90px;
-  }
-  .activity-heading {
-    padding-block-start: 0;
-    padding-inline-end: 30px;
-  }
-  .activity-heading h2 {
-    font-size: 25px;
-  }
-  .activity-subtitle,
-  .activity-progress-label {
-    font-size: 14px;
-  }
-  .activity-controls {
-    flex-basis: 100%;
-    inline-size: 100%;
-    padding: 0;
-  }
-  .activity-top-actions {
-    position: static;
-    order: 2;
-    margin-block-start: 8px;
-  }
-  .activity-top-actions .v-btn:last-child {
-    position: absolute;
-    inset-block-start: calc(6px + env(safe-area-inset-top, 0px));
-    inset-inline-end: calc(6px + env(safe-area-inset-right, 0px));
-  }
-  .activity-top-actions .v-btn:first-child {
-    font-size: 14px;
-  }
-  .activity-action-divider {
-    display: none;
-  }
-  .activity-filters {
-    gap: 12px;
-  }
-  .activity-filters :deep(.v-field) {
-    font-size: 14px;
-  }
-  .activity-scroll {
-    padding: 12px calc(10px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px))
-      calc(10px + env(safe-area-inset-left, 0px));
-  }
-  .activity-row {
-    padding: 12px;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .activity-icon {
-    flex-basis: 36px;
-    block-size: 36px;
-  }
-  .activity-icon :deep(.v-icon) {
-    font-size: 24px !important;
-  }
-  .activity-row time {
-    flex-basis: 44px;
-    font-size: 13px;
-  }
-  .activity-action {
-    flex: 1;
-  }
-  .activity-action strong {
-    font-size: 16px;
-  }
-  .activity-action small {
-    font-size: 12px;
-  }
-  .activity-status {
-    font-size: 12px;
-    padding: 4px 8px;
-  }
-  .activity-summary {
-    flex: 0 0 calc(100% - 34px);
-    order: 5;
-    font-size: 13px;
-    padding-inline-start: 0;
-  }
-  .activity-chevron {
-    margin-inline-start: auto;
-    order: 6;
-  }
-  .activity-date {
-    font-size: 15px;
-  }
-  .activity-detail {
-    margin: 0 9px 10px;
-    padding: 12px;
-  }
-  .activity-detail h3 {
-    font-size: 20px;
-  }
-  .activity-result {
-    font-size: 16px;
-  }
-  .activity-explanation {
-    font-size: 14px;
-  }
-  .activity-stages {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    padding: 12px;
-  }
-  .activity-stage {
-    gap: 8px;
-  }
-  .activity-stage > :first-child {
-    padding: 8px;
-    font-size: 25px !important;
-  }
-  .activity-stage div {
-    font-size: 12px;
-  }
-  .activity-stage strong {
-    font-size: 23px;
-  }
-  .activity-stage-arrow {
-    display: none;
-  }
-  .activity-table {
-    min-inline-size: 0;
-    font-size: 13px;
-  }
-  .activity-table thead {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    clip-path: inset(50%);
+
+@media (width < 960px) {
+  :global(.v-dialog.v-dialog--fullscreen > .v-overlay__content.subscription-activity-content) {
     overflow: hidden;
   }
-  .activity-table tr {
-    display: grid;
-    grid-template-columns: 1fr;
-    padding: 8px 10px;
-    border-block-end: 1px solid var(--activity-border);
+
+  .subscription-activity {
+    block-size: 100%;
+    max-block-size: 100%;
+    min-block-size: 0;
   }
-  .activity-table td {
-    border: 0 !important;
-    padding: 2px 0 !important;
-    inline-size: auto !important;
+
+  .activity-header {
+    position: relative;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding: 0.875rem calc(1rem + env(safe-area-inset-right, 0px)) 0.875rem calc(1rem + env(safe-area-inset-left, 0px));
   }
-  .activity-table td:nth-child(2) {
-    color: rgba(var(--v-theme-on-surface), 0.65);
+
+  .activity-poster {
+    flex-basis: 3.75rem;
+    block-size: 5.625rem;
+    inline-size: 3.75rem;
   }
-  .activity-table td,
-  .activity-table th {
-    padding: 7px 10px;
+
+  .activity-heading {
+    padding-inline-end: 2.25rem;
   }
-  .activity-event--compact .activity-action {
-    flex-basis: 140px;
+
+  .activity-title {
+    font-size: 1.0625rem;
   }
-  .activity-event--compact .activity-summary {
-    border: none;
+
+  .activity-subtitle,
+  .activity-progress-label {
+    font-size: 0.75rem;
+  }
+
+  .activity-controls {
+    flex-basis: 100%;
+    gap: 0.5rem;
+    inline-size: 100%;
+  }
+
+  .activity-top-actions {
+    justify-content: flex-start;
+  }
+
+  .activity-close-btn {
+    position: absolute;
+    inset-block-start: 0.5rem;
+    inset-inline-end: calc(0.5rem + env(safe-area-inset-right, 0px));
+  }
+
+  .activity-filters {
+    gap: 0.5rem;
+  }
+
+  .activity-scroll {
+    padding: 0.875rem calc(1rem + env(safe-area-inset-right, 0px)) 1.25rem calc(1rem + env(safe-area-inset-left, 0px));
+  }
+
+  .activity-row {
+    flex-wrap: wrap;
+    padding: 0.75rem;
+    gap: 0.625rem;
+  }
+
+  .activity-icon {
+    flex-basis: 2rem;
+    block-size: 2rem;
+    inline-size: 2rem;
+  }
+
+  .activity-row time {
+    flex-basis: auto;
+    font-size: 0.75rem;
+  }
+
+  .activity-action {
+    flex: 1 1 auto;
+  }
+
+  .activity-status {
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+
+  .activity-summary {
+    order: 5;
+    flex: 0 0 calc(100% - 1.75rem);
+    font-size: 0.78rem;
     padding-inline-start: 0;
   }
-  .activity-event--compact .activity-icon {
-    flex-basis: 36px;
-    block-size: 36px;
+
+  .activity-event--compact .activity-summary {
+    border-inline-start: none;
+    padding-inline-start: 0;
+  }
+
+  .activity-chevron {
+    order: 6;
+    margin-inline-start: auto;
+  }
+
+  .activity-detail {
+    padding: 0.875rem;
+  }
+
+  .activity-stages {
+    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .activity-stage {
+    padding: 0.5625rem 0.6875rem;
+    gap: 0.5rem;
+  }
+
+  .activity-stage-body strong {
+    font-size: 1rem;
+  }
+
+  .activity-table thead {
+    position: absolute;
+    overflow: hidden;
+    block-size: 1px;
+    clip-path: inset(50%);
+    inline-size: 1px;
+  }
+
+  .activity-table tr {
+    display: grid;
+    padding: 0.625rem 0.75rem;
+    border-block-end: 1px solid var(--mp-list-row-divider);
+    gap: 0.25rem;
+    grid-template-columns: 1fr;
+  }
+
+  .activity-table tbody tr:last-child {
+    border-block-end: none;
+  }
+
+  .activity-table td {
+    padding: 0 !important;
+    border: 0 !important;
+    inline-size: auto !important;
+  }
+
+  .activity-disclosures {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .activity-site-toggle,
+  .activity-rules {
+    inline-size: 100%;
   }
 }
 </style>
