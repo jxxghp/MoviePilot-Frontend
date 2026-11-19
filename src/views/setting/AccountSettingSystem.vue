@@ -3419,14 +3419,6 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <VWindowItem value="dev">
             <div>
               <VRow>
-                <VCol v-if="knowledgeSettingAvailable" cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.AI_AGENT_KNOWLEDGE_ENABLE"
-                    :label="t('setting.system.aiAgentKnowledgeEnable')"
-                    :hint="t('setting.system.aiAgentKnowledgeEnableHint')"
-                    persistent-hint
-                  />
-                </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
                     v-model="SystemSettings.Advanced.PLUGIN_LOCAL_REPO_PATHS"
@@ -3554,6 +3546,14 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     v-model="SystemSettings.Advanced.TRANSFER_COPY_TRY_REFLINK"
                     :label="t('setting.system.transferCopyTryReflink')"
                     :hint="t('setting.system.transferCopyTryReflinkHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol v-if="knowledgeSettingAvailable" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.AI_AGENT_KNOWLEDGE_ENABLE"
+                    :label="t('setting.system.aiAgentKnowledgeEnable')"
+                    :hint="t('setting.system.aiAgentKnowledgeEnableHint')"
                     persistent-hint
                   />
                 </VCol>
