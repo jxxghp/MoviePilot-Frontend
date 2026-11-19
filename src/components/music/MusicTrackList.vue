@@ -53,7 +53,7 @@ function getTrackArtists(track: MediaInfo) {
 /** 只播放曲目表中的当前单曲，媒体库 ID 由后端按录音身份匹配。 */
 async function playTrack(track: MediaInfo) {
   try {
-    await playMusicTrack(track)
+    await playMusicTrack(track, props.tracks)
   } catch (error) {
     console.error(error)
     $toast.error(t('music.playbackFailed'))

@@ -148,6 +148,65 @@ describe('原生独立菜单的可选协商和上下文', () => {
 })
 
 describe('原生播放器能力协商', () => {
+  it('只将当前实例图片代理地址附加到播放请求', async () => {
+    const messages: NativeEnvelope[] = []
+    harness({
+      transport: {
+        transportVersion: 1,
+        playbackVersion: 1,
+        postMessage: message => messages.push(message),
+      },
+    })
+    await activate(false, false, false, false, true)
+    const proxy = `${window.location.origin}/api/v1/system/img/0?imgurl=${encodeURIComponent('https://cover.example/album.jpg')}`
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'audio-track-1', title: '晴天', artworkURL: proxy },
+      }),
+    )
+    expect(messages.at(-1)?.payload).toEqual({
+      itemId: 'audio-track-1',
+      title: '晴天',
+      artworkURL: proxy,
+    })
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'audio-track-2', title: '封面地址不得直传', artworkURL: 'https://cover.example/album.jpg' },
+      }),
+    )
+    expect(messages.at(-1)?.payload).toEqual({ itemId: 'audio-track-2', title: '封面地址不得直传' })
+  })
+
+  it('只向原生播放器转发包含当前歌曲的有界音乐队列', async () => {
+    const messages: NativeEnvelope[] = []
+    harness({
+      transport: {
+        transportVersion: 1,
+        playbackVersion: 1,
+        postMessage: message => messages.push(message),
+      },
+    })
+    await activate(false, false, false, false, true)
+    const queue = [
+      { itemId: 'track-1', title: '上一首', server: 'Jellyfin' },
+      { itemId: 'track-2', title: '当前曲目', server: 'Jellyfin' },
+      { itemId: 'track-3', title: '下一首', server: 'Jellyfin' },
+    ]
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'track-2', title: '当前曲目', queue, queueIndex: 1 },
+      }),
+    )
+    expect(messages.at(-1)?.payload).toMatchObject({ itemId: 'track-2', queue, queueIndex: 1 })
+
+    window.dispatchEvent(
+      new CustomEvent('moviepilot:playback-open', {
+        detail: { itemId: 'unrelated', title: '不匹配队列', queue, queueIndex: 1 },
+      }),
+    )
+    expect(messages.at(-1)?.payload).toEqual({ itemId: 'unrelated', title: '不匹配队列' })
+  })
+
   it('仅在双方都声明播放能力后转发媒体服务器条目及其来源', async () => {
     const messages: NativeEnvelope[] = []
     harness({

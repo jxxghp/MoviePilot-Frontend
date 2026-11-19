@@ -167,12 +167,28 @@ export interface NativeLayout {
   consumedByNativeFrame: boolean
 }
 
+/** 已匹配到媒体服务器的音乐队列项，不承载流地址或认证信息。 */
+export interface NativePlaybackQueueItem {
+  itemId: string
+  title: string
+  /** 精确媒体服务器配置名称，用于避免不同服务器的条目 ID 冲突。 */
+  server?: string
+  /** 当前实例图片代理生成的专辑封面地址。 */
+  artworkURL?: string
+}
+
 /** 网页请求在 App 内打开指定媒体条目，不承载流地址或认证信息。 */
 export interface NativePlaybackOpenRequest {
   itemId: string
   title: string
   /** 精确媒体服务器配置名称，用于避免不同服务器的条目 ID 冲突。 */
   server?: string
+  /** 当前实例图片代理生成的专辑封面地址；原始外站地址不会穿过原生桥。 */
+  artworkURL?: string
+  /** 已按专辑曲序匹配成功的音乐队列；只在 App 原生播放时使用。 */
+  queue?: NativePlaybackQueueItem[]
+  /** 当前曲目在 queue 中的零基位置。 */
+  queueIndex?: number
   season?: number
   episode?: number
 }

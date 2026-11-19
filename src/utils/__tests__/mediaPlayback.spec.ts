@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { FileItem } from '@/api/types'
+import type { FileItem, MediaInfo } from '@/api/types'
 import { NativeLayoutAdapter } from '@/native/layout'
 
 const mocks = vi.hoisted(() => ({ post: vi.fn() }))
@@ -8,6 +8,7 @@ vi.mock('@/api', () => ({ default: { post: mocks.post } }))
 
 import {
   canUseNativeMediaPlayback,
+  getNativePlaybackArtworkURL,
   isLocalPlayableMediaFile,
   playLocalMediaFile,
   playMusicTrack,
@@ -83,6 +84,7 @@ describe('本地单文件原生播放', () => {
         title: '晴天',
         artists: ['周杰伦'],
         album: '叶惠美',
+        cover_url: 'https://cover.example/album.jpg',
         track_number: 3,
       }),
     ).resolves.toBe(true)
@@ -92,6 +94,60 @@ describe('本地单文件原生播放', () => {
       expect.objectContaining({ media_source: 'musicbrainz', media_id: 'recording-1', title: '晴天' }),
       { feedback: 'silent' },
     )
-    expect(events[0]?.detail).toEqual({ itemId: 'media-server-audio-9', title: '晴天', server: 'Navidrome-音乐' })
+    const detail = events[0]?.detail
+    expect(detail).toEqual(
+      expect.objectContaining({ itemId: 'media-server-audio-9', title: '晴天', server: 'Navidrome-音乐' }),
+    )
+    const artwork = new URL(String(detail?.artworkURL))
+    expect(artwork.origin).toBe(window.location.origin)
+    expect(artwork.pathname).toBe('/api/v1/system/img/0')
+    expect(artwork.searchParams.get('imgurl')).toBe('https://cover.example/album.jpg')
+  })
+
+  it('按专辑曲序匹配媒体服务器单曲并把当前索引交给原生播放器', async () => {
+    nativeLayout.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: () => undefined,
+    }
+    mocks.post
+      .mockResolvedValueOnce({ item_id: 'server-track-1', title: '第一首', server: 'Emby' })
+      .mockResolvedValueOnce({ item_id: 'server-track-2', title: '第二首', server: 'Emby' })
+      .mockResolvedValueOnce({ item_id: 'server-track-3', title: '第三首', server: 'Emby' })
+    const events: CustomEvent[] = []
+    window.addEventListener('moviepilot:playback-open', event => events.push(event as CustomEvent), { once: true })
+    const playlist = [
+      { media_source: 'musicbrainz', media_id: 'recording-1', music_type: 'recording', title: '第一首' },
+      { media_source: 'musicbrainz', media_id: 'recording-2', music_type: 'recording', title: '第二首' },
+      { media_source: 'musicbrainz', media_id: 'recording-3', music_type: 'recording', title: '第三首' },
+    ] as MediaInfo[]
+
+    await expect(playMusicTrack(playlist[1], playlist)).resolves.toBe(true)
+
+    expect(mocks.post).toHaveBeenCalledTimes(3)
+    expect(events[0]?.detail).toMatchObject({
+      itemId: 'server-track-2',
+      title: '第二首',
+      queueIndex: 1,
+      queue: [
+        { itemId: 'server-track-1', title: '第一首' },
+        { itemId: 'server-track-2', title: '第二首' },
+        { itemId: 'server-track-3', title: '第三首' },
+      ],
+    })
+  })
+})
+
+describe('原生音乐封面', () => {
+  it('仅把封面包装为当前实例的图片代理地址', () => {
+    const artworkURL = getNativePlaybackArtworkURL('https://cover.example/album.jpg')
+    expect(artworkURL).toBeDefined()
+    const parsed = new URL(artworkURL!)
+    expect(parsed.origin).toBe(window.location.origin)
+    expect(parsed.pathname).toBe('/api/v1/system/img/0')
+    expect(parsed.searchParams.get('imgurl')).toBe('https://cover.example/album.jpg')
+    expect(parsed.searchParams.get('maxWidth')).toBe('720')
+    expect(getNativePlaybackArtworkURL('javascript:alert(1)')).toBeUndefined()
   })
 })
