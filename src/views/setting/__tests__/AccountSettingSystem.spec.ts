@@ -1424,6 +1424,18 @@ describe('AccountSettingSystem', () => {
     expect(useGlobalSettingsStore(pinia).globalSettings.COMMUNITY_MEDALS_ENABLED).toBe(false)
   })
 
+  it('defaults the lab knowledge switch on and persists an explicit opt-out', async () => {
+    await renderSettings()
+    const dialog = await openAdvancedTab('实验室')
+    const knowledgeSwitch = dialog.getByLabelText('Agent 使用中心知识')
+    expect(knowledgeSwitch).toBeChecked()
+    await fireEvent.click(knowledgeSwitch)
+    expect(knowledgeSwitch).not.toBeChecked()
+    await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ AI_AGENT_KNOWLEDGE_ENABLE: false }))
+  })
+
   it('loads a disabled CUE setting and allows enabling it without online music modules', async () => {
     systemEnv.MUSIC_CUE_ENABLE = false
     systemEnv.MODULE_ENABLE = { MusicBrainzModule: false, TheAudioDbModule: false }

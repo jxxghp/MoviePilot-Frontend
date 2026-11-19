@@ -3346,6 +3346,8 @@ export default {
       log: '日誌',
       data: '數據',
       lab: '實驗室',
+      aiAgentKnowledgeEnable: 'Agent 使用中心知識',
+      aiAgentKnowledgeEnableHint: '按需檢索 MP 與 PT 知識，無需額外設定。',
       downloaderSaveSuccess: '下載器設置保存成功',
       downloaderSaveFailed: '下載器設置保存失敗！',
       defaultDownloaderNotice: '未設置默認下載器，已將【{name}】作為默認下載器',

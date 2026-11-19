@@ -112,6 +112,7 @@ const systemSettingsDefaults = {
     BIG_MEMORY_MODE: false,
     DB_WAL_ENABLE: false,
     AUTO_UPDATE_RESOURCE: true,
+    AI_AGENT_KNOWLEDGE_ENABLE: true,
     MOVIEPILOT_AUTO_UPDATE: false,
     MOVIEPILOT_UPDATE_DEV: false,
     DATA_CLEANUP_ENABLE: false,
@@ -3413,6 +3414,14 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <VWindowItem value="dev">
             <div>
               <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.AI_AGENT_KNOWLEDGE_ENABLE"
+                    :label="t('setting.system.aiAgentKnowledgeEnable')"
+                    :hint="t('setting.system.aiAgentKnowledgeEnableHint')"
+                    persistent-hint
+                  />
+                </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
                     v-model="SystemSettings.Advanced.PLUGIN_LOCAL_REPO_PATHS"
