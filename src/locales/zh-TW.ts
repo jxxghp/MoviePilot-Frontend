@@ -1641,6 +1641,7 @@ export default {
     library: '我的媒體庫',
     playing: '繼續觀看',
     latest: '最新入庫',
+    openInServer: '在 {server} 中打開',
     noLatest: '暫無最近入庫記錄',
     noPlaying: '暫無繼續觀看記錄',
     noLibrary: '暫無媒體庫數據',

@@ -187,7 +187,7 @@ onActivated(() => {
           tabindex="0"
         >
           <template #default="{ item }">
-            <PosterCard :media="item" />
+            <PosterCard :media="item" :server="String(name)" />
           </template>
         </ProgressiveCardGrid>
       </div>
