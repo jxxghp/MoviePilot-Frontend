@@ -3,6 +3,7 @@ import type { MediaServerPlayItem } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
 import { openMediaServerItem } from '@/utils/appDeepLink'
 import { vNativeCardMenu } from '@/native/card'
+import { nativeChromeActive } from '@/native/layout'
 import { createNativeDashboardMediaCardMenu } from '@/utils/nativeDashboardMediaCard'
 import { useGlobalSettingsStore } from '@/stores'
 import { getProxyImageUrl } from '@/utils/imageUtils'
@@ -108,17 +109,19 @@ const nativeCardMenu = computed(() =>
 <template>
   <VHover>
     <template #default="hover">
-      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <!-- Web 的 Hover 命中区域保持静止；App 不上浮卡片，避免位置变化撤销原生长按菜单。 -->
       <div v-bind="hover.props" class="playing-card-hover-area">
         <VCard
           v-native-card-menu="nativeCardMenu"
           :style="cardStyle"
           class="playing-card app-hover-lift-card"
           :class="{
-            'app-hover-lift-card--hovering playing-card--hovering': hover.isHovering,
+            'app-hover-lift-card--hovering': hover.isHovering && !nativeChromeActive,
+            'playing-card--hovering': hover.isHovering,
             'playing-card--loaded': imageLoaded,
           }"
-          role="button"
+          :role="nativeChromeActive ? 'group' : 'button'"
+          :aria-label="nativeChromeActive ? props.media?.title : undefined"
           tabindex="0"
           @click="goPlay"
           @keyup.enter="goPlay"
