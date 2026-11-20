@@ -4909,6 +4909,10 @@ export default {
       mediaType: 'Type',
       mediaTypeHint: 'File media type',
       musicEntity: 'Music Entity',
+      musicReleaseId: 'MusicBrainz Release UUID',
+      musicReleaseIdHint: 'Specify an edition directly. Enter its MusicBrainz album ID (Release Group ID) above.',
+      musicReleaseIdInvalid: 'Enter a valid MusicBrainz Release UUID.',
+      musicReleaseIdNeedsGroup: 'Enter the album MusicBrainz ID (Release Group ID) above first.',
       artistCollection: 'Artist Collection',
       artistCollectionHint:
         'Treat the selected folder as a container: organize each first-level folder as an album, and audio files under Singles or the root as recordings. Each entry is identified and submitted independently.',

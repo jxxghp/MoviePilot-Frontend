@@ -1326,13 +1326,19 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     await selectOption('类型', 3)
     await selectOption('音乐实体', 1)
     await selectOption('本次曲目对齐方式', 1)
+    await fireEvent.input(screen.getByLabelText('MusicBrainz ID'), { target: { value: MUSIC_GROUP_ID } })
+    await fireEvent.input(screen.getByLabelText('MusicBrainz 发行版本 UUID'), {
+      target: { value: MUSIC_RELEASE_A },
+    })
     await fireEvent.input(screen.getByLabelText('本次音乐最终目录'), { target: { value: '/library/music' } })
     await selectOption('类型', 1)
     expect(screen.queryByLabelText('本次音乐最终目录')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('MusicBrainz 发行版本 UUID')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '加入整理队列' }))
     await waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0].music_target_path).toBeUndefined()
     expect(bodies[0].music_track_match).toBeUndefined()
+    expect(bodies[0].musicbrainz_release_id).toBeUndefined()
   })
 
   it('inherits music release preferences by default and can override them for one request', async () => {
@@ -2010,6 +2016,58 @@ describe('ReorganizeDialog music correction', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it('uses a directly selected MusicBrainz edition for the first preview and transfer', async () => {
+    const requests: ManualTransferPayload[] = []
+    const user = userEvent.setup()
+    const item = createFileItem({ name: 'Album A', path: '/downloads/Album A', type: 'dir' })
+    const { onDone } = await renderDialog({ items: [item] })
+    server.use(
+      http.post(new URL('transfer/manual', API_BASE_URL).href, async ({ request }) => {
+        const payload = (await request.json()) as ManualTransferPayload
+        requests.push(payload)
+        if (!payload.preview) return HttpResponse.json(apiEnvelope(null))
+        return HttpResponse.json(
+          previewResponse([
+            musicRow('Album A', '01.flac', {
+              music: {
+                ...musicRow('Album A', '01.flac').music!,
+                musicbrainz_release_id: MUSIC_RELEASE_B,
+                year: 2020,
+              },
+            }),
+          ]),
+        )
+      }),
+    )
+
+    await selectOption('类型', 3)
+    await fireEvent.input(screen.getByLabelText('MusicBrainz ID'), { target: { value: MUSIC_GROUP_ID } })
+    await fireEvent.input(screen.getByLabelText('MusicBrainz 发行版本 UUID'), {
+      target: { value: MUSIC_RELEASE_B.toUpperCase() },
+    })
+    await user.click(screen.getByRole('button', { name: '预览' }))
+
+    await waitFor(() => expect(requests).toHaveLength(1))
+    expect(requests[0]).toMatchObject({
+      media_id: MUSIC_GROUP_ID,
+      media_source: 'musicbrainz',
+      music_type: 'album',
+      musicbrainz_release_id: MUSIC_RELEASE_B,
+      preview: true,
+    })
+
+    await user.click(screen.getByRole('button', { name: '立即整理' }))
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(requests).toHaveLength(2)
+    expect(requests[1]).toMatchObject({
+      media_id: MUSIC_GROUP_ID,
+      media_source: 'musicbrainz',
+      music_type: 'album',
+      musicbrainz_release_id: MUSIC_RELEASE_B,
+    })
+    expect(requests[1].preview).not.toBe(true)
   })
 
   it.each(['立即整理', '加入整理队列'])('reuses the verified edition and exact preview files for %s', async action => {
