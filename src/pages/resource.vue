@@ -343,6 +343,7 @@ interface SearchTorrent extends Context {
 const filteredCardDataList = ref<Array<SearchTorrent>>([])
 const musicResultMode = ref<'all' | 'exact' | 'candidate'>('all')
 const hasMusicCandidates = computed(() => rawDataList.value.some(requiresMusicConfirmation))
+const musicCandidateCount = computed(() => Math.max(streamCandidateCount, rawDataList.value.length))
 watch(hasMusicCandidates, available => {
   if (!available) musicResultMode.value = 'all'
 })
@@ -455,6 +456,7 @@ const showResultHeader = computed(() => isRefreshed.value && !progressActive.val
 
 // 记录过滤前的候选资源数，用于过滤后无结果时给出友好提示
 let streamCandidateCount = 0
+let streamHasFilterRejections = false
 
 let pendingStreamItems: Array<Context> = []
 let pendingSubtitleStreamItems: Array<SubtitleInfo> = []
@@ -738,6 +740,7 @@ function resetSearchResults() {
   isRefreshed.value = false
   errorDescription.value = t('resource.noResourceFound')
   streamCandidateCount = 0
+  streamHasFilterRejections = false
   musicResultMode.value = 'all'
   rawDataList.value = []
   rawSubtitleDataList.value = []
@@ -830,7 +833,16 @@ function appendSubtitleStreamResults(items: SubtitleInfo[]) {
 }
 
 // 更新候选资源数：优先使用后端显式给出的 candidate_items，否则取搜索阶段事件的 total_items
-function updateStreamCandidateCount(eventData: { candidate_items?: unknown; stage?: unknown; total_items?: unknown }) {
+function updateStreamCandidateCount(eventData: {
+  candidate_items?: unknown
+  match_counts?: unknown
+  stage?: unknown
+  total_items?: unknown
+}) {
+  if (eventData.match_counts && typeof eventData.match_counts === 'object') {
+    const counts = eventData.match_counts as Record<string, unknown>
+    streamHasFilterRejections = Number(counts.filter_rules || 0) + Number(counts.filter_params || 0) > 0
+  }
   if (typeof eventData.candidate_items === 'number') {
     streamCandidateCount = Math.max(streamCandidateCount, eventData.candidate_items)
   } else if (eventData.stage === 'searching' && typeof eventData.total_items === 'number') {
@@ -838,10 +850,15 @@ function updateStreamCandidateCount(eventData: { candidate_items?: unknown; stag
   }
 }
 
-// 过滤后无结果但存在候选资源时，用友好提示替代默认的“未搜索到任何资源”
+/** 根据实际搜索类型说明有候选却没有结果，避免把音乐身份匹配误报为过滤规则。 */
 function applyFilteredEmptyResultMessage(resultCount: number) {
   if (resultCount === 0 && streamCandidateCount > 0) {
-    errorDescription.value = t('resource.filteredNoResults', { count: streamCandidateCount })
+    errorDescription.value = t(
+      activeSearchParams.value.type === '音乐' && !streamHasFilterRejections
+        ? 'resource.musicNoExactResults'
+        : 'resource.filteredNoResults',
+      { count: streamCandidateCount },
+    )
   }
 }
 
@@ -1576,6 +1593,18 @@ const resultEmptyDescription = computed(() =>
   hasActiveTorrentFilters.value ? t('resource.filteredEmptyHint') : searchEmptyDescription.value,
 )
 
+/** 精确音乐结果为空时，引导用户查看保留的人工候选及其匹配原因。 */
+const musicResultEmptyTitle = computed(() => {
+  if (musicResultMode.value === 'exact' && hasMusicCandidates.value) {
+    return t('resource.musicNoExactResults', { count: musicCandidateCount.value })
+  }
+  return t('torrent.noResults')
+})
+
+const musicResultEmptyDescription = computed(() =>
+  musicResultMode.value === 'exact' && hasMusicCandidates.value ? t('resource.musicCandidateHint') : '',
+)
+
 // 监听 AI_RECOMMEND_ENABLED 状态和数据加载状态
 // 使用 watchEffect 确保计算属性变化时立即响应
 watchEffect(() => {
@@ -2055,8 +2084,8 @@ useNativePageHeader({
       </VFadeTransition>
       <ResourceSearchEmptyState
         v-else
-        :title="t('torrent.noResults')"
-        description=""
+        :title="musicResultEmptyTitle"
+        :description="musicResultEmptyDescription"
         icon="mdi-music-note-search-outline"
       />
     </div>

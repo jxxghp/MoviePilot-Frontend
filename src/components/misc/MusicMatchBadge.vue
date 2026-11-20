@@ -9,6 +9,13 @@ const reason = computed(() => {
   const key = `torrent.musicMatch.${props.context?.match_reason}`
   return te(key) ? t(key) : t('torrent.musicMatch.candidate')
 })
+
+/** 自动匹配拒绝的原因直接展示，触屏用户也能在候选列表中查看。 */
+const label = computed(() =>
+  ['title_mismatch', 'performance_mismatch', 'category_mismatch'].includes(props.context?.match_reason || '')
+    ? reason.value
+    : t(`torrent.musicMatch.${props.context?.match_reason === 'related_album' ? 'album' : 'candidate'}`),
+)
 </script>
 
 <template>
@@ -22,7 +29,7 @@ const reason = computed(() => {
     :prepend-icon="props.context?.match_reason === 'related_album' ? 'mdi-album' : 'mdi-help-circle-outline'"
     :aria-label="reason"
   >
-    {{ t(`torrent.musicMatch.${props.context?.match_reason === 'related_album' ? 'album' : 'candidate'}`) }}
+    {{ label }}
     <VTooltip activator="parent" location="top">{{ reason }}</VTooltip>
   </VChip>
 </template>
