@@ -937,6 +937,33 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     })
   })
 
+  it('explains season existence states and lists missing episodes on hover', async () => {
+    const media = createSubscribeTv({
+      season_info: [
+        createMediaSeason({ episode_count: 4, season_number: 1 }),
+        createMediaSeason({ episode_count: 2, season_number: 2 }),
+        createMediaSeason({ episode_count: 3, season_number: 3 }),
+      ],
+      title: '缺失提示剧',
+      tmdb_id: 8706,
+    })
+    const notExists = [
+      createNotExistMediaInfo({ episodes: [2, 3, 4], season: 1, start_episode: 2, total_episode: 4 }),
+      createNotExistMediaInfo({ episodes: [], season: 2, total_episode: 2 }),
+    ]
+    const user = userEvent.setup()
+    await renderDetail({ media, notExists, type: '电视剧' })
+
+    await user.hover(await screen.findByText('部分缺失'))
+    expect(await screen.findByText('媒体库中缺少 E02-E04，共 3 集')).toBeInTheDocument()
+
+    await user.hover(screen.getByText('缺失'))
+    expect(await screen.findByText('在媒体服务器（及已开启的本地文件检查）中未找到本季的 2 集')).toBeInTheDocument()
+
+    await user.hover(screen.getByText('已入库'))
+    expect(await screen.findByText('媒体服务器或本地媒体库中已有本季全部剧集')).toBeInTheDocument()
+  })
+
   it('hides the status badge for a season with zero episodes', async () => {
     const media = createSubscribeTv({
       season_info: [
