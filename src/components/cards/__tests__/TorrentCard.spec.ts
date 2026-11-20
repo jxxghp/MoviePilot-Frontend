@@ -169,6 +169,21 @@ describe('TorrentCard approved regressions', () => {
     expect(props.title).toBe('晴天')
   })
 
+  it('explains why a rejected music candidate needs manual review', async () => {
+    const context = createContext({
+      media: { type: '音乐', title: '2026 原音精选' },
+      meta: { type: '音乐', title: 'The Perfect Sound 原音精选', name: 'The Perfect Sound' },
+      torrent: { title: 'VA-2026 The Perfect Sound 原音精选 SACD', category: '音乐' },
+    })
+    context.match_status = 'candidate'
+    context.match_reason = 'title_mismatch'
+
+    await renderCard(context)
+
+    expect(screen.getByTestId('music-match-status')).toHaveAttribute('aria-label', '作品名称与目标不符')
+    expect(screen.getByTestId('music-match-status')).toHaveTextContent('作品名称与目标不符')
+  })
+
   it('does not open a blank detail page or trigger download when the URL is missing', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     const context = createContext({ torrent: { page_url: undefined } })
