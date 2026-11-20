@@ -1705,8 +1705,11 @@ export default {
   media: {
     status: {
       inLibrary: '已入庫',
+      inLibraryHint: '媒體伺服器或本地媒體庫中已有本季全部劇集',
       missing: '缺失',
+      missingHint: '在媒體伺服器（及已開啟的本地檔案檢查）中未找到本季的 {count} 集',
       partiallyMissing: '部分缺失',
+      partiallyMissingHint: '媒體庫中缺少 {episodes}，共 {count} 集',
       subscribed: '已訂閱',
       seasonsSubscribed: '已訂閱 {count} 季',
       allSeasonsSubscribed: '已全部訂閱',

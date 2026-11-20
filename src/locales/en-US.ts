@@ -1737,8 +1737,12 @@ export default {
   media: {
     status: {
       inLibrary: 'In Library',
+      inLibraryHint: 'All episodes of this season were found on the media server or in local storage',
       missing: 'Missing',
+      missingHint:
+        'None of the {count} episodes of this season were found on the media server (or in local storage, if file checks are enabled)',
       partiallyMissing: 'Partially Missing',
+      partiallyMissingHint: 'Missing {episodes} ({count} episodes) from the library',
       subscribed: 'Subscribed',
       seasonsSubscribed: '{count} Seasons Subscribed',
       allSeasonsSubscribed: 'All Seasons Subscribed',
