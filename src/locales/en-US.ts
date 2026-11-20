@@ -6108,6 +6108,14 @@ export default {
     scanModeHint: 'Applies to full-library and targeted refresh: New & Modified / Supplement Missing / Full Override',
     verifySsl: 'Verify SSL Certificate',
     verifySslHint: 'When enabled, HTTPS certificates are verified; disable for self-signed certificates',
+    connectionMode: 'Connection Mode',
+    connectionModeHint:
+      'Auto mode tries the Media Service (Emby API) on port 9443 first and falls back to the UGREEN account API on rejection; Media Service mode requires enabling Media Service in UGREEN Theater and using its dedicated account',
+    connectionModeOptions: {
+      auto: 'Auto Detect',
+      internal: 'UGREEN Account (Theater Internal API)',
+      mediaService: 'Media Service (Emby Compatible API)',
+    },
     scanModeOptions: {
       newAndModified: 'New & Modified',
       supplementMissing: 'Supplement Missing',

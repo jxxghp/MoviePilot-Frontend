@@ -73,4 +73,76 @@ describe('MediaServerInfoDialog Plex timeout', () => {
       'Plex',
     )
   })
+
+  it('defaults UGREEN connection mode to auto and preserves explicit mode on save', async () => {
+    const onChange = vi.fn()
+    const ugreenServer: MediaServerConf = {
+      name: '绿联影视',
+      type: 'ugreen',
+      enabled: true,
+      config: {
+        host: 'https://nas.example:9443',
+        username: 'tester',
+        password: 'secret',
+      },
+      sync_libraries: ['all'],
+    }
+
+    const { unmount } = await renderWithProviders(MediaServerInfoDialog, {
+      props: {
+        modelValue: true,
+        mediaserver: ugreenServer,
+        mediaservers: [ugreenServer],
+        onChange,
+      },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+
+    expect(await screen.findByText('自动识别')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          mode: 'auto',
+          scan_mode: 'supplement_missing',
+          verify_ssl: true,
+        }),
+      }),
+      '绿联影视',
+    )
+    unmount()
+
+    const explicitInternalServer: MediaServerConf = {
+      ...ugreenServer,
+      config: {
+        ...ugreenServer.config,
+        mode: 'internal',
+        verify_ssl: false,
+      },
+    }
+    const onExplicitChange = vi.fn()
+    await renderWithProviders(MediaServerInfoDialog, {
+      props: {
+        modelValue: true,
+        mediaserver: explicitInternalServer,
+        mediaservers: [explicitInternalServer],
+        onChange: onExplicitChange,
+      },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+
+    expect(await screen.findByText('绿联账号（影视中心内部接口）')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+
+    expect(onExplicitChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          mode: 'internal',
+          verify_ssl: false,
+        }),
+      }),
+      '绿联影视',
+    )
+  })
 })

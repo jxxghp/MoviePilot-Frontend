@@ -69,6 +69,13 @@ const ugreenScanModeOptions = computed(() => [
   { title: t('mediaserver.scanModeOptions.fullOverride'), value: 'full_override' },
 ])
 
+// 绿联影视连接模式：auto 按端口自动识别并支持 9443 回退内部接口，也可显式锁定。
+const ugreenConnectionModeOptions = computed(() => [
+  { title: t('mediaserver.connectionModeOptions.auto'), value: 'auto' },
+  { title: t('mediaserver.connectionModeOptions.internal'), value: 'internal' },
+  { title: t('mediaserver.connectionModeOptions.mediaService'), value: 'media_service' },
+])
+
 /** 初始化媒体服务器编辑表单数据。 */
 function initializeMediaServerInfo() {
   loadLibrary(props.mediaserver.name)
@@ -77,6 +84,9 @@ function initializeMediaServerInfo() {
     mediaServerInfo.value.config = mediaServerInfo.value.config || {}
     if (!mediaServerInfo.value.config.scan_mode) {
       mediaServerInfo.value.config.scan_mode = 'supplement_missing'
+    }
+    if (!mediaServerInfo.value.config.mode) {
+      mediaServerInfo.value.config.mode = 'auto'
     }
     if (mediaServerInfo.value.config.verify_ssl === undefined) {
       mediaServerInfo.value.config.verify_ssl = true
@@ -666,6 +676,17 @@ onMounted(() => {
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-radar"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VSelect
+                v-model="mediaServerInfo.config.mode"
+                :label="t('mediaserver.connectionMode')"
+                :items="ugreenConnectionModeOptions"
+                :hint="t('mediaserver.connectionModeHint')"
+                persistent-hint
+                active
+                prepend-inner-icon="mdi-connection"
               />
             </VCol>
             <VCol cols="12" md="6">
