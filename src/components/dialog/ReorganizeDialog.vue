@@ -221,6 +221,7 @@ const musicTransferBlocked = computed(() =>
     musicCorrection.busy.value ||
     musicCorrectionGroup.value ||
     previewLoading.value ||
+    getMusicBrainzReleaseIdError(transferForm.musicbrainz_release_id) ||
     (musicCorrection.hasCorrections.value &&
       (!musicCorrection.scopeComplete.value || previewHasFailures(previewData.value))),
   ),
@@ -597,6 +598,7 @@ const transferForm = reactive<TransferForm>({
   media_source: null,
   media_id: null,
   music_type: null,
+  musicbrainz_release_id: null,
   music_release_regions: null,
   music_release_scripts: null,
   music_cue_enable: globalSettings.MUSIC_CUE_ENABLE !== false,
@@ -664,6 +666,10 @@ const mediaIdLabel = computed(() => {
   }
   return labels[mediaSource.value] ?? t('dialog.reorganize.mediaId')
 })
+
+const canSelectMusicBrainzRelease = computed(
+  () => transferForm.type_name === '音乐' && transferForm.music_type === 'album' && mediaSource.value === 'musicbrainz',
+)
 
 // 处理媒体搜索结果选择，同步搜索结果中已识别的媒体类型。
 function handleMediaSelected(item: Pick<MediaInfo, 'type' | 'music_type'>) {
@@ -844,6 +850,7 @@ watch(
     }
     transferForm.music_type = isMusicType ? (transferForm.music_type ?? defaultMusicEntity.value) : null
     if (!isMusicType) {
+      transferForm.musicbrainz_release_id = null
       customMusicReleasePreference.value = false
       transferForm.music_release_regions = null
       transferForm.music_release_scripts = null
@@ -857,12 +864,20 @@ watch(
   () => transferForm.music_type,
   musicType => {
     artistCollectionEntries.value = undefined
+    if (musicType !== 'album') transferForm.musicbrainz_release_id = null
     if (musicType !== 'album') transferForm.music_track_match = 'strict'
     if (musicType === 'artist_collection') {
       transferForm.media_id = null
       mediaSelectorDialog.value = false
     }
     resetPreviewState()
+  },
+)
+
+watch(
+  () => transferForm.media_id,
+  (mediaId, previousMediaId) => {
+    if (mediaId !== previousMediaId) transferForm.musicbrainz_release_id = null
   },
 )
 
@@ -889,6 +904,7 @@ watch(
   (source, previousSource) => {
     if (source !== previousSource) {
       transferForm.media_id = null
+      transferForm.musicbrainz_release_id = null
       mediaSelectorDialog.value = false
     }
     if (isMusicMediaSource(source ?? undefined) && transferForm.type_name !== '音乐') {
@@ -900,6 +916,30 @@ watch(
 /** 按当前来源校验手动整理使用的原生媒体 ID。 */
 function validateMediaId(value?: string | number | null) {
   return isValidMediaSourceId(value, mediaSource.value) || t('dialog.reorganize.mediaIdInvalid')
+}
+
+/** 校验直接指定的 MusicBrainz 发行 ID，保留 media_id 作为发行组身份。 */
+function getMusicBrainzReleaseIdError(value?: string | number | null) {
+  const releaseId = normalizeOptionalText(value == null ? undefined : String(value))
+  if (!releaseId) return undefined
+  if (!/^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$/.test(releaseId)) {
+    return t('dialog.reorganize.musicReleaseIdInvalid')
+  }
+  if (!normalizeOptionalText(transferForm.media_id)) return t('dialog.reorganize.musicReleaseIdNeedsGroup')
+  return undefined
+}
+
+/** 表单与请求边界共用发行 ID 校验，避免无效 UUID 进入后端整理流程。 */
+function validateMusicBrainzReleaseId(value?: string | number | null) {
+  return getMusicBrainzReleaseIdError(value) || true
+}
+
+/** 拦截缺少所属专辑组或格式无效的发行 ID，提示修正后再请求。 */
+function validateMusicBrainzReleaseSelection() {
+  const error = getMusicBrainzReleaseIdError(transferForm.musicbrainz_release_id)
+  if (!error) return true
+  $toast.error(error)
+  return false
 }
 
 watch(
@@ -1400,6 +1440,12 @@ function createTransferPayload(options: {
     delete payload.music_track_match
   }
 
+  const selectedMusicBrainzReleaseId = canSelectMusicBrainzRelease.value
+    ? normalizeOptionalText(transferForm.musicbrainz_release_id)?.toLowerCase()
+    : undefined
+  if (selectedMusicBrainzReleaseId) payload.musicbrainz_release_id = selectedMusicBrainzReleaseId
+  else delete payload.musicbrainz_release_id
+
   if (normalizedMediaId) {
     payload.media_source = mediaSource.value
     payload.media_id = normalizedMediaId
@@ -1636,6 +1682,7 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
 // 预览整理结果
 async function previewTransfer() {
   if (!props.logids?.length && !normalizedItems.value.length) return
+  if (!validateMusicBrainzReleaseSelection()) return
 
   resetPreviewState()
   const generation = previewGeneration
@@ -1942,6 +1989,7 @@ function finishTransfer() {
 
 // 整理文件
 async function transfer(background: boolean = false) {
+  if (!validateMusicBrainzReleaseSelection()) return
   if (
     (!props.logids?.length && !normalizedItems.value.length) ||
     transferSubmitting.value ||
@@ -2238,6 +2286,19 @@ onUnmounted(() => {
                       persistent-hint
                       prepend-inner-icon="mdi-identifier"
                       @click:append-inner="mediaSelectorDialog = true"
+                    />
+                  </VCol>
+                  <VCol v-if="canSelectMusicBrainzRelease" cols="12">
+                    <VTextField
+                      v-model="transferForm.musicbrainz_release_id"
+                      :label="t('dialog.reorganize.musicReleaseId')"
+                      :hint="t('dialog.reorganize.musicReleaseIdHint')"
+                      :error-messages="getMusicBrainzReleaseIdError(transferForm.musicbrainz_release_id)"
+                      :rules="[validateMusicBrainzReleaseId]"
+                      autocomplete="off"
+                      clearable
+                      persistent-hint
+                      prepend-inner-icon="mdi-album"
                     />
                   </VCol>
                 </VRow>

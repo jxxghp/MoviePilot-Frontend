@@ -4782,6 +4782,10 @@ export default {
       mediaType: '類型',
       mediaTypeHint: '文件的媒體類型',
       musicEntity: '音樂實體',
+      musicReleaseId: 'MusicBrainz 發行版本 UUID',
+      musicReleaseIdHint: '可直接指定發行版本。請在上方填寫該專輯的 MusicBrainz ID（發行組 ID）。',
+      musicReleaseIdInvalid: '請輸入有效的 MusicBrainz 發行版本 UUID。',
+      musicReleaseIdNeedsGroup: '請先填寫上方的 MusicBrainz 專輯 ID（發行組 ID）。',
       artistCollection: '藝術家合集',
       artistCollectionHint:
         '把目前目錄作為合集容器：一級子目錄分別按專輯整理，「單曲」目錄及根目錄音訊按單曲整理。各項目獨立識別和提交，單項失敗不會中斷整個合集。',
