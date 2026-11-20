@@ -1771,6 +1771,13 @@ export default {
       noPlayableEpisodes: 'No playable episodes are available in the library.',
       episodesUnavailable: 'Unable to load available episodes.',
     },
+    tmdbLookup: {
+      find: 'Find on TMDB',
+      searching: 'Searching',
+      notFound: 'No TMDB match',
+      failed: 'Lookup failed, retry',
+      timeout: 'Taking longer, retry',
+    },
     search: {
       byTitle: 'Title',
       byImdb: 'IMDB Link',

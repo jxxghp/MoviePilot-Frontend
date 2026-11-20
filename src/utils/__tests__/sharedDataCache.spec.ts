@@ -1,4 +1,4 @@
-import { getSharedData, invalidateSharedData } from '@/utils/sharedDataCache'
+import { getSharedData, invalidateSharedData, invalidateSharedDataKey } from '@/utils/sharedDataCache'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('shared read snapshots', () => {
@@ -66,5 +66,52 @@ describe('shared read snapshots', () => {
     expect(loader).toHaveBeenCalledTimes(2)
     await getSharedData('media-status:movie', loader)
     expect(loader).toHaveBeenCalledTimes(3)
+  })
+
+  it('drops one key snapshot and its stale read without touching sibling keys', async () => {
+    const loader = vi.fn(async () => null)
+    await getSharedData('media-mapping:cached', loader)
+    await getSharedData('media-mapping:sibling', loader)
+    const resolvers: Array<(value: null) => void> = []
+    const deferred = () =>
+      new Promise<null>(done => {
+        resolvers.push(done)
+      })
+    const stale = getSharedData('media-mapping:pending', deferred)
+    const sibling = getSharedData('media-mapping:other-pending', deferred)
+    const assertion = expect(stale).rejects.toMatchObject({ code: 'ERR_CANCELED' })
+
+    invalidateSharedDataKey('media-mapping:cached')
+    invalidateSharedDataKey('media-mapping:pending')
+    resolvers.forEach(resolve => resolve(null))
+
+    await assertion
+    await expect(sibling).resolves.toBeNull()
+    await getSharedData('media-mapping:cached', loader)
+    await getSharedData('media-mapping:sibling', loader)
+    expect(loader).toHaveBeenCalledTimes(3)
+    await getSharedData('media-mapping:pending', loader)
+    expect(loader).toHaveBeenCalledTimes(4)
+  })
+
+  it('keeps the fresh read of an invalidated key and rejects the stale one', async () => {
+    const resolvers: Array<(value: string) => void> = []
+    const deferred = () =>
+      new Promise<string>(done => {
+        resolvers.push(done)
+      })
+    const stale = getSharedData('media-mapping:entry', deferred)
+    const assertion = expect(stale).rejects.toMatchObject({ code: 'ERR_CANCELED' })
+    invalidateSharedDataKey('media-mapping:entry')
+    const fresh = getSharedData('media-mapping:entry', deferred)
+
+    resolvers[0]('stale')
+    resolvers[1]('fresh')
+
+    await assertion
+    await expect(fresh).resolves.toBe('fresh')
+    const loader = vi.fn(async () => 'reloaded')
+    await expect(getSharedData('media-mapping:entry', loader)).resolves.toBe('fresh')
+    expect(loader).not.toHaveBeenCalled()
   })
 })

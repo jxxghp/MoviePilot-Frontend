@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getSharedConfiguration } from '@/api/configuration'
 import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
-import { getSharedData, invalidateSharedData } from '@/utils/sharedDataCache'
+import { getSharedData, invalidateSharedData, invalidateSharedDataKey } from '@/utils/sharedDataCache'
 import { useToast } from 'vue-toastification'
 import { nativeChromeActive } from '@/native/layout'
 import { useNativePageHeader } from '@/native/page'
@@ -11,7 +11,7 @@ import MediaCommentView from './MediaCommentView.vue'
 import api from '@/api'
 import MediaEpisodePickerDialog from '@/components/dialog/MediaEpisodePickerDialog.vue'
 import type { PlayableEpisode } from '@/types/playback'
-import { getApiBusinessErrorMessage } from '@/api/client'
+import { ApiRequestError, getApiBusinessErrorMessage, isApiRequestCancellation } from '@/api/client'
 import type {
   MediaDataSource,
   MediaInfo,
@@ -38,6 +38,7 @@ import {
   getMediaSubscribeId,
   getMediaSubscribeIdentity,
   useMediaSubscribe,
+  type MediaSubscribeIdentity,
   type SeasonSubscribeModes,
 } from '@/composables/useMediaSubscribe'
 
@@ -78,30 +79,150 @@ const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 const sharedTmdbMapping = ref<MediaMapping | null>(null)
 let mappingRequestId = 0
 
-/** 独立查询已有关系；中心不可用或旧后端没有接口时继续显示原详情。 */
-async function querySharedTmdbMapping() {
-  const requestId = ++mappingRequestId
+/**
+ * 按需查找 TMDB 链接的按钮状态。
+ *
+ * null 表示共享查询尚未完成或不适用；unsupported 表示旧后端没有查找接口，按钮隐藏。
+ */
+type TmdbLookupState = 'idle' | 'searching' | 'not-found' | 'failed' | 'timeout' | 'unsupported'
+const tmdbLookupState = ref<TmdbLookupState | null>(null)
+
+// 后端按需查找可能需要多次 TMDB 请求，超时后后台仍会继续查找，重试会合并到同一次查找。
+const TMDB_LOOKUP_TIMEOUT = 60_000
+
+/** 共享关系查询与按需查找使用同一组参数，保证两者命中同一条共享关系。 */
+interface SharedTmdbMappingQuery {
+  identity: MediaSubscribeIdentity
+  params: { media_source: MediaDataSource; media_id: string; type: 'movie' | 'tv'; season?: number }
+}
+
+/** 仅为非 TMDB 来源的电影和电视剧构造共享关系查询参数。 */
+function getSharedTmdbMappingQuery(): SharedTmdbMappingQuery | null {
   const identity = getMediaSubscribeIdentity(mediaDetail.value)
   if (!identity || identity.source === 'themoviedb' || !['电影', '电视剧'].includes(mediaDetail.value.type ?? ''))
-    return
-  const params = {
-    media_source: identity.source,
-    media_id: identity.mediaId,
-    type: mediaDetail.value.type === '电影' ? 'movie' : 'tv',
-    season: mediaDetail.value.type === '电视剧' ? (mediaDetail.value.season ?? undefined) : undefined,
+    return null
+  return {
+    identity,
+    params: {
+      media_source: identity.source,
+      media_id: identity.mediaId,
+      type: mediaDetail.value.type === '电影' ? 'movie' : 'tv',
+      season: mediaDetail.value.type === '电视剧' ? (mediaDetail.value.season ?? undefined) : undefined,
+    },
   }
+}
+
+/** 共享关系快照按查询参数分条缓存，按需查找成功后只失效对应条目。 */
+function getSharedTmdbMappingKey(params: SharedTmdbMappingQuery['params']) {
+  return `media-mapping:${JSON.stringify(params)}`
+}
+
+/** 判断错误是否来自尚未提供该接口的旧后端。 */
+function isMissingEndpoint(error: unknown) {
+  return error instanceof ApiRequestError && (error.status === 404 || error.status === 405)
+}
+
+/**
+ * 独立查询已有关系；中心不可用或旧后端没有接口时继续显示原详情。
+ *
+ * @param retried 是否为读取被共享快照失效作废后的重读
+ */
+async function querySharedTmdbMapping(retried = false) {
+  const requestId = ++mappingRequestId
+  const query = getSharedTmdbMappingQuery()
+  if (!query) return
+  const { identity, params } = query
   try {
-    const mapping = await getSharedData<MediaMapping | null>(`media-mapping:${JSON.stringify(params)}`, () =>
+    const mapping = await getSharedData<MediaMapping | null>(getSharedTmdbMappingKey(params), () =>
       api.get('media/mapping', { params, timeout: 1500, feedback: 'silent', skipConnectionTracking: true }),
     )
-    if (
-      requestId === mappingRequestId &&
-      mapping?.media_source === identity.source &&
-      mapping.media_id === identity.mediaId
-    )
+    if (requestId !== mappingRequestId) return
+    if (mapping?.media_source === identity.source && mapping.media_id === identity.mediaId)
       sharedTmdbMapping.value = mapping
-  } catch {
-    // 此入口仅补充可选外链；无共享关系时不触发名称匹配或打断详情页。
+    else tmdbLookupState.value = 'idle'
+  } catch (error) {
+    // 此入口仅补充可选外链；查询失败（超时、网络或 5xx）时仍提供按需查找，后端会先查共享关系，
+    // 不自动触发名称匹配或打断详情页。只有 404/405 表示旧后端，不显示按钮。
+    if (requestId !== mappingRequestId) return
+    if (isApiRequestCancellation(error)) {
+      // 本页仍在等待时读取被作废（例如同一条目的迟到查找结果刚写回关系），重读一次取得新结论；
+      // 再次作废时直接提供查找，后端会先查共享关系，避免本页既无链接也无按钮。
+      if (retried) tmdbLookupState.value = 'idle'
+      else void querySharedTmdbMapping(true)
+      return
+    }
+    tmdbLookupState.value = isMissingEndpoint(error) ? 'unsupported' : 'idle'
+  }
+}
+
+// 共享查询未命中且详情本身没有 TMDB ID 时，在 TheMovieDb 链接的位置提供按需查找。
+const showTmdbLookup = computed(
+  () =>
+    !mediaDetail.value.tmdb_id &&
+    !sharedTmdbMapping.value &&
+    tmdbLookupState.value !== null &&
+    tmdbLookupState.value !== 'unsupported',
+)
+const canLookupTmdb = computed(() => ['idle', 'failed', 'timeout'].includes(tmdbLookupState.value ?? ''))
+const tmdbLookupLabel = computed(() => {
+  switch (tmdbLookupState.value) {
+    case 'searching':
+      return t('media.tmdbLookup.searching')
+    case 'not-found':
+      return t('media.tmdbLookup.notFound')
+    case 'failed':
+      return t('media.tmdbLookup.failed')
+    case 'timeout':
+      return t('media.tmdbLookup.timeout')
+    default:
+      return t('media.tmdbLookup.find')
+  }
+})
+const tmdbLookupIcon = computed(() => {
+  if (tmdbLookupState.value === 'not-found') return 'mdi-link-off'
+  if (tmdbLookupState.value === 'failed' || tmdbLookupState.value === 'timeout') return 'mdi-refresh'
+  return 'mdi-magnify'
+})
+
+/** 把查找失败归类为可重试失败、超时或旧后端不支持。 */
+function resolveTmdbLookupFailure(error: unknown): TmdbLookupState {
+  if (isApiRequestCancellation(error)) return 'idle'
+  if (isMissingEndpoint(error)) return 'unsupported'
+  if (error instanceof ApiRequestError && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'))
+    return 'timeout'
+  return 'failed'
+}
+
+/**
+ * 用户点击后让后端按订阅规则查找 TMDB 关系，结果由后端尽力写回共享表。
+ *
+ * 请求不参与全局连接探测：可选功能的超时或 503 不应把整个应用标记为离线。
+ */
+async function lookupTmdbMapping() {
+  const query = getSharedTmdbMappingQuery()
+  if (!query || !canLookupTmdb.value) return
+  const requestId = mappingRequestId
+  tmdbLookupState.value = 'searching'
+  try {
+    const mapping = await api.post<MediaMapping | null>('media/mapping/match', query.params, {
+      timeout: TMDB_LOOKUP_TIMEOUT,
+      feedback: 'silent',
+      skipConnectionTracking: true,
+    })
+    // 关系已写回共享表，即使用户已离开本页也要让该条目旧的未命中快照失效；其他条目的读取不受影响。
+    if (mapping) invalidateSharedDataKey(getSharedTmdbMappingKey(query.params))
+    if (requestId !== mappingRequestId) return
+    if (!mapping) {
+      tmdbLookupState.value = 'not-found'
+    } else if (mapping.media_source === query.identity.source && mapping.media_id === query.identity.mediaId) {
+      sharedTmdbMapping.value = mapping
+      tmdbLookupState.value = 'idle'
+    } else {
+      tmdbLookupState.value = 'failed'
+    }
+  } catch (error) {
+    if (requestId !== mappingRequestId) return
+    tmdbLookupState.value = resolveTmdbLookupFailure(error)
   }
 }
 
@@ -269,6 +390,7 @@ function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season
 async function getMediaDetail() {
   mappingRequestId++
   sharedTmdbMapping.value = null
+  tmdbLookupState.value = null
   if (!mediaProps.mediaSource || !mediaProps.mediaId || !mediaProps.type) {
     mediaDetail.value = {} as MediaInfo
     detailLoadFailed.value = false
@@ -1134,6 +1256,27 @@ useNativePageHeader({
                 <span class="ms-1">TheMovieDb</span>
               </div>
             </a>
+            <button
+              v-else-if="showTmdbLookup"
+              type="button"
+              class="mb-2 mr-2 inline-flex last:mr-0"
+              :disabled="!canLookupTmdb"
+              :aria-busy="tmdbLookupState === 'searching'"
+              @click="lookupTmdbMapping"
+            >
+              <div
+                class="media-source-link-chip inline-flex items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition"
+                :class="
+                  canLookupTmdb
+                    ? 'cursor-pointer hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]'
+                    : 'cursor-default opacity-70'
+                "
+              >
+                <VProgressCircular v-if="tmdbLookupState === 'searching'" indeterminate size="14" width="2" />
+                <VIcon v-else :icon="tmdbLookupIcon" size="16" />
+                <span class="ms-1">{{ tmdbLookupLabel }}</span>
+              </div>
+            </button>
             <div v-if="mediaDetail.douban_id" class="mb-2 mr-2 inline-flex last:mr-0" @click="handleDoubanClick">
               <div
                 class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"

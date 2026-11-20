@@ -299,7 +299,8 @@ describe('glass overlay material styles', () => {
       /\.media-detail-glass \.episode-group-option\s*\{(?<declarations>[\s\S]*?)\n\}/u,
     )?.groups?.declarations
 
-    expect(mediaDetail.match(/media-source-link-chip/g)).toHaveLength(8)
+    // 外链 chip 与「查找 TMDB」按钮 chip 共用同一玻璃材质规则。
+    expect(mediaDetail.match(/media-source-link-chip/g)).toHaveLength(9)
     expect(mediaSourceRule).toContain('var(--glass-chip-backdrop-filter)')
     expect(mediaSourceRule).toContain('var(--glass-button-surface)')
     expect(mediaSourceRule).toContain('var(--glass-chip-sheen)')

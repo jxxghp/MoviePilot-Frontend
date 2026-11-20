@@ -29,7 +29,12 @@ export async function getSharedData<T>(
   let request = pending.get(key)
   if (!request) {
     request = loader().then(value => {
-      if (generation !== activeGeneration || (scopeGenerations.get(scope) ?? 0) !== scopeGeneration) {
+      // 在途表已不是本次请求，说明该键已被单独失效或替换，旧响应不能写回快照。
+      if (
+        generation !== activeGeneration ||
+        (scopeGenerations.get(scope) ?? 0) !== scopeGeneration ||
+        pending.get(key) !== request
+      ) {
         throw new CanceledError('共享数据已失效')
       }
       if (shouldCache(value)) {
@@ -60,4 +65,14 @@ export function invalidateSharedData(scope?: 'configuration' | 'media-status') {
   scopeGenerations.set(scope, (scopeGenerations.get(scope) ?? 0) + 1)
   for (const key of values.keys()) if (key.startsWith(`${scope}:`)) values.delete(key)
   for (const key of pending.keys()) if (key.startsWith(`${scope}:`)) pending.delete(key)
+}
+
+/**
+ * 只影响单个条目的写操作成功后，清除该键的快照并隔离其在途旧读取，同范围的其他条目不受影响。
+ *
+ * 用于按需查找写回共享 TMDB 关系后，让该条目的共享关系快照重新读取。
+ */
+export function invalidateSharedDataKey(key: string) {
+  values.delete(key)
+  pending.delete(key)
 }
