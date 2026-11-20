@@ -1739,6 +1739,13 @@ export default {
       noPlayableEpisodes: '沒有可播放的已入庫劇集',
       episodesUnavailable: '無法載入可播放劇集，請稍後重試',
     },
+    tmdbLookup: {
+      find: '查找 TMDB',
+      searching: '查找中',
+      notFound: '未找到 TMDB 條目',
+      failed: '查找失敗，重試',
+      timeout: '查找時間較長，重試',
+    },
     search: {
       byTitle: '標題',
       byImdb: 'IMDB鏈接',

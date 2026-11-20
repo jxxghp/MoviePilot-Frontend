@@ -1739,6 +1739,13 @@ export default {
       noPlayableEpisodes: '没有可播放的已入库剧集',
       episodesUnavailable: '暂时无法读取已入库的剧集信息',
     },
+    tmdbLookup: {
+      find: '查找 TMDB',
+      searching: '查找中',
+      notFound: '未找到 TMDB 条目',
+      failed: '查找失败，重试',
+      timeout: '查找时间较长，重试',
+    },
     search: {
       byTitle: '标题',
       byImdb: 'IMDB链接',

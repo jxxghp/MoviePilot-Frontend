@@ -32,8 +32,11 @@ import {
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
 import { HttpResponse, http } from 'msw'
-import { apiJson } from '@tests/support/msw/response'
-import { invalidateSharedData } from '@/utils/sharedDataCache'
+import { apiFailureJson, apiJson } from '@tests/support/msw/response'
+import api from '@/api'
+import { ApiRequestError } from '@/api/client'
+import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
+import { getSharedData, invalidateSharedData } from '@/utils/sharedDataCache'
 import { NativeLayoutAdapter } from '@/native/layout'
 import { defineComponent, h, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1584,5 +1587,405 @@ describe('共享 TMDB 对应关系', () => {
         'https://www.themoviedb.org/tv/456/season/2',
       ),
     )
+  })
+})
+
+describe('按需查找 TMDB 链接', () => {
+  const mappingUrl = 'http://localhost/api/v1/media/mapping'
+  const matchUrl = 'http://localhost/api/v1/media/mapping/match'
+  const tvQuery = { media_source: 'douban', media_id: '123', type: 'tv', season: 2 }
+  const tvMapping = { ...tvQuery, tmdb_id: 456, tmdb_type: 'tv', tmdb_season: 2 }
+
+  /** 共享表未命中的豆瓣第二季详情。 */
+  function createDoubanTv() {
+    return createMediaInfo({
+      title: '按需查找剧集',
+      media_source: 'douban',
+      media_id: '123',
+      type: '电视剧',
+      season: 2,
+      tmdb_id: undefined,
+      douban_id: '123',
+    })
+  }
+
+  /** 共享表未命中的豆瓣电影详情。 */
+  function createDoubanMovie() {
+    return createMediaInfo({
+      title: '按需查找电影',
+      media_source: 'douban',
+      media_id: '321',
+      type: '电影',
+      tmdb_id: undefined,
+      douban_id: '321',
+    })
+  }
+
+  it('按共享查询的同一组参数查找，并直接使用返回结果显示剧集季链接', async () => {
+    const mappingRequest = vi.fn()
+    const matchRequest = vi.fn()
+    await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () =>
+        server.use(
+          http.get(mappingUrl, ({ request }) => {
+            mappingRequest(Object.fromEntries(new URL(request.url).searchParams))
+            return apiJson(null)
+          }),
+          http.post(matchUrl, async ({ request }) => {
+            matchRequest(await request.json())
+            return apiJson(tvMapping)
+          }),
+        ),
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'TheMovieDb' })).toHaveAttribute(
+        'href',
+        'https://www.themoviedb.org/tv/456/season/2',
+      ),
+    )
+    expect(screen.queryByRole('button', { name: '查找 TMDB' })).not.toBeInTheDocument()
+    expect(matchRequest).toHaveBeenCalledOnce()
+    expect(matchRequest.mock.calls[0][0]).toEqual(tvQuery)
+    expect(mappingRequest).toHaveBeenCalledOnce()
+    expect(mappingRequest.mock.calls[0][0]).toEqual({ ...tvQuery, season: '2' })
+    // 成功后共享关系快照已失效：同一键的下一次读取会重新加载，而不是复用打开页面时缓存的未命中。
+    const reload = vi.fn(async () => null)
+    await getSharedData(`media-mapping:${JSON.stringify(tvQuery)}`, reload)
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it('查找中显示转圈且不能重复点击', async () => {
+    const response = createDeferred<void>()
+    const matchRequest = vi.fn()
+    await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () =>
+        server.use(
+          http.post(matchUrl, async () => {
+            matchRequest()
+            await response.promise
+            return apiJson(tvMapping)
+          }),
+        ),
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    const searching = await screen.findByRole('button', { name: '查找中' })
+    expect(searching).toBeDisabled()
+    expect(searching).toHaveAttribute('aria-busy', 'true')
+    await fireEvent.click(searching)
+    response.resolve()
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'TheMovieDb' })).toBeInTheDocument())
+    expect(matchRequest).toHaveBeenCalledOnce()
+  })
+
+  it('查找完成但没有结果时显示未找到，本页不再请求', async () => {
+    const matchRequest = vi.fn()
+    await renderDetail({
+      media: createDoubanMovie(),
+      setupHandlers: () =>
+        server.use(
+          http.post(matchUrl, async ({ request }) => {
+            matchRequest(await request.json())
+            return apiJson(null)
+          }),
+        ),
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    const notFound = await screen.findByRole('button', { name: '未找到 TMDB 条目' })
+    expect(notFound).toBeDisabled()
+    await fireEvent.click(notFound)
+
+    expect(matchRequest).toHaveBeenCalledOnce()
+    expect(matchRequest.mock.calls[0][0]).toEqual({ media_source: 'douban', media_id: '321', type: 'movie' })
+    expect(screen.queryByRole('link', { name: 'TheMovieDb' })).not.toBeInTheDocument()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['429', () => HttpResponse.json({ detail: '同时查找的条目过多，请稍后重试' }, { status: 429 })],
+    ['422', () => HttpResponse.json({ detail: [] }, { status: 422 })],
+    ['业务失败', () => apiFailureJson('查找失败')],
+  ])('%s 时显示查找失败，重试后可显示链接', async (_label, failure) => {
+    let attempts = 0
+    await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () => server.use(http.post(matchUrl, () => (++attempts === 1 ? failure() : apiJson(tvMapping)))),
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    const retry = await screen.findByRole('button', { name: '查找失败，重试' })
+    expect(retry).toBeEnabled()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    await fireEvent.click(retry)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'TheMovieDb' })).toBeInTheDocument())
+    expect(attempts).toBe(2)
+  })
+
+  it('503 只显示查找失败，不触发全局连接探测', async () => {
+    const offlineStatus = useGlobalOfflineStatus()
+    await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () => server.use(http.post(matchUrl, () => new HttpResponse(null, { status: 503 }))),
+    })
+    const checkRequestId = offlineStatus.connectionCheckRequestId.value
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+
+    expect(await screen.findByRole('button', { name: '查找失败，重试' })).toBeEnabled()
+    expect(offlineStatus.connectionCheckRequestId.value).toBe(checkRequestId)
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('请求超时时提示查找时间较长，并使用静默、不参与连接探测的长超时请求', async () => {
+    await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () => server.use(http.post(matchUrl, () => apiJson(tvMapping))),
+    })
+    // jsdom 无法可靠模拟 60 秒的 XHR 超时，这里在 HTTP 客户端边界注入 Axios 超时错误。
+    const originalPost = api.post.bind(api)
+    let timedOut = false
+    const post = vi.spyOn(api, 'post').mockImplementation(((url: string, ...args: unknown[]) => {
+      if (url === 'media/mapping/match' && !timedOut) {
+        timedOut = true
+        return Promise.reject(new ApiRequestError('timeout of 60000ms exceeded', { code: 'ECONNABORTED' }))
+      }
+      return (originalPost as (...values: unknown[]) => Promise<unknown>)(url, ...args)
+    }) as typeof api.post)
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    const retry = await screen.findByRole('button', { name: '查找时间较长，重试' })
+    expect(retry).toBeEnabled()
+    expect(post).toHaveBeenCalledWith('media/mapping/match', tvQuery, {
+      timeout: 60_000,
+      feedback: 'silent',
+      skipConnectionTracking: true,
+    })
+    await fireEvent.click(retry)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'TheMovieDb' })).toBeInTheDocument())
+  })
+
+  it('共享查询失败时仍提供查找，由后端先查共享关系', async () => {
+    const matchRequest = vi.fn()
+    await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () =>
+        server.use(
+          http.get(mappingUrl, () => new HttpResponse(null, { status: 503 })),
+          http.post(matchUrl, async ({ request }) => {
+            matchRequest(await request.json())
+            return apiJson(tvMapping)
+          }),
+        ),
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'TheMovieDb' })).toHaveAttribute(
+        'href',
+        'https://www.themoviedb.org/tv/456/season/2',
+      ),
+    )
+    expect(matchRequest.mock.calls[0][0]).toEqual(tvQuery)
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('旧后端没有查找接口时点击后隐藏按钮', async () => {
+    await renderDetail({
+      media: createDoubanMovie(),
+      setupHandlers: () => server.use(http.post(matchUrl, () => new HttpResponse(null, { status: 404 }))),
+    })
+
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: '查找 TMDB' })).not.toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: '查找失败，重试' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'TheMovieDb' })).not.toBeInTheDocument()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('离开详情页后迟到的查找结果仍让共享关系快照失效', async () => {
+    const response = createDeferred<void>()
+    const responded = createDeferred<void>()
+    const { unmount } = await renderDetail({
+      media: createDoubanTv(),
+      setupHandlers: () =>
+        server.use(
+          http.post(matchUrl, async () => {
+            await response.promise
+            responded.resolve()
+            return apiJson(tvMapping)
+          }),
+        ),
+    })
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    await screen.findByRole('button', { name: '查找中' })
+    unmount()
+
+    response.resolve()
+    await responded.promise
+    await flushPromises()
+
+    // 详情页离开即卸载，迟到结果无处可写；这里只验证关系已写回共享表后旧的未命中快照仍会失效。
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    const reload = vi.fn(async () => null)
+    await getSharedData(`media-mapping:${JSON.stringify(tvQuery)}`, reload)
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it('前一页迟到的查找结果不影响当前页读取其他条目的共享关系', async () => {
+    const response = createDeferred<void>()
+    const responded = createDeferred<void>()
+    const otherStarted = createDeferred<void>()
+    const otherRead = createDeferred<void>()
+    const otherMapping = {
+      media_source: 'douban',
+      media_id: '124',
+      type: 'tv',
+      season: 1,
+      tmdb_id: 457,
+      tmdb_type: 'tv',
+      tmdb_season: 1,
+    }
+    const setupHandlers = () =>
+      server.use(
+        http.get(mappingUrl, async ({ request }) => {
+          if (new URL(request.url).searchParams.get('media_id') !== '124') return apiJson(null)
+          otherStarted.resolve()
+          await otherRead.promise
+          return apiJson(otherMapping)
+        }),
+        http.post(matchUrl, async () => {
+          await response.promise
+          responded.resolve()
+          return apiJson(tvMapping)
+        }),
+      )
+    const first = await renderDetail({ media: createDoubanTv(), setupHandlers })
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    await screen.findByRole('button', { name: '查找中' })
+    first.unmount()
+
+    await renderDetail({
+      media: createMediaInfo({
+        title: '另一部剧集',
+        media_source: 'douban',
+        media_id: '124',
+        type: '电视剧',
+        season: 1,
+        tmdb_id: undefined,
+        douban_id: '124',
+      }),
+      setupHandlers,
+    })
+    await otherStarted.promise
+    response.resolve()
+    await responded.promise
+    await flushPromises()
+    otherRead.resolve()
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'TheMovieDb' })).toHaveAttribute(
+        'href',
+        'https://www.themoviedb.org/tv/457/season/1',
+      ),
+    )
+  })
+
+  it('回到同一条目时读取被迟到的查找结果作废，会重读共享关系并显示链接', async () => {
+    const response = createDeferred<void>()
+    const responded = createDeferred<void>()
+    const staleStarted = createDeferred<void>()
+    const staleRead = createDeferred<void>()
+    let reads = 0
+    const setupHandlers = () =>
+      server.use(
+        http.get(mappingUrl, async () => {
+          reads += 1
+          if (reads === 2) {
+            // 重新进入页面后的首次读取在查找结果写回前发出，返回的是旧的未命中。
+            staleStarted.resolve()
+            await staleRead.promise
+            return apiJson(null)
+          }
+          return apiJson(reads === 1 ? null : tvMapping)
+        }),
+        http.post(matchUrl, async () => {
+          await response.promise
+          responded.resolve()
+          return apiJson(tvMapping)
+        }),
+      )
+    const first = await renderDetail({ media: createDoubanTv(), setupHandlers })
+    await fireEvent.click(await screen.findByRole('button', { name: '查找 TMDB' }))
+    await screen.findByRole('button', { name: '查找中' })
+    first.unmount()
+
+    await renderDetail({ media: createDoubanTv(), setupHandlers })
+    await staleStarted.promise
+    response.resolve()
+    await responded.promise
+    await flushPromises()
+    staleRead.resolve()
+
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'TheMovieDb' })).toHaveAttribute(
+        'href',
+        'https://www.themoviedb.org/tv/456/season/2',
+      ),
+    )
+    expect(reads).toBe(3)
+    expect(screen.queryByRole('button', { name: '查找 TMDB' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [
+      '共享关系已命中',
+      createDoubanTv(),
+      () => http.get(mappingUrl, () => apiJson(tvMapping)),
+      'https://www.themoviedb.org/tv/456/season/2',
+    ],
+    [
+      '详情自带 TMDB ID',
+      createMediaInfo({ media_source: 'douban', media_id: '321', type: '电影', tmdb_id: 999, douban_id: '321' }),
+      () => http.get(mappingUrl, () => apiJson(null)),
+      'https://www.themoviedb.org/movie/999',
+    ],
+  ])('%s时不显示查找按钮', async (_label, media, mappingHandler, link) => {
+    await renderDetail({ media, setupHandlers: () => server.use(mappingHandler()) })
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'TheMovieDb' })).toHaveAttribute('href', link))
+    expect(screen.queryByRole('button', { name: '查找 TMDB' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['TMDB 原详情', createMediaInfo({ title: 'TMDB 详情', tmdb_id: 8101, type: '电影' })],
+    ['旧后端没有共享查询接口', createDoubanMovie()],
+  ])('%s不显示查找按钮', async (_label, media) => {
+    const matchRequest = vi.fn()
+    await renderDetail({
+      media,
+      setupHandlers: () =>
+        server.use(
+          http.get(mappingUrl, () => new HttpResponse(null, { status: 404 })),
+          http.post(matchUrl, () => {
+            matchRequest()
+            return apiJson(null)
+          }),
+        ),
+    })
+    await flushPromises()
+
+    expect(screen.queryByRole('button', { name: '查找 TMDB' })).not.toBeInTheDocument()
+    expect(matchRequest).not.toHaveBeenCalled()
   })
 })
