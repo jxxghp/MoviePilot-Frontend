@@ -2,6 +2,7 @@
 import type { Plugin } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 
 const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 
@@ -48,6 +49,13 @@ function downloadLogger() {
   const url = `${import.meta.env.VITE_API_BASE_URL}system/logging/download/${props.plugin?.id?.toLowerCase()}`
   window.open(url, '_blank')
 }
+
+/** 呼叫智能助手按提示词约束分析当前插件日志；关闭日志弹窗，避免遮挡助手面板。 */
+function diagnoseLogger() {
+  const logfile = `plugins/${props.plugin?.id?.toLowerCase()}.log`
+  requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile }))
+  visible.value = false
+}
 </script>
 
 <template>
@@ -75,6 +83,12 @@ function downloadLogger() {
               <VChip color="grey-darken-1" size="small">
                 <VIcon icon="mdi-open-in-new" size="small" start />
                 {{ t('common.openInNewWindow') }}
+              </VChip>
+            </a>
+            <a class="d-inline-flex align-center cursor-pointer" @click="diagnoseLogger">
+              <VChip color="primary" size="small">
+                <VIcon icon="mdi-robot-happy-outline" size="small" start />
+                {{ t('agentAssistant.diagnosticAction') }}
               </VChip>
             </a>
           </span>

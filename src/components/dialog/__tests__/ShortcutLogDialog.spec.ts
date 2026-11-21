@@ -1,5 +1,6 @@
 import ShortcutLogDialog from '@/components/dialog/ShortcutLogDialog.vue'
 import { NativeSheetAdapter } from '@/native/sheet'
+import { onAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
@@ -18,6 +19,8 @@ afterEach(() => {
 describe('ShortcutLogDialog', () => {
   it('keeps the title separate from actions and invokes the original URLs from the native menu', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const prompts: string[] = []
+    const stopDiagnostics = onAgentAssistantDiagnostic(({ prompt }) => prompts.push(prompt))
     const view = await renderWithProviders(ShortcutLogDialog, {
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
@@ -27,6 +30,7 @@ describe('ShortcutLogDialog', () => {
     expect(sheet.actions).toEqual([
       expect.objectContaining({ title: '下载', icon: 'mdi-download', enabled: true }),
       expect.objectContaining({ title: '在新窗口中打开', icon: 'mdi-open-in-new', enabled: true }),
+      expect.objectContaining({ title: 'AI 诊断', icon: 'mdi-robot-happy-outline', enabled: true }),
     ])
     adapter.execute('presentation.attach', { id: sheet.id })
     for (const action of sheet.actions) {
@@ -36,6 +40,9 @@ describe('ShortcutLogDialog', () => {
       [expect.stringMatching(/system\/logging\/download\/moviepilot$/), '_blank', 'noopener'],
       [expect.stringMatching(/system\/logging\?length=-1$/), '_blank', 'noopener'],
     ])
+    expect(prompts).toEqual([expect.stringContaining('moviepilot.log')])
+    expect(view.emitted('update:modelValue')).toEqual([[false]])
+    stopDiagnostics()
     adapter.reset()
     view.unmount()
   })

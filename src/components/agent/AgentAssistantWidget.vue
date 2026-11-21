@@ -11,6 +11,7 @@ import type { AgentHostOpenOptions, AgentHostRect } from '@/types/agentHost'
 import { agentHost } from '@/utils/agentHost'
 import { createAgentPhaseTracker, type AgentStreamPhaseEvent } from '@/utils/agentHostPhase'
 import { onAgentAssistantBubble, setAgentAssistantBubbleEntryActive } from '@/utils/agentAssistantBubble'
+import { onAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 import {
   AGENT_PET_SAY_INJECTION_KEY,
   clampAgentPetSayDuration,
@@ -254,6 +255,12 @@ const stopBubbleForward = onAgentAssistantBubble(payload => {
   })
 })
 
+// 日志页「AI 诊断」：打开面板并发送带提示词约束的分析请求，不占用输入框草稿。
+const stopLogDiagnostic = onAgentAssistantDiagnostic(({ prompt }) => {
+  openPanel()
+  void nextTick(() => panelRef.value?.startDiagnostic(prompt))
+})
+
 const unbindController = agentHost.bindController({
   open: openFromHost,
   close: () => {
@@ -270,6 +277,7 @@ onScopeDispose(() => {
   clearAssistantPreviewTimer()
   clearPanelRectTracking()
   stopBubbleForward()
+  stopLogDiagnostic()
   unbindController()
   if (!showEntry.value) setAgentAssistantBubbleEntryActive(false)
   phaseTracker.reset()
