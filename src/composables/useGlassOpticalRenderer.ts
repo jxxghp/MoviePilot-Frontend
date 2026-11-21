@@ -64,6 +64,7 @@ import {
 } from '@/rendering/glass/glassFluidDynamics'
 import type { PagePresentationMotionReader } from '@/composables/usePagePresentationMotion'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
+import { createDecorativeWebGLContext } from '@/utils/webgl'
 import {
   analyzeGlassWallpaperTone,
   DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
@@ -111,20 +112,17 @@ function recordGlassRendererTiming(space: GlassPresentationSpace, stage: string)
 
 /** 复用 canvas context 前复位 Three.js 的 3D 占位纹理不接受的像素解包状态。 */
 export function prepareGlassWebGLContext(canvas: HTMLCanvasElement) {
-  if (typeof WebGL2RenderingContext === 'undefined') return null
-
-  const context = canvas.getContext('webgl2', {
+  const context = createDecorativeWebGLContext(canvas, {
     alpha: true,
     antialias: false,
     // 所有光学 pass 都是二维覆盖，不使用深度测试，避免分配和清空默认深度缓冲。
     depth: false,
-    failIfMajorPerformanceCaveat: false,
     powerPreference: 'high-performance',
     premultipliedAlpha: true,
     preserveDrawingBuffer: false,
     stencil: false,
   })
-  if (!context || context.isContextLost()) return null
+  if (!context) return null
 
   context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL, false)
   context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
@@ -4184,6 +4182,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     return true
   }
 
+  /** 准入通过后才创建光学资源；受限上下文直接保留 CSS，不由 Three 再次探测。 */
   async function initializeRenderer(releaseContext = true) {
     if (!canPrepareResources()) return
     preparationDeferred = false
@@ -4206,6 +4205,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const Vector4Class = three.Vector4
       const canvas = options.canvas.value
       const context = prepareGlassWebGLContext(canvas)
+      if (!context) {
+        updateRendererState('fallback')
+        return
+      }
 
       const renderer = new three.WebGLRenderer({
         alpha: true,
@@ -4213,7 +4216,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         depth: false,
         stencil: false,
         canvas,
-        ...(context ? { context } : {}),
+        context,
+        failIfMajorPerformanceCaveat: true,
         powerPreference: 'high-performance',
         premultipliedAlpha: true,
       })

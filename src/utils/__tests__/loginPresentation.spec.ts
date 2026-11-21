@@ -8,13 +8,14 @@ import {
 import { describe, expect, it } from 'vitest'
 
 describe('login presentation', () => {
-  it('forces high-quality capability while preserving all six user strengths', () => {
+  it.each(['css', 'balanced', 'high'] as const)('preserves the %s quality and all six user strengths', quality => {
     expect(
       getLoginGlassOpticalSettings({
         appearance: 'frosted',
         deformationStrength: 73,
         flowStrength: 68,
         preset: 'liquid',
+        quality,
         reflectionStrength: 41,
         transmissionStrength: 62,
         translationStrength: 57,
@@ -25,7 +26,7 @@ describe('login presentation', () => {
       deformationStrength: 73,
       flowStrength: 68,
       preset: 'liquid',
-      quality: 'high',
+      quality,
       reflectionStrength: 41,
       transmissionStrength: 62,
       translationStrength: 57,
