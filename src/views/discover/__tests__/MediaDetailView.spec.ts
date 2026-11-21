@@ -964,6 +964,31 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     expect(await screen.findByText('媒体服务器或本地媒体库中已有本季全部剧集')).toBeInTheDocument()
   })
 
+  it('shows an unknown season existence state while the status request is pending', async () => {
+    const media = createSubscribeTv({
+      season_info: [createMediaSeason({ episode_count: 2, season_number: 1 })],
+      title: '状态检查中剧',
+      tmdb_id: 8711,
+    })
+    const response = createDeferred<NotExistMediaInfo[]>()
+    const user = userEvent.setup()
+    const { container } = await renderDetail({
+      media,
+      setupHandlers: () => {
+        server.use(http.post(mediaApiUrls.notExists, () => response.promise.then(data => apiJson(data))))
+      },
+      type: '电视剧',
+    })
+    await waitFor(() => expect(container.querySelector('.v-expansion-panel')).toHaveTextContent('未知'))
+    expect(container.querySelector('.v-expansion-panel')).not.toHaveTextContent('已入库')
+    await user.hover(screen.getByText('未知'))
+    expect(screen.queryByText('媒体服务器或本地媒体库中已有本季全部剧集')).not.toBeInTheDocument()
+
+    response.resolve([])
+    await user.hover(await screen.findByText('已入库'))
+    expect(await screen.findByText('媒体服务器或本地媒体库中已有本季全部剧集')).toBeInTheDocument()
+  })
+
   it('hides the status badge for a season with zero episodes', async () => {
     const media = createSubscribeTv({
       season_info: [
@@ -1129,6 +1154,10 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
 
     expect(screen.getByRole('heading', { name: /辅助请求失败剧/ })).toBeInTheDocument()
     expect(container.querySelector('.v-expansion-panel')).toHaveTextContent('第 1 季')
+    await waitFor(() => expect(container.querySelector('.v-expansion-panel')).toHaveTextContent('未知'))
+    expect(container.querySelector('.v-expansion-panel')).not.toHaveTextContent('已入库')
+    await userEvent.setup().hover(screen.getByText('未知'))
+    expect(screen.queryByText('媒体服务器或本地媒体库中已有本季全部剧集')).not.toBeInTheDocument()
     expect(screen.queryByText('无法获取到媒体信息，请检查网络连接。')).not.toBeInTheDocument()
   })
 
