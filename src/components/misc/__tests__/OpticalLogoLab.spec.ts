@@ -1,9 +1,11 @@
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Object3D } from 'three'
+import type { Object3D, WebGLRendererParameters } from 'three'
 import OpticalLogoLab from '@/components/misc/OpticalLogoLab.vue'
 
 const runtime = vi.hoisted(() => ({
+  createContext: vi.fn(),
+  rendererOptions: [] as WebGLRendererParameters[],
   renderers: [] as Array<{ dispose: ReturnType<typeof vi.fn>; forceContextLoss: ReturnType<typeof vi.fn> }>,
   pending: [] as Array<{
     scene: Object3D
@@ -18,6 +20,7 @@ vi.mock('three', async importOriginal => {
   const three = await importOriginal<typeof import('three')>()
   return {
     ...three,
+    /** 隔离真实 GPU，并暴露上下文准入、编译与释放行为。 */
     WebGLRenderer: class {
       capabilities = { maxSamples: 4 }
       dispose = vi.fn()
@@ -27,9 +30,12 @@ vi.mock('three', async importOriginal => {
       setSize = vi.fn()
       getPixelRatio = () => 1
       getSize = (target: import('three').Vector2) => target.set(160, 160)
-      constructor() {
+      /** 记录原生上下文准入参数，并提供可观测的场景生命周期。 */
+      constructor(options: WebGLRendererParameters) {
+        runtime.rendererOptions.push(options)
         runtime.renderers.push(this)
       }
+      /** 收集本次编译持有的材质，便于验证退休时先撤销就绪检查。 */
       compile(scene: Object3D) {
         const materials = new Set<import('three').Material>()
         scene.traverse(object => {
@@ -40,11 +46,13 @@ vi.mock('three', async importOriginal => {
         })
         return materials
       }
+      /** 保持编译挂起，由用例显式控制成功、失败和卸载顺序。 */
       compileAsync(scene: Object3D) {
         const materials = this.compile(scene)
         return new Promise<void>((resolve, reject) => runtime.pending.push({ scene, materials, resolve, reject }))
       }
     },
+    /** 用最小纹理替代环境贴图计算，避免测试访问真实 GPU。 */
     PMREMGenerator: class {
       fromScene = () => new three.WebGLRenderTarget(16, 16)
       dispose = vi.fn()
@@ -66,13 +74,16 @@ vi.mock('vuetify', async () => {
   }
 })
 vi.mock('@/composables/useThemeCustomizer', () => ({ THEME_CUSTOMIZER_CHANGE_EVENT: 'theme-change' }))
+vi.mock('@/utils/webgl', () => ({ createDecorativeWebGLContext: runtime.createContext }))
 vi.mock('@/components/misc/PrismaticLogo.vue', () => ({ default: { template: '<span />' } }))
 
 let wrapper: ReturnType<typeof shallowMount> | undefined
 
 beforeEach(() => {
   vi.useFakeTimers()
+  runtime.createContext.mockReset().mockReturnValue({} as WebGL2RenderingContext)
   runtime.renderers.length = 0
+  runtime.rendererOptions.length = 0
   runtime.pending.length = 0
   runtime.ticker.add.mockClear()
   runtime.ticker.remove.mockClear()
@@ -90,6 +101,7 @@ afterEach(async () => {
   await flushPromises()
 })
 
+/** 推进首帧准备至编译挂起，保留可控制的异步边界。 */
 async function mountUntilCompiling() {
   wrapper = shallowMount(OpticalLogoLab, { global: { stubs: { VSlider: true } } })
   await flushPromises()
@@ -99,6 +111,7 @@ async function mountUntilCompiling() {
   return wrapper
 }
 
+/** 完成最早一批挂起编译并提交组件的后续状态。 */
 async function settleCompilation(error?: Error) {
   const pending = runtime.pending.shift()!
   if (error) pending.reject(error)
@@ -107,6 +120,7 @@ async function settleCompilation(error?: Error) {
   return pending
 }
 
+/** 监听场景内每份材质的释放，核对上下文退休不遗漏资源。 */
 function watchMaterials(scene: Object3D) {
   const listeners: Array<ReturnType<typeof vi.fn>> = []
   scene.traverse(object => {
@@ -123,6 +137,29 @@ function watchMaterials(scene: Object3D) {
 }
 
 describe('OpticalLogoLab compilation lifecycle', () => {
+  it('rejects slow software WebGL contexts before compiling the login logo', async () => {
+    await mountUntilCompiling()
+
+    expect(runtime.rendererOptions[0]).toMatchObject({ failIfMajorPerformanceCaveat: true })
+  })
+
+  it('keeps a static logo without compiling or retrying when the browser refuses a slow context', async () => {
+    runtime.createContext.mockReturnValue(null)
+    wrapper = shallowMount(OpticalLogoLab, { global: { stubs: { VSlider: true } } })
+
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(40)
+    await vi.dynamicImportSettled()
+
+    expect(wrapper.classes()).toContain('optical-logo-lab--fallback')
+    expect(wrapper.find('.optical-logo-lab__fallback').exists()).toBe(true)
+    expect(runtime.pending).toHaveLength(0)
+    expect(runtime.rendererOptions).toHaveLength(0)
+    expect(runtime.ticker.add).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(runtime.createContext).toHaveBeenCalledTimes(1)
+  })
+
   it('cancels initial readiness checks before releasing resources on unmount', async () => {
     const mounted = await mountUntilCompiling()
     const owner = runtime.renderers[0]

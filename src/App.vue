@@ -216,6 +216,7 @@ const loginGlassSettings = computed(() =>
     deformationStrength: effectiveGlassSettings.value.glassDeformationStrength,
     flowStrength: effectiveGlassSettings.value.glassFlowStrength,
     preset: effectiveGlassSettings.value.glassPreset,
+    quality: effectiveGlassSettings.value.glassQuality,
     reflectionStrength: effectiveGlassSettings.value.glassReflectionStrength,
     transmissionStrength: effectiveGlassSettings.value.glassTransmissionStrength,
     translationStrength: effectiveGlassSettings.value.glassTranslationStrength,
@@ -1049,7 +1050,8 @@ onUnmounted(() => {
     :class="{
       'app-wrapper--background-transition': isBackgroundCrossfading,
       'app-wrapper--decorative-motion-paused': !allowsDecorativeMotion,
-      'app-wrapper--login-glass-high': isLoginWallpaperRoute && loginVisualProfile === 'glass',
+      'app-wrapper--login-glass-high':
+        isLoginWallpaperRoute && loginVisualProfile === 'glass' && opticalQuality !== 'css',
       'app-wrapper--login-wallpaper': isLoginWallpaperRoute,
       'app-wrapper--render-throttled': isRenderThrottled,
     }"

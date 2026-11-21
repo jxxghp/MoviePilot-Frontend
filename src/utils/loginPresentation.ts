@@ -1,5 +1,6 @@
-import type { GlassAppearance, GlassOpticalPreset } from '@/utils/glassOptics'
+import type { GlassAppearance, GlassOpticalPreset, GlassOpticalQuality } from '@/utils/glassOptics'
 
+/** 登录页沿用用户选择的玻璃材质、质量和光学参数。 */
 export interface LoginGlassPreference {
   /** 用户选择的玻璃材质。 */
   appearance: GlassAppearance
@@ -7,8 +8,10 @@ export interface LoginGlassPreference {
   deformationStrength: number
   /** 用户保存的轨迹、尾波与惯性强度。 */
   flowStrength: number
-  /** 用户选择的方案；登录页保持方案身份但只强制高质量能力。 */
+  /** 用户选择的光学方案。 */
   preset: GlassOpticalPreset
+  /** 标准档不启动 WebGL，其他档位也不在登录时自动升级。 */
+  quality: 'css' | GlassOpticalQuality
   /** 用户保存的方向反射亮度。 */
   reflectionStrength: number
   /** 用户保存的玻璃内部透射亮度。 */
@@ -28,14 +31,14 @@ export interface LoginBackgroundLayer {
   url: string
 }
 
-/** 玻璃登录页只强制高质量能力，六个用户强度在登录前后保持一致。 */
+/** 登录页保留用户质量选择，避免标准档也启动高开销的实时光学渲染。 */
 export function getLoginGlassOpticalSettings(preference: LoginGlassPreference) {
   return {
     appearance: preference.appearance,
     deformationStrength: preference.deformationStrength,
     flowStrength: preference.flowStrength,
     preset: preference.preset,
-    quality: 'high' as const,
+    quality: preference.quality,
     reflectionStrength: preference.reflectionStrength,
     transmissionStrength: preference.transmissionStrength,
     translationStrength: preference.translationStrength,

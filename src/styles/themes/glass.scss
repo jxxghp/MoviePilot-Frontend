@@ -1617,7 +1617,7 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
   opacity: 1;
 }
 
-// 登录页强制使用高质量能力，但不改写用户保存的全局质量属性。
+// 登录页仅在用户选择光学档位后呈现实时材质，标准档不接管渲染或使用光学回退滤镜。
 html[data-glass-renderer-state='ready'] .app-wrapper--login-glass-high .glass-optical-layer {
   opacity: 1;
 }

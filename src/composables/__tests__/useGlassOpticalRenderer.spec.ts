@@ -12,7 +12,24 @@ import {
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
-import type { Object3D, ShaderMaterial, Vector2, WebGLRenderer, WebGLRenderTarget } from 'three'
+import type {
+  Object3D,
+  ShaderMaterial,
+  Vector2,
+  WebGLRenderer,
+  WebGLRendererParameters,
+  WebGLRenderTarget,
+} from 'three'
+
+const webglContextMocks = vi.hoisted(() => ({
+  create: vi.fn<(options: WebGLRendererParameters) => void>(),
+  context: {
+    isContextLost: () => false,
+    pixelStorei: vi.fn(),
+    UNPACK_FLIP_Y_WEBGL: 0x9240,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+  },
+}))
 
 const wallpaperToneMocks = vi.hoisted(() => ({
   load: vi.fn(),
@@ -42,26 +59,45 @@ vi.mock('three', async importOriginal => {
 
       setCrossOrigin() {}
     },
+    /** 隔离 GPU 操作，并允许用例模拟浏览器拒绝创建上下文。 */
     WebGLRenderer: class {
       autoClear = true
 
+      /** 让上下文准入检查先于任何材质编译和绘制。 */
+      constructor(options: WebGLRendererParameters) {
+        webglContextMocks.create(options)
+      }
+
+      /** 默认立即完成编译，特定时序用例可按需接管。 */
       compileAsync() {
         return Promise.resolve()
       }
 
+      /** 隔离默认输出清屏。 */
       clear() {}
+      /** 隔离 renderer 资源回收。 */
       dispose() {}
+      /** 隔离主动释放原生上下文。 */
       forceContextLoss() {}
+      /** 默认使用屏幕输出，预滤镜测试可单独接管目标。 */
       getRenderTarget() {
         return null
       }
+      /** 隔离真实绘制，允许各用例观察帧命令。 */
       render() {}
+      /** 接收透明清屏色配置。 */
       setClearColor() {}
+      /** 接收渲染分辨率配置。 */
       setPixelRatio() {}
+      /** 隔离纹理上传。 */
       initTexture() {}
+      /** 隔离离屏渲染目标切换。 */
       setRenderTarget() {}
+      /** 接收表面局部裁剪范围。 */
       setScissor() {}
+      /** 接收局部裁剪开关。 */
       setScissorTest() {}
+      /** 接收输出缓冲区尺寸。 */
       setSize() {}
     },
   }
@@ -265,6 +301,7 @@ function dispatchTouchEvent(
 let documentHasFocus = true
 
 beforeEach(() => {
+  webglContextMocks.create.mockReset()
   ResizeObserverMock.instances = []
   MutationObserverTriggerMock.instances = []
   documentHasFocus = true
@@ -281,8 +318,11 @@ beforeEach(() => {
   wallpaperToneMocks.takeDecodedSource.mockReturnValue(undefined)
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   vi.stubGlobal('WebGLRenderingContext', class {})
+  vi.stubGlobal('WebGL2RenderingContext', Object)
   vi.spyOn(document, 'hasFocus').mockImplementation(() => documentHasFocus)
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(type =>
+    type === 'webgl2' ? (webglContextMocks.context as unknown as WebGL2RenderingContext) : null,
+  )
 })
 
 afterEach(() => {
@@ -311,7 +351,7 @@ describe('glass optical surface discovery', () => {
       alpha: true,
       antialias: false,
       depth: false,
-      failIfMajorPerformanceCaveat: false,
+      failIfMajorPerformanceCaveat: true,
       powerPreference: 'high-performance',
       premultipliedAlpha: true,
       preserveDrawingBuffer: false,
@@ -321,6 +361,32 @@ describe('glass optical surface discovery', () => {
       [context.UNPACK_FLIP_Y_WEBGL, false],
       [context.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false],
     ])
+  })
+
+  it('does not let Three retry context creation after the browser rejects slow WebGL', async () => {
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+    const scope = effectScope()
+    try {
+      const renderer = scope.run(() =>
+        useGlassOpticalRenderer({
+          active: ref(true),
+          appearance: ref('clear'),
+          canvas: ref(document.createElement('canvas')),
+          quality: ref('high'),
+          routeKey: ref('/login'),
+          tintColor: ref('#8D51F9'),
+          wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+        }),
+      )
+
+      await vi.waitFor(() => expect(getContext).toHaveBeenCalledTimes(1))
+      expect(getContext).toHaveBeenCalledWith('webgl2', expect.objectContaining({ failIfMajorPerformanceCaveat: true }))
+      expect(webglContextMocks.create).not.toHaveBeenCalled()
+      expect(renderer?.state.value).toBe('fallback')
+      expect(renderer?.renderedFrames.value).toBe(0)
+    } finally {
+      scope.stop()
+    }
   })
 
   it('does not inject shared optical input while an overlay is active', () => {
@@ -1193,9 +1259,11 @@ describe('glass optical surface discovery', () => {
       width: 4096,
     } as HTMLImageElement
     vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockResolvedValue(texture)
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-      drawImage: vi.fn(),
-    } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(type =>
+      type === 'webgl2'
+        ? (webglContextMocks.context as unknown as WebGL2RenderingContext)
+        : ({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D),
+    )
     const prefilterTextureSizes: Array<[number, number]> = []
     vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(scene => {
       const material = (scene as unknown as { children?: Array<{ material?: ShaderMaterial }> }).children?.[0]?.material
@@ -1248,7 +1316,8 @@ describe('glass optical surface discovery', () => {
     } as HTMLImageElement
     vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockResolvedValue(texture)
     const textureCanvasSizes: Array<[number, number]> = []
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement, type) {
+      if (type === 'webgl2') return webglContextMocks.context as unknown as WebGL2RenderingContext
       if (this.width > 64 || this.height > 64) textureCanvasSizes.push([this.width, this.height])
 
       return {
