@@ -69,12 +69,103 @@ const ugreenScanModeOptions = computed(() => [
   { title: t('mediaserver.scanModeOptions.fullOverride'), value: 'full_override' },
 ])
 
-// 绿联影视连接模式：auto 按端口自动识别并支持 9443 回退内部接口，也可显式锁定。
-const ugreenConnectionModeOptions = computed(() => [
-  { title: t('mediaserver.connectionModeOptions.auto'), value: 'auto' },
-  { title: t('mediaserver.connectionModeOptions.internal'), value: 'internal' },
-  { title: t('mediaserver.connectionModeOptions.mediaService'), value: 'media_service' },
+// 绿联影视连接模式：支持显式选择 NAS 内部接口、媒体库服务，并兼容历史 auto 配置。
+type UgreenConnectionMode = 'internal' | 'media_service' | 'auto'
+
+const ugreenConnectionMode = computed<UgreenConnectionMode>(() => {
+  const raw = String(mediaServerInfo.value.config?.mode || '')
+    .trim()
+    .toLowerCase()
+  if (raw === 'media_service' || raw === 'media-server' || raw === 'media_server' || raw === 'emby') {
+    return 'media_service'
+  }
+  if (raw === 'internal' || raw === 'ugreen') {
+    return 'internal'
+  }
+  return 'auto'
+})
+
+const isUgreenMediaServiceMode = computed(() => ugreenConnectionMode.value === 'media_service')
+
+const ugreenModeCards = computed(() => [
+  {
+    value: 'internal' as const,
+    icon: 'mdi-account-key-outline',
+    title: t('mediaserver.ugreenMode.internalTitle'),
+    badge: t('mediaserver.ugreenMode.internalBadge'),
+    description: t('mediaserver.ugreenMode.internalDesc'),
+  },
+  {
+    value: 'media_service' as const,
+    icon: 'mdi-television-play',
+    title: t('mediaserver.ugreenMode.mediaServiceTitle'),
+    badge: t('mediaserver.ugreenMode.mediaServiceBadge'),
+    description: t('mediaserver.ugreenMode.mediaServiceDesc'),
+  },
 ])
+
+const ugreenGuideText = computed(() => {
+  if (ugreenConnectionMode.value === 'media_service') {
+    return t('mediaserver.ugreenMode.mediaServiceGuide')
+  }
+  if (ugreenConnectionMode.value === 'auto') {
+    return t('mediaserver.ugreenMode.autoGuide')
+  }
+  return t('mediaserver.ugreenMode.internalGuide')
+})
+
+const ugreenHostPlaceholder = computed(() =>
+  isUgreenMediaServiceMode.value
+    ? t('mediaserver.ugreenMode.mediaServiceHostPlaceholder')
+    : t('mediaserver.ugreenMode.internalHostPlaceholder'),
+)
+
+const ugreenHostHint = computed(() =>
+  isUgreenMediaServiceMode.value
+    ? t('mediaserver.ugreenMode.mediaServiceHostHint')
+    : t('mediaserver.ugreenMode.internalHostHint'),
+)
+
+const ugreenUsernameLabel = computed(() =>
+  isUgreenMediaServiceMode.value
+    ? t('mediaserver.ugreenMode.mediaServiceUsernameLabel')
+    : t('mediaserver.ugreenMode.internalUsernameLabel'),
+)
+
+const ugreenUsernameHint = computed(() =>
+  isUgreenMediaServiceMode.value
+    ? t('mediaserver.ugreenMode.mediaServiceUsernameHint')
+    : t('mediaserver.ugreenMode.internalUsernameHint'),
+)
+
+const ugreenPasswordLabel = computed(() =>
+  isUgreenMediaServiceMode.value
+    ? t('mediaserver.ugreenMode.mediaServicePasswordLabel')
+    : t('mediaserver.ugreenMode.internalPasswordLabel'),
+)
+
+const ugreenPasswordHint = computed(() =>
+  isUgreenMediaServiceMode.value
+    ? t('mediaserver.ugreenMode.mediaServicePasswordHint')
+    : t('mediaserver.ugreenMode.internalPasswordHint'),
+)
+
+// 绿联 9443 端口在局域网常见自签名证书，开启校验时向用户展示醒目提示。
+const showUgreenSelfSignedSslHint = computed(() => {
+  if (mediaServerInfo.value.type !== 'ugreen' || !mediaServerInfo.value.config?.verify_ssl) {
+    return false
+  }
+  const host = String(mediaServerInfo.value.config?.host || '')
+    .trim()
+    .toLowerCase()
+  return isUgreenMediaServiceMode.value || host.startsWith('https://') || host.includes(':9443')
+})
+
+/** 切换绿联影视的连接方式卡片。 */
+function selectUgreenConnectionMode(mode: 'internal' | 'media_service') {
+  mediaServerInfo.value.config = mediaServerInfo.value.config || {}
+  mediaServerInfo.value.config.mode = mode
+}
 
 /** 初始化媒体服务器编辑表单数据。 */
 function initializeMediaServerInfo() {
@@ -86,7 +177,8 @@ function initializeMediaServerInfo() {
       mediaServerInfo.value.config.scan_mode = 'supplement_missing'
     }
     if (!mediaServerInfo.value.config.mode) {
-      mediaServerInfo.value.config.mode = 'auto'
+      // 新建绿联服务默认引导选择显式模式；已有地址但未设 mode 的旧配置保留 auto 兼容。
+      mediaServerInfo.value.config.mode = mediaServerInfo.value.config.host ? 'auto' : 'internal'
     }
     if (mediaServerInfo.value.config.verify_ssl === undefined) {
       mediaServerInfo.value.config.verify_ssl = true
@@ -599,6 +691,54 @@ onMounted(() => {
             </VCol>
           </VRow>
           <VRow v-else-if="mediaServerInfo.type == 'ugreen'">
+            <VCol cols="12">
+              <div class="text-subtitle-2 font-weight-medium mb-2">
+                {{ t('mediaserver.ugreenMode.sectionTitle') }}
+              </div>
+              <VRow dense role="radiogroup" :aria-label="t('mediaserver.ugreenMode.sectionTitle')">
+                <VCol v-for="option in ugreenModeCards" :key="option.value" cols="12" sm="6">
+                  <VCard
+                    role="radio"
+                    tabindex="0"
+                    :aria-checked="ugreenConnectionMode === option.value"
+                    :variant="ugreenConnectionMode === option.value ? 'tonal' : 'outlined'"
+                    :color="ugreenConnectionMode === option.value ? 'primary' : undefined"
+                    class="h-100 cursor-pointer pa-3"
+                    @click="selectUgreenConnectionMode(option.value)"
+                    @keydown.enter.prevent="selectUgreenConnectionMode(option.value)"
+                    @keydown.space.prevent="selectUgreenConnectionMode(option.value)"
+                  >
+                    <div class="d-flex align-center justify-space-between ga-2 mb-1">
+                      <div class="d-flex align-center ga-2 min-w-0">
+                        <VIcon :icon="option.icon" size="20" />
+                        <span class="text-body-2 font-weight-semibold text-high-emphasis">
+                          {{ option.title }}
+                        </span>
+                      </div>
+                      <VChip
+                        size="x-small"
+                        :color="ugreenConnectionMode === option.value ? 'primary' : 'default'"
+                        :variant="ugreenConnectionMode === option.value ? 'flat' : 'tonal'"
+                        class="flex-shrink-0"
+                      >
+                        {{ option.badge }}
+                      </VChip>
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ option.description }}
+                    </div>
+                  </VCard>
+                </VCol>
+              </VRow>
+              <VAlert
+                :type="ugreenConnectionMode === 'auto' ? 'warning' : 'info'"
+                variant="tonal"
+                density="compact"
+                class="mt-3"
+              >
+                {{ ugreenGuideText }}
+              </VAlert>
+            </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="mediaServerInfo.name"
@@ -614,29 +754,18 @@ onMounted(() => {
               <VTextField
                 v-model="mediaServerInfo.config.host"
                 :label="t('mediaserver.host')"
-                :placeholder="t('mediaserver.hostPlaceholder')"
-                :hint="t('mediaserver.hostHint')"
+                :placeholder="ugreenHostPlaceholder"
+                :hint="ugreenHostHint"
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-server"
               />
             </VCol>
-            <VCol cols="6">
-              <VTextField
-                v-model="mediaServerInfo.config.play_host"
-                :label="t('mediaserver.playHost')"
-                :placeholder="t('mediaserver.playHostPlaceholder')"
-                :hint="t('mediaserver.playHostHint')"
-                persistent-hint
-                active
-                prepend-inner-icon="mdi-play-network"
-              />
-            </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="mediaServerInfo.config.username"
-                :label="t('mediaserver.username')"
-                :hint="t('mediaserver.usernameHint')"
+                :label="ugreenUsernameLabel"
+                :hint="ugreenUsernameHint"
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-account"
@@ -646,11 +775,22 @@ onMounted(() => {
               <VTextField
                 type="password"
                 v-model="mediaServerInfo.config.password"
-                :label="t('mediaserver.password')"
-                :hint="t('mediaserver.passwordHint')"
+                :label="ugreenPasswordLabel"
+                :hint="ugreenPasswordHint"
                 persistent-hint
                 active
                 prepend-inner-icon="mdi-lock"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="mediaServerInfo.config.play_host"
+                :label="t('mediaserver.playHost')"
+                :placeholder="t('mediaserver.playHostPlaceholder')"
+                :hint="t('mediaserver.playHostHint')"
+                persistent-hint
+                active
+                prepend-inner-icon="mdi-play-network"
               />
             </VCol>
             <VCol cols="12" md="6">
@@ -667,7 +807,7 @@ onMounted(() => {
                 prepend-inner-icon="mdi-sync"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!isUgreenMediaServiceMode" cols="12" md="6">
               <VSelect
                 v-model="mediaServerInfo.config.scan_mode"
                 :label="t('mediaserver.scanMode')"
@@ -679,23 +819,16 @@ onMounted(() => {
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VSelect
-                v-model="mediaServerInfo.config.mode"
-                :label="t('mediaserver.connectionMode')"
-                :items="ugreenConnectionModeOptions"
-                :hint="t('mediaserver.connectionModeHint')"
-                persistent-hint
-                active
-                prepend-inner-icon="mdi-connection"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
               <VSwitch
                 v-model="mediaServerInfo.config.verify_ssl"
                 :label="t('mediaserver.verifySsl')"
-                :hint="t('mediaserver.verifySslHint')"
+                :hint="
+                  showUgreenSelfSignedSslHint
+                    ? t('mediaserver.verifySslSelfSignedWarning')
+                    : t('mediaserver.verifySslHint')
+                "
                 persistent-hint
-                color="primary"
+                :color="showUgreenSelfSignedSslHint ? 'warning' : 'primary'"
                 inset
               />
             </VCol>
