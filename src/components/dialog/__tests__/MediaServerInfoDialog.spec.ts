@@ -74,9 +74,57 @@ describe('MediaServerInfoDialog Plex timeout', () => {
     )
   })
 
-  it('defaults UGREEN connection mode to auto and preserves explicit mode on save', async () => {
+  it('guides new UGREEN setup with mode cards and adapts fields when switching modes', async () => {
     const onChange = vi.fn()
-    const ugreenServer: MediaServerConf = {
+    const freshUgreenServer: MediaServerConf = {
+      name: '绿联影视',
+      type: 'ugreen',
+      enabled: true,
+      config: {},
+      sync_libraries: ['all'],
+    }
+
+    await renderWithProviders(MediaServerInfoDialog, {
+      props: {
+        modelValue: true,
+        mediaserver: freshUgreenServer,
+        mediaservers: [freshUgreenServer],
+        onChange,
+      },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+
+    const internalCard = await screen.findByRole('radio', { name: /绿联 NAS 账号/ })
+    const mediaServiceCard = screen.getByRole('radio', { name: /媒体库服务（Emby 兼容）/ })
+    expect(internalCard).toHaveAttribute('aria-checked', 'true')
+    expect(mediaServiceCard).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByLabelText('绿联系统账号')).toBeInTheDocument()
+    expect(screen.getAllByText('扫描模式').length).toBeGreaterThan(0)
+
+    await fireEvent.click(mediaServiceCard)
+
+    expect(mediaServiceCard).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByLabelText('媒体库服务账号')).toBeInTheDocument()
+    expect(screen.queryAllByText('扫描模式')).toHaveLength(0)
+    expect(screen.getByText(/自签名 HTTPS 证书/)).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          mode: 'media_service',
+          scan_mode: 'supplement_missing',
+          verify_ssl: true,
+        }),
+      }),
+      '绿联影视',
+    )
+  })
+
+  it('preserves legacy UGREEN auto mode and explicit internal mode on save', async () => {
+    const onLegacyChange = vi.fn()
+    const legacyUgreenServer: MediaServerConf = {
       name: '绿联影视',
       type: 'ugreen',
       enabled: true,
@@ -91,17 +139,17 @@ describe('MediaServerInfoDialog Plex timeout', () => {
     const { unmount } = await renderWithProviders(MediaServerInfoDialog, {
       props: {
         modelValue: true,
-        mediaserver: ugreenServer,
-        mediaservers: [ugreenServer],
-        onChange,
+        mediaserver: legacyUgreenServer,
+        mediaservers: [legacyUgreenServer],
+        onChange: onLegacyChange,
       },
       global: { stubs: { VDialogCloseBtn: true } },
     })
 
-    expect(await screen.findByText('自动识别')).toBeInTheDocument()
+    expect(await screen.findByText(/自动识别模式/)).toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: '确认' }))
 
-    expect(onChange).toHaveBeenCalledWith(
+    expect(onLegacyChange).toHaveBeenCalledWith(
       expect.objectContaining({
         config: expect.objectContaining({
           mode: 'auto',
@@ -114,9 +162,9 @@ describe('MediaServerInfoDialog Plex timeout', () => {
     unmount()
 
     const explicitInternalServer: MediaServerConf = {
-      ...ugreenServer,
+      ...legacyUgreenServer,
       config: {
-        ...ugreenServer.config,
+        ...legacyUgreenServer.config,
         mode: 'internal',
         verify_ssl: false,
       },
@@ -132,7 +180,7 @@ describe('MediaServerInfoDialog Plex timeout', () => {
       global: { stubs: { VDialogCloseBtn: true } },
     })
 
-    expect(await screen.findByText('绿联账号（影视中心内部接口）')).toBeInTheDocument()
+    expect(await screen.findByRole('radio', { name: /绿联 NAS 账号/ })).toHaveAttribute('aria-checked', 'true')
     await fireEvent.click(screen.getByRole('button', { name: '确认' }))
 
     expect(onExplicitChange).toHaveBeenCalledWith(

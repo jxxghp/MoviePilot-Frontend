@@ -6112,6 +6112,8 @@ export default {
     scanModeHint: 'Applies to full-library and targeted refresh: New & Modified / Supplement Missing / Full Override',
     verifySsl: 'Verify SSL Certificate',
     verifySslHint: 'When enabled, HTTPS certificates are verified; disable for self-signed certificates',
+    verifySslSelfSignedWarning:
+      'UGOS Pro port 9443 uses a self-signed HTTPS certificate on LAN by default; disable this if TLS verification fails',
     connectionMode: 'Connection Mode',
     connectionModeHint:
       'Auto mode tries the Media Service (Emby API) on port 9443 first and falls back to the UGREEN account API on rejection; Media Service mode requires enabling Media Service in UGREEN Theater and using its dedicated account',
@@ -6119,6 +6121,33 @@ export default {
       auto: 'Auto Detect',
       internal: 'UGREEN Account (Theater Internal API)',
       mediaService: 'Media Service (Emby Compatible API)',
+    },
+    ugreenMode: {
+      sectionTitle: 'Connection Method',
+      internalTitle: 'UGREEN NAS Account',
+      internalBadge: 'Auto Scan',
+      internalDesc: 'Sign in with your UGOS Pro system account. Supports automatic library refresh after imports.',
+      internalGuide: 'Supports HTTP port 9999 or HTTPS port 9443 using your UGOS Pro NAS system credentials.',
+      internalHostPlaceholder: 'http://192.168.1.10:9999 or https://192.168.1.10:9443',
+      internalHostHint: 'UGOS Pro address (HTTP 9999 or HTTPS 9443)',
+      internalUsernameLabel: 'UGREEN System Username',
+      internalUsernameHint: 'Your UGOS Pro NAS login username',
+      internalPasswordLabel: 'Login Password',
+      internalPasswordHint: 'Your UGOS Pro NAS login password',
+      mediaServiceTitle: 'Media Service (Emby API)',
+      mediaServiceBadge: 'Episode Counts',
+      mediaServiceDesc:
+        'Uses a dedicated third-party Media Service account from UGREEN Theater. Remote scan is unavailable.',
+      mediaServiceGuide:
+        'Enable Media Service in UGREEN Theater -> Settings -> Media Server and create a dedicated account (separate from your NAS login). Default port is HTTPS 9443; remote library scan is not supported in this mode.',
+      mediaServiceHostPlaceholder: 'https://192.168.1.10:9443',
+      mediaServiceHostHint: 'UGREEN Theater Media Service HTTPS URL (default port 9443)',
+      mediaServiceUsernameLabel: 'Media Service Account',
+      mediaServiceUsernameHint: 'Dedicated account created in Theater -> Settings -> Media Server (not your NAS login)',
+      mediaServicePasswordLabel: 'Media Service Password',
+      mediaServicePasswordHint: 'Password configured for the dedicated Media Service account',
+      autoGuide:
+        'Legacy Auto Detect mode is active (tries Media Service on port 9443 first and falls back to the UGREEN account API). Select a card above to lock a specific mode.',
     },
     scanModeOptions: {
       newAndModified: 'New & Modified',
