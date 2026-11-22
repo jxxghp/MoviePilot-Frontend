@@ -52,9 +52,13 @@ html[data-theme='plain'] {
     backdrop-filter: none !important;
   }
 
-  // 卡片内部嵌套子卡片与面板保持无外框扁平态，避免叠加双层细描边
+  // 卡片内部嵌套子卡片与面板保持无外框扁平态，避免叠加双层细描边；设置项子卡自行维护精致内框
   :where(.v-card, .v-sheet)
-    :where(.v-card, .v-sheet, .v-list, .v-expansion-panel):not([class*='border'], .ai-agent-settings-card) {
+    :where(.v-card, .v-sheet, .v-list, .v-expansion-panel):not(
+      [class*='border'],
+      .ai-agent-settings-card,
+      .app-card-shell
+    ) {
     --app-surface-border: 0 solid transparent;
     --app-card-light-border: 0 solid transparent;
   }
@@ -1129,15 +1133,24 @@ html[data-theme='glass'] {
     background-color: var(--glass-surface-soft);
   }
 
+  // 设置项子卡片嵌套在玻璃父卡片内，采用静态吸收层与精致高光描边，避免重复叠加背景模糊。
   .app-card-colorful {
-    --app-card-accent-start-opacity: 0.018;
-    --app-card-accent-end-opacity: 0.008;
-    --app-card-border-opacity: 0.15;
-    --app-card-hover-border-opacity: 0.28;
-    --app-card-surface-opacity: 0.08;
+    --app-card-accent-start-opacity: 0.14;
+    --app-card-accent-end-opacity: 0.045;
+    --app-card-bg: rgba(255, 255, 255, 0.048);
+    --app-card-hover-bg: rgba(255, 255, 255, 0.082);
+    --app-card-dock-bg: rgba(0, 0, 0, 0.16);
+    --app-card-border-color: rgba(255, 255, 255, 0.11);
+    --app-card-hover-border-color: rgba(var(--app-card-accent-rgb), 0.5);
+    --app-card-rest-elevation: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --app-card-hover-elevation: 0 8px 22px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --app-card-icon-bg: rgba(255, 255, 255, 0.09);
+    --app-card-icon-border: rgba(255, 255, 255, 0.14);
+    --app-card-chip-bg: rgba(255, 255, 255, 0.075);
+    --app-card-chip-border: rgba(255, 255, 255, 0.12);
 
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
-    backdrop-filter: var(--glass-surface-backdrop-filter);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 
   // 工作流卡片与分享卡片统一走横幅有色玻璃染色层，主体与静态吸收底座由外层单次采样承托。
@@ -1447,7 +1460,8 @@ html[data-theme='glass'] {
     --slider-shadow-bleed-inline: 32px;
   }
 
-  :where(.v-card, .v-sheet) :where(.app-surface, .v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel, .v-stepper) {
+  :where(.v-card, .v-sheet)
+    :where(.app-surface, .v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel, .v-stepper):not(.app-card-shell) {
     border-color: transparent !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -1457,9 +1471,9 @@ html[data-theme='glass'] {
 
   :where(.v-card, .v-sheet)
     :where(
-      .app-surface:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
-      .v-card:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
-      .v-sheet:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+      .app-surface:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error, .app-card-shell),
+      .v-card:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error, .app-card-shell),
+      .v-sheet:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error, .app-card-shell),
       .v-list,
       .v-table,
       .v-expansion-panel,
@@ -1506,10 +1520,14 @@ html[data-theme='glass'] {
     }
 
     // 顶层可交互卡片共用悬浮材质；嵌套在父卡片/弹窗内的子项与显式扁平项保持无外投影。
-    .v-card--link:not(.no-blur, :is(.v-card, .v-sheet) .v-card):hover,
-    .app-card-colorful:hover {
+    .v-card--link:not(.no-blur, :is(.v-card, .v-sheet) .v-card):hover {
       border-color: var(--glass-border-hover) !important;
       box-shadow: var(--glass-shadow-hover) !important;
+    }
+
+    .app-card-colorful:hover {
+      border-color: var(--app-card-hover-border-color) !important;
+      box-shadow: var(--app-card-hover-elevation) !important;
     }
 
     // 玻璃主题的上浮反馈只增强边缘受光，避免外投影与相邻材质叠成宽暗带。
@@ -2277,5 +2295,21 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
 
   .ai-agent-settings-card {
     border: 1px solid var(--glass-border) !important;
+  }
+
+  .app-card-colorful {
+    --app-card-accent-start-opacity: 0.1;
+    --app-card-accent-end-opacity: 0.032;
+    --app-card-bg: rgba(255, 255, 255, 0.44);
+    --app-card-hover-bg: rgba(255, 255, 255, 0.66);
+    --app-card-dock-bg: rgba(15, 23, 42, 0.036);
+    --app-card-border-color: rgba(15, 23, 42, 0.11);
+    --app-card-hover-border-color: rgba(var(--app-card-accent-rgb), 0.42);
+    --app-card-rest-elevation: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    --app-card-hover-elevation: 0 6px 18px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    --app-card-icon-bg: rgba(255, 255, 255, 0.86);
+    --app-card-icon-border: rgba(15, 23, 42, 0.09);
+    --app-card-chip-bg: rgba(15, 23, 42, 0.05);
+    --app-card-chip-border: rgba(15, 23, 42, 0.09);
   }
 }

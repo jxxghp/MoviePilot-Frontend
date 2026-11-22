@@ -75,21 +75,8 @@
     }
   },
   "src/components/cards/DirectoryCard.vue": {
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    },
     "vue/no-mutating-props": {
       "count": 26
-    }
-  },
-  "src/components/cards/FilterRuleCard.vue": {
-    "vue/no-mutating-props": {
-      "count": 1
-    }
-  },
-  "src/components/cards/FilterRuleGroupCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
     }
   },
   "src/components/cards/PersonCard.vue": {

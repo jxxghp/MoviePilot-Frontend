@@ -566,7 +566,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
               v-for="item in templateTypes"
               :key="item.type"
               type="button"
-              class="notification-template-card app-card-shell app-card-colorful"
+              class="notification-template-card app-card-shell app-card-colorful mp-setting-card--interactive"
               :style="getTemplateAccentStyle(item)"
               @click="openEditor(item.type)"
             >
@@ -691,11 +691,12 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: rgba(var(--app-card-accent-rgb), 0.16);
-  block-size: 2.75rem;
+  border: 1px solid rgba(var(--app-card-accent-rgb), 0.22);
+  border-radius: 12px;
+  background: rgba(var(--app-card-accent-rgb), 0.13);
+  block-size: 2.625rem;
   color: rgb(var(--app-card-accent-rgb));
-  inline-size: 2.75rem;
+  inline-size: 2.625rem;
 }
 
 .template-card-copy {
