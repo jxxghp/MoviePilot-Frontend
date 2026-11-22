@@ -1566,8 +1566,13 @@ function applyPluginRating(pluginRating: PluginRating) {
 }
 
 // 加载所有数据
-async function refreshData(context: KeepAliveRefreshContext = {}) {
+/**
+ * 依次刷新已安装列表、市场列表、统计与文件夹。
+ * @param onInstalledReady 已安装列表就绪后立即执行的回调；深链打开目标插件只依赖已安装数据，不必等待远程市场请求。
+ */
+async function refreshData(context: KeepAliveRefreshContext = {}, onInstalledReady?: () => Promise<void>) {
   await fetchInstalledPlugins(context)
+  await onInstalledReady?.()
   await fetchUninstalledPlugins(false, context)
   await getPluginMarketMetrics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
@@ -1772,9 +1777,11 @@ onMounted(async () => {
   isPluginPageActive.value = true
   await loadPluginOrderConfig()
   await loadPluginFolders() // 加载文件夹配置
-  await refreshData()
-  if (userStore.superUser) await pluginRuntimeStore.refresh()
-  await revealRoutePlugin()
+  // 全局入口与原生容器带目标插件进入时，已安装列表和运行时状态就绪即打开，市场列表与统计随后补齐。
+  await refreshData({}, async () => {
+    if (userStore.superUser) await pluginRuntimeStore.refresh()
+    await revealRoutePlugin()
+  })
 })
 
 useKeepAliveRefresh(refreshActiveTabData)

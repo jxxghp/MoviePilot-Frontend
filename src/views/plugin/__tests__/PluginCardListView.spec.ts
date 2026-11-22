@@ -525,10 +525,10 @@ function registerListHandlers(responses: ListResponses = {}) {
 }
 
 /** 挂载插件页面，注入权限和轻量 UI 替身。 */
-async function renderList(responses: ListResponses = {}, options: { superUser?: boolean } = {}) {
+async function renderList(responses: ListResponses = {}, options: { superUser?: boolean; initialRoute?: string } = {}) {
   registerListHandlers(responses)
   return renderWithProviders(PluginCardListView, {
-    initialRoute: '/plugins',
+    initialRoute: options.initialRoute ?? '/plugins',
     initialState: {
       user: {
         permissions: DEFAULT_PERMISSIONS,
@@ -1405,6 +1405,25 @@ describe('PluginCardListView installed filtering and host callbacks', () => {
 
     await waitFor(() => expect(screen.getByLabelText('page-open-Beta')).toHaveTextContent('true'))
     expect(document.querySelector('[data-scroll-to-index]')).toHaveAttribute('data-scroll-to-index', '1')
+    await waitForRequestsToFinish()
+  })
+
+  it('opens the route target as soon as installed plugins load without waiting for the market', async () => {
+    const market = createDeferred<Plugin[]>()
+    await renderList(
+      {
+        installed: () => [createPlugin({ id: 'Beta', installed: true, plugin_name: 'Beta' })],
+        market: () => market.promise,
+      },
+      { initialRoute: '/plugins?id=Beta' },
+    )
+
+    await waitFor(() => expect(screen.getByLabelText('page-open-Beta')).toHaveTextContent('true'))
+    expect(screen.queryByText(/^market:/)).not.toBeInTheDocument()
+
+    market.resolve([createPlugin({ id: 'Market', plugin_name: '市场插件' })])
+    expect(await screen.findByText('market:市场插件')).toBeInTheDocument()
+    expect(screen.getByLabelText('page-open-Beta')).toHaveTextContent('true')
     await waitForRequestsToFinish()
   })
 
