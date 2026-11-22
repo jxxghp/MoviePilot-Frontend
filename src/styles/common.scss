@@ -1782,10 +1782,14 @@ html[data-theme='plain'][data-glass-color-scheme='light'] :is(.workflow-task-car
   );
 }
 
-// 文本样式
+// 文本样式：融合明度自适应前景与当前主色，兼顾浅色琥珀等高亮主色与深色主题下的标题辨识度
 .text-moviepilot {
   background-clip: text;
-  background-image: linear-gradient(to bottom right, rgba(var(--v-theme-primary), 0.72), rgb(var(--v-theme-primary)));
+  background-image: linear-gradient(
+    to bottom right,
+    color-mix(in oklab, var(--mp-primary-fg) 84%, var(--mp-semantic-fg-anchor)),
+    color-mix(in oklab, rgb(var(--v-theme-primary)) var(--mp-semantic-fg-mix), var(--mp-semantic-fg-anchor))
+  );
   color: transparent;
 }
 

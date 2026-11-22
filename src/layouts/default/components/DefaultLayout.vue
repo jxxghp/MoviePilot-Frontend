@@ -783,11 +783,11 @@ onMounted(async () => {
 .theme-navbar-actions--horizontal {
   grid-column: 3;
   grid-row: 1;
-  gap: 0.85rem;
+  gap: 0.5rem;
   min-inline-size: 0;
 
   :deep(.search-desktop-activator) {
-    flex: 0 1 clamp(12rem, 20vw, 17.5rem);
+    flex: 0 1 clamp(9.5rem, 14vw, 16rem);
     inline-size: auto;
     min-inline-size: 8rem;
   }
@@ -863,7 +863,32 @@ onMounted(async () => {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  gap: 0.125rem;
   margin-inline-start: auto;
+
+  :deep(.v-btn.v-btn--icon) {
+    block-size: 2.25rem;
+    inline-size: 2.25rem;
+  }
+}
+
+// 窄桌面视口与存在页面右侧操作按钮时收紧搜索框与导航间距，避免最右侧分组箭头被横向裁切。
+@media (width <= 1536px) {
+  .theme-navbar-actions--horizontal {
+    gap: 0.375rem;
+
+    :deep(.search-desktop-activator) {
+      flex: 0 1 clamp(8rem, 13.5vw, 14rem);
+    }
+  }
+
+  .theme-horizontal-nav__menu-items {
+    gap: 0.125rem;
+  }
+
+  .theme-horizontal-nav__item {
+    padding-inline: 0.625rem !important;
+  }
 }
 
 @media (width <= 1366px) {

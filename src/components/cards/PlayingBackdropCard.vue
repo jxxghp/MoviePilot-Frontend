@@ -114,6 +114,9 @@ const nativeCardMenu = computed(() =>
         <VCard
           v-native-card-menu="nativeCardMenu"
           :style="cardStyle"
+          :data-glass-optical-mode="
+            Boolean(props.media?.image) && imageLoaded && !imageLoadError ? 'excluded' : undefined
+          "
           class="playing-card app-hover-lift-card"
           :class="{
             'app-hover-lift-card--hovering': hover.isHovering && !nativeChromeActive,
@@ -147,7 +150,7 @@ const nativeCardMenu = computed(() =>
           <div class="playing-card__scrim" />
           <div class="playing-card__bottom-scrim" />
 
-          <div class="playing-card__percent">
+          <div class="playing-card__percent num">
             {{ progressLabel }}
           </div>
 
@@ -192,9 +195,9 @@ const nativeCardMenu = computed(() =>
 .playing-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-border-color), 0.16);
-  background: rgb(var(--v-theme-surface));
-  color: #fff;
+  border: 1px solid var(--mp-border);
+  background: var(--mp-card);
+  color: var(--mp-on-media);
   cursor: pointer;
   isolation: isolate;
 }
@@ -237,12 +240,12 @@ const nativeCardMenu = computed(() =>
 
 .playing-card__scrim {
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 24%) 0%, rgba(0, 0, 0, 4%) 48%, rgba(0, 0, 0, 28%) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 8%) 0%, rgba(0, 0, 0, 0%) 42%);
+    linear-gradient(90deg, rgba(11, 19, 34, 0.24) 0%, rgba(11, 19, 34, 0.04) 48%, rgba(11, 19, 34, 0.28) 100%),
+    linear-gradient(180deg, rgba(11, 19, 34, 0.08) 0%, rgba(11, 19, 34, 0) 42%);
 }
 
 .playing-card__bottom-scrim {
-  background: linear-gradient(180deg, rgba(2, 6, 12, 0%) 24%, rgba(2, 6, 12, 72%) 68%, rgba(2, 6, 12, 96%) 100%);
+  background: var(--mp-media-scrim);
 }
 
 .playing-card__percent,
@@ -257,13 +260,15 @@ const nativeCardMenu = computed(() =>
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 18%);
+  border: 1px solid rgba(248, 250, 252, 0.22);
   border-radius: 999px;
-  backdrop-filter: blur(12px);
-  background: rgba(255, 255, 255, 16%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  background: rgba(15, 23, 42, 0.56);
   block-size: 26px;
+  color: var(--mp-on-media);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 600;
   inline-size: 52px;
   inset-block-start: 12px;
   inset-inline-end: 12px;
@@ -274,9 +279,9 @@ const nativeCardMenu = computed(() =>
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 92%);
+  background: rgba(248, 250, 252, 0.92);
   block-size: 40px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 24%);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
   color: rgb(11, 15, 20);
   inline-size: 40px;
   inset-block-end: 46px;
@@ -287,7 +292,7 @@ const nativeCardMenu = computed(() =>
 }
 
 .playing-card--hovering .playing-card__play {
-  background: #fff;
+  background: var(--mp-on-media);
   transform: scale(1.06);
 }
 
@@ -295,13 +300,14 @@ const nativeCardMenu = computed(() =>
   inset-block-end: 18px;
   inset-inline: 16px 66px;
   min-inline-size: 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 45%);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 .playing-card__title {
   overflow: hidden;
-  font-size: 1.08rem;
-  font-weight: 800;
+  color: var(--mp-on-media);
+  font-size: 1.0625rem;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -311,7 +317,7 @@ const nativeCardMenu = computed(() =>
 .playing-card__subtitle {
   overflow: hidden;
   margin-block-start: 4px;
-  color: rgba(255, 255, 255, 86%);
+  color: var(--mp-on-media-muted);
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.25;
@@ -325,7 +331,7 @@ const nativeCardMenu = computed(() =>
   align-items: center;
   justify-content: space-between;
   margin-block-start: 7px;
-  color: rgba(255, 255, 255, 70%);
+  color: var(--mp-on-media-muted);
   font-size: 0.72rem;
   gap: 10px;
   line-height: 1.2;

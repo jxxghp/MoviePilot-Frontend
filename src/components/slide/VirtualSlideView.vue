@@ -1,15 +1,23 @@
-<script lang="ts" setup>
+<script lang="ts" setup generic="T">
 import SlideViewTitle from '@/components/slide/SlideViewTitle.vue'
 import { useDisplay } from 'vuetify'
 
+/** 榜单滑块通过依赖注入传递的标题与更多跳转链接。 */
+interface RankingProps {
+  /** 查看更多路由地址。 */
+  linkurl?: string
+  /** 滑块分组标题。 */
+  title?: string
+}
+
 const props = withDefaults(
   defineProps<{
-    items: any[]
+    items: T[]
     /** 显式指定像素宽度；默认与海报卡片的 9rem 保持一致。 */
     itemWidth?: number
     itemGap?: number
     overscanItems?: number
-    getItemKey?: (item: any, index: number) => string | number
+    getItemKey?: (item: T, index: number) => string | number | undefined
     loading?: boolean
   }>(),
   {
@@ -23,7 +31,7 @@ const props = withDefaults(
 
 const display = useDisplay()
 const isTouch = computed(() => display.mobile.value)
-const injectedProps: any = inject('rankingPropsKey', { linkurl: '', title: '' })
+const injectedProps = inject<RankingProps>('rankingPropsKey', { linkurl: '', title: '' })
 
 const slideContentRef = ref<HTMLElement | null>(null)
 const disabled = ref(0)
@@ -80,9 +88,10 @@ function getFallbackViewportWidth() {
 /**
  * 解析虚拟列表项的稳定 key。
  */
-function resolveItemKey(item: any, index: number) {
-  if (props.getItemKey) {
-    return props.getItemKey(item, startIndex.value + index)
+function resolveItemKey(item: T, index: number) {
+  const key = props.getItemKey?.(item, startIndex.value + index)
+  if (key !== undefined && key !== '') {
+    return key
   }
 
   return startIndex.value + index
@@ -171,13 +180,9 @@ function slideNext(next: boolean) {
   const visibleCount = Math.max(1, Math.trunc(element.clientWidth / itemStep.value))
   const currentIndex =
     element.scrollLeft === 0 ? 0 : Math.trunc((element.scrollLeft + itemStep.value / 2) / itemStep.value)
-  let targetLeft = 0
-
-  if (next) {
-    targetLeft = Math.min((currentIndex + visibleCount) * itemStep.value, element.scrollWidth - element.clientWidth)
-  } else {
-    targetLeft = Math.max((currentIndex - visibleCount) * itemStep.value, 0)
-  }
+  const targetLeft = next
+    ? Math.min((currentIndex + visibleCount) * itemStep.value, element.scrollWidth - element.clientWidth)
+    : Math.max((currentIndex - visibleCount) * itemStep.value, 0)
 
   element.scrollTo({
     behavior: 'smooth',
@@ -289,18 +294,18 @@ watch(
       <VBtn
         v-show="disabled !== 0 && disabled !== 3 && !isTouch"
         class="nav-button nav-button-left"
-        variant="tonal"
+        variant="flat"
+        color="default"
         icon="mdi-chevron-left"
-        color="white"
         @click.stop="slideNext(false)"
       />
 
       <VBtn
         v-show="disabled !== 2 && disabled !== 3 && !isTouch"
         class="nav-button nav-button-right"
-        variant="tonal"
+        variant="flat"
+        color="default"
         icon="mdi-chevron-right"
-        color="white"
         @click.stop="slideNext(true)"
       />
     </div>
@@ -341,13 +346,14 @@ watch(
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  border-radius: 8px;
-  background-color: transparent;
-  color: rgb(var(--v-theme-primary));
+  border: 1px solid var(--mp-border-subtle);
+  border-radius: var(--app-control-radius, 8px);
+  background-color: rgba(var(--mp-surface-rgb), 0.58);
+  color: var(--mp-primary-fg);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   padding-block: 5px;
-  padding-inline: var(--slider-shadow-bleed-inline);
+  padding-inline: 0.625rem;
   text-decoration: none;
   transition: all 0.25s ease;
 
@@ -358,8 +364,8 @@ watch(
   }
 
   &:hover {
-    border-color: rgba(var(--v-theme-primary), 0.5);
-    background-color: rgba(var(--v-theme-primary), 0.08);
+    border-color: var(--mp-primary-border);
+    background-color: var(--mp-primary-soft);
     transform: translateY(-1px);
 
     .arrow-svg {
@@ -428,13 +434,14 @@ watch(
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 14%);
+  border: 1px solid rgba(248, 250, 252, 0.24);
   border-radius: 50%;
-  backdrop-filter: blur(8px);
-  background: rgba(8, 18, 28, 52%) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  background: rgba(11, 19, 34, 0.76) !important;
   block-size: 40px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 22%);
-  color: rgb(255, 255, 255);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  color: var(--mp-on-media) !important;
   cursor: pointer;
   inline-size: 40px;
   inset-block-start: 50%;
@@ -449,17 +456,16 @@ watch(
     border-color 0.3s ease;
 
   :deep(.v-icon) {
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 55%));
-    font-size: 28px;
+    font-size: 26px;
     opacity: 1;
     transition: transform 0.3s ease;
   }
 
   &:hover {
-    border-color: rgba(255, 255, 255, 28%);
-    background: rgba(8, 18, 28, 68%) !important;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 28%);
-    color: rgb(255, 255, 255);
+    border-color: rgba(248, 250, 252, 0.42);
+    background: rgba(11, 19, 34, 0.92) !important;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+    color: var(--mp-on-media) !important;
     transform: translateY(-50%) scale(1.05);
 
     :deep(.v-icon) {

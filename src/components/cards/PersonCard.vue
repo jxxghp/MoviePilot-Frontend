@@ -25,19 +25,15 @@ const personInfo = ref(personProps.person)
 // 人物图片是否加载
 const isImageLoaded = ref(false)
 
-// 人物图片地址
+/** 按人物数据来源解析头像展示地址，缺失时回退默认占位图。 */
 function getPersonImage() {
-  let url = ''
+  let url: string | undefined
   if (personProps.person?.source === 'themoviedb') {
     if (!personInfo.value?.profile_path) return personIcon
     url = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w600_and_h900_bestv2${personInfo.value?.profile_path}`
   } else if (personProps.person?.source === 'douban') {
     if (!personInfo.value?.avatar) return personIcon
-    if (typeof personInfo.value?.avatar === 'object') {
-      url = personInfo.value?.avatar?.normal
-    } else {
-      url = personInfo.value?.avatar
-    }
+    url = typeof personInfo.value?.avatar === 'object' ? personInfo.value?.avatar?.normal : personInfo.value?.avatar
   } else if (personProps.person?.source === 'bangumi') {
     if (!personInfo.value?.images) return personIcon
     url = personInfo.value?.images?.medium
@@ -47,6 +43,7 @@ function getPersonImage() {
   } else {
     return personIcon
   }
+  if (!url) return personIcon
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
@@ -92,30 +89,33 @@ function goPersonDetail() {
           }"
           @click.stop="goPersonDetail"
         >
-        <div class="person-card relative cursor-pointer ring-gray-700">
-          <div style="padding-block-end: 150%">
-            <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">
-              <div class="relative mt-2 mb-4 flex h-1/2 w-full justify-center">
-                <VAvatar
-                  size="100"
-                  :class="{
-                    'ring-1 ring-gray-700': isImageLoaded,
-                  }"
+          <div class="person-card relative cursor-pointer">
+            <div style="padding-block-end: 150%">
+              <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">
+                <div class="relative mt-2 mb-4 flex h-1/2 w-full justify-center">
+                  <VAvatar
+                    size="100"
+                    class="person-card-avatar"
+                    :class="{
+                      'person-card-avatar--loaded': isImageLoaded,
+                    }"
+                  >
+                    <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
+                  </VAvatar>
+                </div>
+                <div class="person-card-kind text-caption">{{ t('person.actor') }}</div>
+                <div class="person-card-name w-full truncate text-center font-semibold">
+                  {{ getPersonName() }}
+                </div>
+                <div
+                  class="person-card-role overflow-hidden whitespace-normal text-center text-sm text-ellipsis line-clamp-2"
                 >
-                  <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
-                </VAvatar>
+                  {{ getPersonCharacter() }}
+                </div>
+                <div class="absolute bottom-0 left-0 right-0 h-12 rounded-b" />
               </div>
-              <div class="person-card-kind text-caption text-medium-emphasis">{{ t('person.actor') }}</div>
-              <div class="w-full truncate text-center font-bold">
-                {{ getPersonName() }}
-              </div>
-              <div class="overflow-hidden whitespace-normal text-center text-sm text-ellipsis line-clamp-2">
-                {{ getPersonCharacter() }}
-              </div>
-              <div class="absolute bottom-0 left-0 right-0 h-12 rounded-b" />
             </div>
           </div>
-        </div>
         </VCard>
       </div>
     </template>
@@ -128,18 +128,30 @@ function goPersonDetail() {
 }
 
 .person-card {
-  background-image: linear-gradient(
-    45deg,
-    rgb工(var(--v-theme-background), 0.3),
-    rgba(var(--v-theme-surface), 0.3) 60%
-  );
+  transition: background-color 0.2s ease;
 }
 
 .person-card:hover {
-  background-image: linear-gradient(
-    45deg,
-    rgba(var(--v-theme-background), 0.3),
-    rgba(var(--v-custom-background), 0.3) 60%
-  );
+  background-color: var(--mp-muted);
+}
+
+.person-card-avatar {
+  background: var(--mp-muted);
+}
+
+.person-card-avatar--loaded {
+  border: 1px solid var(--mp-border);
+}
+
+.person-card-kind {
+  color: var(--mp-faint);
+}
+
+.person-card-name {
+  color: var(--mp-fg);
+}
+
+.person-card-role {
+  color: var(--mp-muted-fg);
 }
 </style>

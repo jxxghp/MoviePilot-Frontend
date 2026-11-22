@@ -8,6 +8,7 @@ describe('text-moviepilot theme color', () => {
     const commonStyles = readFileSync(resolve(cwd(), 'src/styles/common.scss'), 'utf8')
     const textMoviePilotRule = commonStyles.match(/\.text-moviepilot\s*\{(?<rule>[\s\S]*?)\n\}/)?.groups?.rule
 
+    expect(textMoviePilotRule).toContain('var(--mp-primary-fg)')
     expect(textMoviePilotRule).toContain('var(--v-theme-primary)')
     expect(textMoviePilotRule).not.toMatch(/#818cf8|#c084fc/i)
   })

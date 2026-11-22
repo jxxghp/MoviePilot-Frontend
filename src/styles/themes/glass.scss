@@ -485,8 +485,8 @@ html[data-theme='glass'] {
     background-color: var(--glass-surface) !important;
   }
 
-  // 只有成功覆盖的真实海报才释放底面采样；占位图与失败态仍保留完整材料。
-  .media-card[data-glass-optical-mode='excluded'] {
+  // 只有成功覆盖的真实海报或实图封面才释放底面采样；占位图与失败态仍保留完整材料。
+  [data-glass-optical-mode='excluded'] {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
@@ -724,7 +724,6 @@ html[data-theme='glass'] {
     --agent-assistant-assistant-bg: var(--glass-surface);
   }
 
-  .nav-button,
   .global-action-buttons .v-btn {
     border: 1px solid var(--glass-border) !important;
     -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);
@@ -2268,9 +2267,14 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     background: rgba(var(--v-theme-primary), 14%) !important;
   }
 
-  // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景。
-  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat) {
+  // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景，压在海报或剧照上的深色角标保持 on-media。
+  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat):not(.media-card-badge, .poster-card-chip) {
     color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
+  .v-btn.theme-horizontal-nav__item.v-btn--variant-tonal {
+    background-color: color-mix(in oklab, rgb(var(--v-theme-primary)) 16%, rgba(255, 255, 255, 0.72)) !important;
+    color: color-mix(in oklab, var(--mp-primary-fg) 84%, var(--mp-semantic-fg-anchor)) !important;
   }
 
   .plugin-card__banner {
