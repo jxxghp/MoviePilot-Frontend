@@ -22,28 +22,54 @@ const emit = defineEmits(['delete'])
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
-// 图片是否加载完成
+// 背景图与竖版海报的加载状态
 const imageLoaded = ref(false)
+const backdropLoadError = ref(false)
+const posterLoadError = ref(false)
+
+watch([() => props.media?.id, () => props.media?.backdrop, () => props.media?.poster], () => {
+  imageLoaded.value = false
+  backdropLoadError.value = false
+  posterLoadError.value = false
+})
 
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
 }
 
-// 分享时间
-const dateText = ref(props.media && props.media?.date ? formatDateDifference(props.media.date) : '')
+// 背景图加载失败后展示深色媒体底板与正文
+function backdropErrorHandler() {
+  backdropLoadError.value = true
+  imageLoaded.value = true
+}
 
-// 计算backdrop图片地址
+// 海报加载失败后收起海报框，避免留下空白灰块
+function posterErrorHandler() {
+  posterLoadError.value = true
+}
+
+// 分享相对时间
+const dateText = computed(() => (props.media?.date ? formatDateDifference(props.media.date) : ''))
+
+// 计算背景图地址（缺失时回退到海报）
 const backdropUrl = computed(() => {
+  if (backdropLoadError.value) return ''
   const url = props.media?.backdrop || props.media?.poster
-  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
+  if (!url) return ''
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 计算海报图片地址
 const posterUrl = computed(() => {
+  if (posterLoadError.value) return ''
   const url = props.media?.poster
-  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
+  if (!url) return ''
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
+
+// 背景就绪且海报地址有效时才挂载海报框
+const showPoster = computed(() => imageLoaded.value && Boolean(posterUrl.value) && !posterLoadError.value)
 
 // 获取分享订阅的统一媒体身份
 function getMediaId() {
@@ -96,72 +122,70 @@ function doDelete() {
   <div class="h-full">
     <VHover>
       <template #default="hover">
-        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave -->
         <div v-bind="hover.props" class="subscribe-share-card-hover-area w-full h-full">
           <div
-            class="app-hover-lift-card w-full h-full overflow-hidden"
+            class="subscribe-share-card-shell app-hover-lift-card w-full h-full"
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering,
             }"
           >
             <VCard
               :key="props.media?.id"
-              class="app-hover-lift-card flex flex-col h-full"
+              class="subscribe-share-card no-blur flex flex-col h-full overflow-hidden"
               min-height="150"
               @click="showForkSubscribe"
             >
               <template #image>
-                <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
-                  <template #placeholder>
-                    <div class="w-full h-full">
-                      <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
-                    </div>
-                  </template>
-                  <template #default>
-                    <div class="absolute inset-0 subscribe-card-background"></div>
-                  </template>
-                </VImg>
+                <div class="subscribe-share-card__base" />
+                <VImg
+                  v-if="backdropUrl"
+                  :src="backdropUrl"
+                  :aspect-ratio="3 / 2"
+                  cover
+                  position="top"
+                  @load="imageLoadHandler"
+                  @error="backdropErrorHandler"
+                />
+                <div class="subscribe-share-card__scrim" />
               </template>
-              <div class="h-full flex flex-col">
-                <VCardText class="flex items-center pa-3 pb-1 grow">
-                  <div class="h-auto w-16 flex-shrink-0 overflow-hidden rounded-md" v-if="imageLoaded">
-                    <VImg :src="posterUrl" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
-                      <template #placeholder>
-                        <div class="w-full h-full">
-                          <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                        </div>
-                      </template>
-                    </VImg>
+              <div class="subscribe-share-card__content relative z-10 flex h-full flex-col">
+                <VCardText class="subscribe-share-card__body flex flex-1 items-center">
+                  <div
+                    v-if="showPoster"
+                    class="subscribe-share-card__poster w-14 flex-shrink-0 overflow-hidden cursor-pointer"
+                    @click.stop="viewMediaDetail"
+                  >
+                    <VImg :src="posterUrl" :aspect-ratio="2 / 3" cover @error="posterErrorHandler" />
                   </div>
-                  <div class="flex flex-col justify-center pl-2 xl:pl-4">
-                    <div
-                      class="mr-2 min-w-0 text-lg font-bold text-white line-clamp-2 overflow-hidden text-ellipsis ..."
-                    >
+                  <div class="min-w-0 flex-1 flex flex-col justify-center" :class="{ 'pl-3': showPoster }">
+                    <div class="subscribe-share-card__title line-clamp-2 overflow-hidden text-ellipsis">
                       {{ props.media?.share_title }}
                     </div>
                     <div
-                      class="text-sm font-medium text-gray-200 sm:pt-1 line-clamp-3 overflow-hidden text-ellipsis ..."
+                      v-if="props.media?.share_comment"
+                      class="subscribe-share-card__comment mt-1 line-clamp-2 overflow-hidden text-ellipsis"
                     >
                       {{ props.media?.share_comment }}
                     </div>
                   </div>
                 </VCardText>
-                <VCardText class="flex justify-space-between align-center flex-wrap py-2">
-                  <div class="flex align-center">
-                    <IconBtn v-bind="props" icon="mdi-account" color="white" class="me-1" />
-                    <div class="text-subtitle-2 me-4 text-white">
-                      {{ props.media?.share_user }}
-                    </div>
-                    <IconBtn v-if="props.media?.count" icon="mdi-fire" color="white" class="me-1" />
-                    <span v-if="props.media?.count" class="text-subtitle-2 me-4 text-white">
-                      {{ props.media?.count.toLocaleString() }}
+                <div class="subscribe-share-card__footer">
+                  <div class="subscribe-share-card__user min-w-0 flex-1 flex items-center gap-1.5">
+                    <VIcon icon="mdi-account-circle-outline" size="15" class="shrink-0" />
+                    <span class="truncate text-xs font-medium">{{ props.media?.share_user }}</span>
+                  </div>
+                  <div class="subscribe-share-card__stats num shrink-0 flex items-center gap-2.5 text-xs">
+                    <span v-if="props.media?.count" class="inline-flex items-center gap-1">
+                      <VIcon icon="mdi-fire" size="14" color="warning" />
+                      {{ props.media.count.toLocaleString() }}
+                    </span>
+                    <span v-if="dateText" class="inline-flex items-center gap-1">
+                      <VIcon icon="mdi-calendar-blank-outline" size="13" />
+                      {{ dateText }}
                     </span>
                   </div>
-                </VCardText>
-                <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
-                  <VIcon icon="mdi-calendar" class="me-1" />
-                  {{ dateText }}
-                </VCardText>
+                </div>
               </div>
             </VCard>
           </div>
@@ -170,12 +194,80 @@ function doDelete() {
     </VHover>
   </div>
 </template>
+
 <style lang="scss" scoped>
 .subscribe-share-card-hover-area {
   inline-size: 100%;
 }
 
-.subscribe-card-background {
-  background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
+.subscribe-share-card-shell {
+  border-radius: var(--app-surface-radius);
+}
+
+.subscribe-share-card {
+  border: var(--app-card-light-border);
+}
+
+// 深色媒体底板保证背景图未就绪或失效时浅色主题下文字依然清晰
+.subscribe-share-card__base {
+  position: absolute;
+  background: linear-gradient(145deg, #182235 0%, #0f172a 100%);
+  inset: 0;
+}
+
+// 顶部轻压暗配合全局媒体遮罩，确保明亮动漫或剧照底图上的标题与简介锐利可读
+.subscribe-share-card__scrim {
+  position: absolute;
+  background:
+    linear-gradient(180deg, rgba(11, 19, 34, 0.38) 0%, rgba(11, 19, 34, 0.16) 45%, transparent 75%),
+    var(--mp-media-scrim);
+  inset: 0;
+  pointer-events: none;
+}
+
+.subscribe-share-card__body {
+  padding: 0.75rem 0.875rem 0.375rem !important;
+}
+
+.subscribe-share-card__poster {
+  aspect-ratio: 2 / 3;
+  border-radius: calc(var(--app-control-radius, 12px) * 0.75);
+  background: rgba(11, 19, 34, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 6px 14px rgba(0, 0, 0, 0.42);
+}
+
+.subscribe-share-card__title {
+  color: var(--mp-on-media, #f8fafc);
+  font-size: 1.03125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.48);
+}
+
+.subscribe-share-card__comment {
+  color: var(--mp-on-media-muted, rgba(248, 250, 252, 0.78));
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.45;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
+}
+
+.subscribe-share-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem 0.625rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.subscribe-share-card__user {
+  color: var(--mp-on-media, #f8fafc);
+}
+
+.subscribe-share-card__stats {
+  color: var(--mp-on-media-muted, rgba(248, 250, 252, 0.78));
 }
 </style>

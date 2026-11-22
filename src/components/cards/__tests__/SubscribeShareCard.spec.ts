@@ -110,8 +110,15 @@ describe('SubscribeShareCard', () => {
     expect(poster.src).toContain('system/cache/image?url=')
     expect(poster.src).toContain(encodeURIComponent(media.poster!))
 
-    const dateMetadata = screen.getByText(formatDateDifference(media.date!)).closest('.v-card-text')
-    expect(dateMetadata?.querySelector('[data-icon="mdi-calendar"], [data-icon="mdi:calendar"]')).not.toBeNull()
+    const footer = container.querySelector('.subscribe-share-card__footer')
+    expect(footer).not.toBeNull()
+    expect(footer).toContainElement(screen.getByText(media.share_user!))
+    expect(footer).toContainElement(screen.getByText(media.count!.toLocaleString()))
+    expect(footer).toContainElement(screen.getByText(formatDateDifference(media.date!)))
+    expect(
+      footer?.querySelector('[data-icon="mdi-calendar-blank-outline"], [data-icon="mdi:calendar-blank-outline"]'),
+    ).not.toBeNull()
+    expect(container.querySelectorAll('button')).toHaveLength(0)
   })
 
   it('falls back to the poster when the backdrop is missing and hides a zero reuse count', async () => {
@@ -121,6 +128,16 @@ describe('SubscribeShareCard', () => {
     expect(backdrop).not.toBeNull()
     expect((backdrop as HTMLImageElement).src).toContain(media.poster!)
     expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
+  it('hides the poster frame when the poster image fails to load', async () => {
+    const { container } = await renderCard()
+    const poster = await loadPoster(container)
+    expect(container.querySelector('.subscribe-share-card__poster')).not.toBeNull()
+
+    await fireEvent.error(poster)
+
+    await waitFor(() => expect(container.querySelector('.subscribe-share-card__poster')).toBeNull())
   })
 
   it.each([

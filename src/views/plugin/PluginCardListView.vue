@@ -2590,8 +2590,8 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 v-else-if="shouldVirtualizeInstalledMainList"
                 :items="mixedSortList"
                 :get-item-key="item => `${item.type}:${item.id}`"
-                :min-item-width="256"
-                :estimated-item-height="180"
+                :min-item-width="264"
+                :estimated-item-height="156"
                 :scroll-to-index="installedScrollToIndex"
               >
                 <template #default="{ item }">
@@ -2663,8 +2663,8 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 v-else-if="shouldVirtualizeInstalledFolderList"
                 :items="draggableFolderPlugins"
                 :get-item-key="item => item.id"
-                :min-item-width="256"
-                :estimated-item-height="180"
+                :min-item-width="264"
+                :estimated-item-height="156"
               >
                 <template #default="{ item }">
                   <PluginMixedSortCard
@@ -2738,8 +2738,8 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
               v-if="displayUninstalledList.length > 0"
               :items="displayUninstalledList"
               :get-item-key="item => item.id"
-              :min-item-width="256"
-              :estimated-item-height="260"
+              :min-item-width="264"
+              :estimated-item-height="156"
             >
               <template #default="{ item }">
                 <PluginAppCard

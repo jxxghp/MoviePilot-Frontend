@@ -316,4 +316,37 @@ describe('PluginAppCard rating badge', () => {
     await fireEvent.click(await screen.findByText('项目主页'))
     expect(open).toHaveBeenCalledWith('https://github.com/example-author', '_blank')
   })
+
+  it('renders version in the top-right header slot and formats co-authors and download counts compactly', async () => {
+    const { container, rerender } = await renderWithProviders(PluginAppCard, {
+      props: {
+        count: 185000,
+        plugin: {
+          ...plugin,
+          plugin_name: '下载任务分类与标签',
+          plugin_version: '0.7.11',
+          plugin_label: '下载,自动化',
+          plugin_author: 'InfinityPacer,Kurisu',
+          author_url: 'https://github.com/InfinityPacer',
+        },
+      },
+    })
+
+    expect(container.querySelector('.plugin-card__header')).toHaveTextContent('下载任务分类与标签')
+    expect(container.querySelector('.plugin-card__version-pill')).toHaveTextContent('v0.7.11')
+    expect(container.querySelector('.plugin-card__meta-row')).toHaveTextContent('下载')
+    const authorLink = screen.getByText('InfinityPacer +1')
+    expect(authorLink).toHaveAttribute('title', 'InfinityPacer · Kurisu')
+    expect(container.querySelector('.download-count')).toHaveTextContent('185k')
+
+    await rerender({
+      count: 32200,
+      plugin: {
+        ...plugin,
+        plugin_author: 'InfinityPacer',
+      },
+    })
+    expect(screen.getByText('InfinityPacer')).toHaveAttribute('title', 'InfinityPacer')
+    expect(container.querySelector('.download-count')).toHaveTextContent('32.2k')
+  })
 })

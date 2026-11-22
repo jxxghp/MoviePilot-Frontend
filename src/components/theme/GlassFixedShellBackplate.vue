@@ -559,28 +559,39 @@ onBeforeUnmount(() => {
   }
 }
 
-// 浅色玻璃背板同步晨雾柔白遮罩与日光饱和度，使侧栏底图与主视口壁纸保持同一色温
+// 浅色玻璃背板同步清透日光薄纱层，使固定壳背板与主视口剧照壁纸自然衔接
+html[data-glass-color-scheme='light'] .glass-fixed-shell-backplate {
+  background-color: #eef1f7;
+}
+
 html[data-glass-color-scheme='light'] .glass-fixed-shell-backplate__wallpaper {
-  filter: brightness(var(--glass-wallpaper-brightness, 1)) saturate(0.96);
+  background-color: #eef1f7;
+  filter: none;
+
+  .glass-fixed-shell-backplate__source {
+    filter: saturate(1.06) brightness(1.06) contrast(0.92);
+    opacity: 0.94;
+    transform: none;
+  }
 
   &::after {
     background:
-      radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
-      linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%);
+      radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.24) 0%, rgba(244, 246, 251, 0.44) 100%),
+      linear-gradient(180deg, rgba(250, 251, 254, 0.28) 0%, rgba(242, 245, 250, 0.48) 100%);
   }
 }
 
 html[data-glass-color-scheme='light'][data-glass-appearance='tinted'] .glass-fixed-shell-backplate__wallpaper::after {
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
-    linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%),
-    rgba(var(--glass-material-accent-rgb), 4%);
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.42) 100%),
+    linear-gradient(180deg, rgba(250, 251, 254, 0.26) 0%, rgba(242, 245, 250, 0.46) 100%),
+    rgba(var(--glass-material-accent-rgb), 5%);
 }
 
 html[data-glass-color-scheme='light'][data-glass-appearance='frosted'] .glass-fixed-shell-backplate__wallpaper::after {
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.28) 0%, rgba(244, 246, 251, 0.52) 100%),
-    linear-gradient(rgba(248, 249, 252, 0.52) 0%, rgba(242, 244, 249, 0.7) 100%);
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.36) 0%, rgba(246, 247, 251, 0.56) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(244, 246, 250, 0.58) 100%);
 }
 
 .glass-fixed-shell-backplate__source {

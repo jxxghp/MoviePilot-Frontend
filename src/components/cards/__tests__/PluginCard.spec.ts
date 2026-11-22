@@ -911,4 +911,42 @@ describe('PluginCard lifecycle actions', () => {
     await rerender({ plugin: { ...updatableInactivePlugin, state: true } })
     expect(container.querySelector('.plugin-card')).not.toHaveClass('plugin-card--inactive')
   })
+
+  it('anchors version in the top-right header slot, merges it into the update pill when updatable, and formats co-authors compactly', async () => {
+    const { container, rerender } = await renderWithProviders(PluginCard, {
+      props: {
+        count: 185000,
+        plugin: {
+          ...plugin,
+          plugin_name: '订阅助手（增强版）',
+          plugin_version: '0.7.11',
+          has_update: false,
+          plugin_author: 'InfinityPacer,Kurisu',
+          author_url: 'https://github.com/InfinityPacer',
+        },
+      },
+    })
+
+    expect(container.querySelector('.plugin-card__header')).toHaveTextContent('订阅助手（增强版）')
+    expect(container.querySelector('.plugin-card__version-pill')).toHaveTextContent('v0.7.11')
+
+    const authorLink = screen.getByText('InfinityPacer +1')
+    expect(authorLink).toHaveAttribute('title', 'InfinityPacer · Kurisu')
+    expect(container.querySelector('.download-count')).toHaveTextContent('185k')
+
+    await rerender({
+      count: 13000,
+      plugin: {
+        ...plugin,
+        plugin_version: undefined,
+        version: 'v1.2.3',
+        has_update: true,
+        plugin_author: 'InfinityPacer，Kurisu,MoviePilot',
+      } as Plugin,
+    })
+    expect(container.querySelector('.plugin-card__version-pill')).toBeNull()
+    expect(container.querySelector('.plugin-card__status--update')).toHaveTextContent('v1.2.3')
+    expect(screen.getByText('InfinityPacer +2')).toHaveAttribute('title', 'InfinityPacer · Kurisu · MoviePilot')
+    expect(container.querySelector('.download-count')).toHaveTextContent('13k')
+  })
 })

@@ -185,8 +185,7 @@ $-custom-content-surfaces: (
       }
 
       .dashboard-grid-content-measure > .v-card :is(h4, h5, h6),
-      .site-card .font-semibold,
-      .downloading-card__metrics strong {
+      .site-card .font-semibold {
         font-variant-numeric: tabular-nums;
       }
 
@@ -198,22 +197,6 @@ $-custom-content-surfaces: (
         -webkit-backdrop-filter: none !important;
       }
 
-      .layout-page-content .site-card > .v-sheet {
-        background: rgba(var(--glass-v3-ink), 0.1) !important;
-        background-image: none !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        border-inline-start: 1px solid var(--glass-border);
-      }
-
-      .layout-page-content .site-card .border-t .text-medium-emphasis {
-        // 上传/下载是核心读数，信息权重高于网址和能力标识。
-        color: rgb(var(--v-theme-on-surface)) !important;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-      }
-
       .layout-page-content .site-card h3,
       .layout-page-content .plugin-card__banner .v-card-title {
         font-weight: 650;
@@ -221,8 +204,8 @@ $-custom-content-surfaces: (
       }
 
       .layout-page-content .plugin-card__banner {
-        // 品牌染色与吸收继续由各材质公式决定，轮廓只补充轻量的透光边缘。
-        border-block-end: 1px solid var(--glass-border);
+        // 品牌染色与吸收继续由各材质公式决定，分割线保持极轻呼吸感以免割裂整卡材质。
+        border-block-end: 1px solid var(--mp-card-dock-border, rgba(255, 255, 255, 0.055));
       }
 
       .layout-page-content .plugin-card__banner .text-shadow {

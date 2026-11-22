@@ -1207,7 +1207,7 @@ html[data-theme='glass'] {
 
   // 插件卡片头部改为染色玻璃：图标主色只作为透光色相，压暗遮罩换成玻璃吸收与高光。
   .plugin-card__banner {
-    border-block-end: 1px solid var(--glass-border);
+    border-block-end: 1px solid var(--mp-card-dock-border, rgba(255, 255, 255, 0.055));
 
     --plugin-card-banner-scrim: linear-gradient(
       rgba(var(--glass-material-rgb), calc(0.2 + var(--glass-surface-density, 0.62) * 0.115)) 0%,
@@ -2085,21 +2085,26 @@ html[data-theme='glass'][data-glass-color-scheme='light'] {
 }
 
 html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance][data-glass-ui-style] {
-  --glass-control: rgba(118, 118, 128, 9%);
-  --glass-control-prominent: rgba(118, 118, 128, 10%);
-  --glass-control-prominent-focus: color-mix(in srgb, rgba(118, 118, 128, 12%) 84%, rgba(var(--v-theme-primary), 16%));
-  --glass-border: rgba(60, 60, 67, calc(0.07 + var(--glass-reflection, 0.5) * 0.12));
-  --glass-border-raised: rgba(60, 60, 67, calc(0.09 + var(--glass-reflection, 0.5) * 0.14));
-  --glass-border-hover: rgba(60, 60, 67, 24%);
-  --glass-control-prominent-border: rgba(60, 60, 67, 15%);
+  --glass-control: rgba(255, 255, 255, 42%);
+  --glass-control-prominent: rgba(255, 255, 255, 48%);
+  --glass-control-prominent-focus: color-mix(in srgb, rgba(255, 255, 255, 68%) 86%, rgba(var(--v-theme-primary), 14%));
+  --glass-border: rgba(24, 24, 27, calc(0.06 + var(--glass-reflection, 0.5) * 0.08));
+  --glass-border-raised: rgba(24, 24, 27, calc(0.08 + var(--glass-reflection, 0.5) * 0.1));
+  --glass-border-hover: rgba(24, 24, 27, 18%);
+  --glass-highlight: rgba(255, 255, 255, 62%);
+  --glass-control-prominent-border: rgba(24, 24, 27, 11%);
   --glass-control-shortcut-background: rgba(60, 60, 67, 7%);
   --glass-control-shortcut-border: rgba(60, 60, 67, 14%);
   --glass-chip-base-opacity: 16%;
   --glass-chip-tint-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.14);
-  --glass-button-surface: rgba(118, 118, 128, 9%);
-  --glass-button-surface-hover: rgba(118, 118, 128, 15%);
-  --glass-shadow: 0 10px 28px rgba(0, 0, 0, 8%), inset 0 1px 0 rgba(255, 255, 255, 70%);
-  --glass-shadow-raised: 0 16px 40px rgba(0, 0, 0, 12%), inset 0 1px 0 rgba(255, 255, 255, 80%);
+  --glass-button-surface: rgba(255, 255, 255, 38%);
+  --glass-button-surface-hover: rgba(255, 255, 255, 56%);
+  --glass-transmission-brightness: 1.02 !important;
+  --glass-v3-rim: 0.34;
+  --glass-shadow:
+    0 8px 24px -6px rgba(15, 23, 42, 7%), 0 0 0 0.5px rgba(15, 23, 42, 6%), inset 0 1px 0 rgba(255, 255, 255, 68%);
+  --glass-shadow-raised:
+    0 14px 36px -8px rgba(15, 23, 42, 12%), 0 0 0 0.5px rgba(15, 23, 42, 8%), inset 0 1px 0 rgba(255, 255, 255, 78%);
   --glass-shadow-hover: 0 14px 32px rgba(0, 0, 0, 10%), inset 0 1px 0 rgba(255, 255, 255, 78%);
   --glass-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%), inset 0 -1px 0 rgba(15, 23, 42, 6%);
   --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 78%), inset 0 -1px 0 rgba(15, 23, 42, 8%);
@@ -2114,22 +2119,30 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   );
   --glass-nav-active-border: 1px solid rgba(var(--v-theme-primary), 62%);
   --glass-nav-active-shadow: 0 6px 16px rgba(var(--v-theme-primary), 20%), inset 0 1px 0 rgba(255, 255, 255, 38%);
-  --glass-v3-fill: clamp(0.54, calc(0.52 + var(--glass-surface-density, 0.62) * 0.28), 0.86);
-  --glass-v3-shadow: 0 12px 30px rgba(0, 0, 0, 6%);
-  --glass-v3-hover-shadow: 0 16px 34px rgba(0, 0, 0, 10%);
-  --glass-popup-surface: rgba(255, 255, 255, calc(0.68 + var(--glass-surface-density, 0.62) * 0.2));
-  --glass-overlay-surface: var(--glass-popup-surface);
+  // 保持浅色玻璃卡片真实的通透感（约 0.56~0.68），使卡片与水平顶栏共享同一套日光半透玻璃物理层次
+  --glass-v3-fill: clamp(0.52, calc(0.48 + var(--glass-surface-density, 0.62) * 0.24), 0.74);
+  --glass-v3-shadow: 0 8px 24px -6px rgba(15, 23, 42, 6%), 0 0 0 0.5px rgba(15, 23, 42, 6%);
+  --glass-v3-hover-shadow: 0 14px 32px -8px rgba(15, 23, 42, 10%), 0 0 0 0.5px rgba(15, 23, 42, 9%);
+  --glass-popup-surface: rgba(255, 255, 255, calc(0.76 + var(--glass-surface-density, 0.62) * 0.16));
+  --glass-overlay-surface: rgba(255, 255, 255, calc(0.78 + var(--glass-surface-density, 0.62) * 0.14));
   --glass-navbar-frosted-background:
-    linear-gradient(rgba(255, 255, 255, 24%), rgba(255, 255, 255, 24%)), var(--glass-v3-card-background);
+    linear-gradient(rgba(255, 255, 255, 34%), rgba(255, 255, 255, 34%)), var(--glass-v3-card-background);
 
   &[data-glass-appearance='frosted'] {
-    --glass-popup-surface: rgba(255, 255, 255, calc(0.72 + var(--glass-surface-density, 0.86) * 0.16));
+    --glass-popup-surface: rgba(255, 255, 255, calc(0.78 + var(--glass-surface-density, 0.86) * 0.14));
     --glass-overlay-surface: var(--glass-popup-surface);
   }
 
   &[data-glass-ui-style='clear'] {
-    --glass-popup-surface: rgba(255, 255, 255, calc(0.52 + var(--glass-surface-density, 0.62) * 0.2));
+    --glass-popup-surface: rgba(255, 255, 255, calc(0.58 + var(--glass-surface-density, 0.62) * 0.2));
     --glass-overlay-surface: var(--glass-popup-surface);
+  }
+
+  // 标准质量档在浅色玻璃下保留轻量卡片毛玻璃，防止半透卡片直接叠在剧照暗部硬边上显脏
+  &[data-glass-quality='css'] {
+    --glass-native-surface-backdrop-filter: blur(16px) saturate(135%) brightness(var(--glass-transmission-brightness));
+    --glass-raised-backdrop-filter: blur(20px) saturate(140%) brightness(var(--glass-transmission-brightness));
+    --glass-overlay-backdrop-filter: blur(20px) saturate(140%);
   }
 
   &[data-glass-appearance='tinted'] {
@@ -2142,8 +2155,18 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   }
 }
 
-/* 浅色玻璃填充上的文字使用主题前景色，品牌染色与深色主题保持独立。*/
+/* 浅色玻璃填充上的文字使用主题前景色，同时消除水平浮动顶栏在浅色下的灰暗压光与死白外框。*/
 html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass'] {
+  --glass-transmission-brightness: 1.02 !important;
+
+  .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top .layout-navbar {
+    --glass-navbar-opacity: clamp(0.42, calc(0.38 + var(--glass-surface-density, 0.62) * 0.16), 0.62);
+    --glass-navbar-scrim-end: clamp(0.52, calc(0.46 + var(--glass-surface-density, 0.62) * 0.18), 0.7);
+    --glass-navbar-brightness: 1.09;
+    --glass-navbar-rim: rgba(24, 24, 27, 0.08);
+    --glass-navbar-top-opacity: 0.62;
+  }
+
   // 登录输入区使用浅色控件描边与填充，保留色调叠层和独立的聚焦反馈。
   .native-login-field:not(:focus-within) {
     border-color: var(--glass-control-prominent-border);
@@ -2248,6 +2271,19 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
   // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景。
   .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat) {
     color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
+  .plugin-card__banner {
+    --mp-light-icon-glow-rgb: var(--plugin-card-accent-rgb, var(--v-theme-primary));
+    --plugin-card-banner-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0) 100%);
+    --plugin-card-banner-tint: radial-gradient(
+      136px circle at calc(100% - 2.25rem) 2.75rem,
+      rgba(var(--mp-light-icon-glow-rgb), 0.16) 0%,
+      rgba(var(--mp-light-icon-glow-rgb), 0.04) 58%,
+      transparent 100%
+    );
+
+    border-block-end-color: rgba(24, 24, 27, 0.045);
   }
 
   .plugin-card__banner .text-white,

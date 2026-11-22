@@ -12,9 +12,11 @@ html {
   --mp-warning-rgb: 217, 119, 6;
   --mp-info-rgb: 0, 122, 255;
   --mp-destructive-rgb: 220, 38, 38;
-  --mp-badge-soft-alpha: 0.12;
+  --mp-badge-soft-alpha: 0.13;
   --mp-badge-border-alpha: 0.26;
   --mp-warning-border-alpha: 0.28;
+  --mp-semantic-fg-mix: 76%;
+  --mp-semantic-fg-anchor: #111827;
 
   // 页面与表面颜色令牌（默认对应浅色平面）
   --mp-bg: rgb(var(--v-theme-background, var(--mp-bg-rgb)));
@@ -55,10 +57,36 @@ html {
   --mp-destructive-border: rgba(var(--v-theme-error, var(--mp-destructive-rgb)), var(--mp-badge-border-alpha));
   --mp-primary-soft: rgba(var(--v-theme-primary, var(--mp-primary-rgb)), var(--mp-badge-soft-alpha));
   --mp-primary-border: rgba(var(--v-theme-primary, var(--mp-primary-rgb)), var(--mp-badge-border-alpha));
+  // 明度自适应语义前景令牌（浅色下自动压深防发白，深色下自动提亮防暗紫与暗红糊底）
+  --mp-primary-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-primary, var(--mp-primary-rgb))) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-success-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-success, var(--mp-success-rgb))) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-warning-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-warning, var(--mp-warning-rgb))) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-info-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-info, var(--mp-info-rgb))) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-destructive-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-error, var(--mp-destructive-rgb))) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
 
-  // 品牌染色卡片底座与圆角、底部避让间隙别名
-  --mp-card-dock-bg: var(--mp-muted);
-  --mp-card-dock-border: var(--mp-border-subtle);
+  // 小卡片内部底栏默认保持透明整卡同材质，仅用极弱呼吸细线区分，避免贴灰胶带感
+  --mp-card-dock-bg: transparent;
+  --mp-card-dock-border: rgba(24, 24, 27, 0.045);
   --radius: var(--app-theme-surface-radius);
   --mp-bottom-clearance: var(--app-fab-clearance);
 
@@ -78,12 +106,15 @@ html:where([data-glass-color-scheme='dark'], [data-theme='glass']:not([data-glas
   --mp-warning-rgb: 228, 184, 99;
   --mp-info-rgb: 124, 156, 196;
   --mp-destructive-rgb: 255, 123, 123;
-  --mp-badge-soft-alpha: 0.16;
-  --mp-badge-border-alpha: 0.32;
-  --mp-warning-border-alpha: 0.32;
+  --mp-badge-soft-alpha: 0.2;
+  --mp-badge-border-alpha: 0.36;
+  --mp-warning-border-alpha: 0.36;
+  --mp-semantic-fg-mix: 60%;
+  --mp-semantic-fg-anchor: #fff;
   --mp-muted: #131b2b;
   --mp-border: rgba(255, 255, 255, 0.08);
-  --mp-border-subtle: rgba(255, 255, 255, 0.05);
+  --mp-border-subtle: rgba(255, 255, 255, 0.055);
+  --mp-card-dock-border: rgba(255, 255, 255, 0.055);
   --mp-input: rgba(255, 255, 255, 0.14);
   --mp-list-group-bg: rgba(255, 255, 255, 0.035);
   --mp-list-row-divider: rgba(255, 255, 255, 0.08);
@@ -127,6 +158,27 @@ html[data-theme='glass'][data-glass-color-scheme='light'] {
   --mp-destructive-border: rgba(var(--v-theme-error), var(--mp-badge-border-alpha));
   --mp-primary-soft: rgba(var(--v-theme-primary), var(--mp-badge-soft-alpha));
   --mp-primary-border: rgba(var(--v-theme-primary), var(--mp-badge-border-alpha));
+  --mp-primary-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-primary)) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-success-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-success)) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-warning-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-warning)) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
+  --mp-info-fg: color-mix(in oklab, rgb(var(--v-theme-info)) var(--mp-semantic-fg-mix), var(--mp-semantic-fg-anchor));
+  --mp-destructive-fg: color-mix(
+    in oklab,
+    rgb(var(--v-theme-error)) var(--mp-semantic-fg-mix),
+    var(--mp-semantic-fg-anchor)
+  );
 }
 
 :where(.v-theme--plain) {
