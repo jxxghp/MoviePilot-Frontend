@@ -267,6 +267,9 @@ const seasonsNotExisted = ref<{ [key: number]: number }>({})
 // 各季缺失明细，供状态标签悬停提示说明缺了哪些集
 const seasonsMissingInfo = ref<{ [key: number]: NotExistMediaInfo }>({})
 
+// 季入库状态请求完成前不预设为已入库，避免把未知状态误显示成成功。
+const missingStateStatus = ref<'loading' | 'ready' | 'error'>('loading')
+
 // 各季的订阅状态
 const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 
@@ -491,6 +494,7 @@ async function checkExists() {
 async function checkSeasonsNotExists() {
   if (mediaDetail.value.type !== '电视剧') return
   const requestId = ++seasonNotExistsRequestId
+  missingStateStatus.value = 'loading'
   seasonsNotExisted.value = {}
   seasonsMissingInfo.value = {}
   try {
@@ -499,18 +503,26 @@ async function checkSeasonsNotExists() {
       episode_group: selectedEpisodeGroup.value || '',
     }
     const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', media)
-    if (requestId === seasonNotExistsRequestId && result) {
-      result.forEach(item => {
-        // 0-已入库 1-部分缺失 2-全部缺失
-        let state = 0
-        if (item.episodes.length === 0) state = 2
-        else if (item.episodes.length < item.total_episode) state = 1
-        seasonsNotExisted.value[item.season] = state
-        seasonsMissingInfo.value[item.season] = item
-      })
+    if (requestId === seasonNotExistsRequestId) {
+      if (result) {
+        result.forEach(item => {
+          // 0-已入库 1-部分缺失 2-全部缺失
+          let state = 0
+          if (item.episodes.length === 0) state = 2
+          else if (item.episodes.length < item.total_episode) state = 1
+          seasonsNotExisted.value[item.season] = state
+          seasonsMissingInfo.value[item.season] = item
+        })
+      }
+      missingStateStatus.value = 'ready'
     }
   } catch (error) {
     console.error(error)
+    if (requestId === seasonNotExistsRequestId) {
+      seasonsNotExisted.value = {}
+      seasonsMissingInfo.value = {}
+      missingStateStatus.value = 'error'
+    }
   }
 }
 
@@ -836,6 +848,7 @@ const getEarliestPhysicalReleaseDate = computed(() => getEarliestReleaseDateByTy
 
 // 计算存在状态的颜色
 function getExistColor(season: number) {
+  if (missingStateStatus.value !== 'ready') return 'warning'
   const state = seasonsNotExisted.value[season]
   if (!state) return 'success'
 
@@ -846,6 +859,7 @@ function getExistColor(season: number) {
 
 // 计算存在状态的文本
 function getExistText(season: number) {
+  if (missingStateStatus.value !== 'ready') return t('common.unknown')
   const state = seasonsNotExisted.value[season]
   if (!state) return t('media.status.inLibrary')
 
@@ -856,6 +870,7 @@ function getExistText(season: number) {
 
 // 计算存在状态的悬停提示，说明判断依据和缺失的集
 function getExistHint(season: number) {
+  if (missingStateStatus.value !== 'ready') return ''
   const state = seasonsNotExisted.value[season]
   const info = seasonsMissingInfo.value[season]
   if (!state || !info) return t('media.status.inLibraryHint')
@@ -1436,7 +1451,7 @@ useNativePageHeader({
                           flat
                         >
                           {{ getExistText(season.season_number || 0) }}
-                          <VTooltip activator="parent" location="top">
+                          <VTooltip v-if="getExistHint(season.season_number || 0)" activator="parent" location="top">
                             {{ getExistHint(season.season_number || 0) }}
                           </VTooltip>
                         </VChip>
