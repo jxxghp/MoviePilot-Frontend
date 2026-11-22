@@ -211,16 +211,6 @@ $-custom-content-surfaces: (
       .layout-page-content .plugin-card__banner .text-shadow {
         text-shadow: none;
       }
-
-      .layout-page-content .media-card > .v-card-text {
-        // 海报详情固定使用白色文字与图标，遮罩保持深色，避免浅色主题下白底白字。
-        background: linear-gradient(
-          180deg,
-          rgba(11, 19, 34, 0.04),
-          rgba(11, 19, 34, 0.64) 52%,
-          rgba(11, 19, 34, 0.92)
-        ) !important;
-      }
     }
   }
 

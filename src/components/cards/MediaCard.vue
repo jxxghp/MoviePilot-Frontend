@@ -229,12 +229,12 @@ function getExistsStatusKey() {
   ].join('::')
 }
 
-// 角标颜色
+/** 按媒体类型返回海报角标的语义修饰类。 */
 function getChipColor(type: string) {
-  if (type === '电影') return 'border-blue-500 bg-blue-600'
-  else if (type === '电视剧') return ' bg-indigo-500 border-indigo-600'
-  else if (type === '音乐') return 'border-pink-500 bg-pink-600'
-  else return 'border-purple-600 bg-purple-600'
+  if (type === '电影') return 'media-card-badge--movie'
+  else if (type === '电视剧') return 'media-card-badge--tv'
+  else if (type === '音乐') return 'media-card-badge--music'
+  else return 'media-card-badge--rating'
 }
 
 // 查询当前媒体是否已订阅
@@ -662,12 +662,11 @@ onBeforeUnmount(() => {
           :width="props.width"
           :ripple="false"
           :data-glass-optical-mode="hasLoadedRealPoster ? 'excluded' : undefined"
-          class="app-hover-lift-card outline-none ring-gray-500 media-card"
+          class="app-hover-lift-card outline-none media-card"
           :class="{
             'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
             'media-card--image-loaded': isImageLoaded,
             'media-card--poster-revisit': imageRequest.revisit,
-            'ring-1': isImageLoaded,
           }"
           @click.stop="handleMediaCardClick(hover.isHovering)"
         >
@@ -677,7 +676,7 @@ onBeforeUnmount(() => {
           <VImg
             :key="imageRequest.key"
             v-else
-            aspect-ratio="2/3"
+            :aspect-ratio="2 / 3"
             :src="imageRequest.src"
             :eager="imageRequest.revisit"
             :transition="imageRequest.transition"
@@ -697,14 +696,13 @@ onBeforeUnmount(() => {
           <!-- 详情按实际可见状态挂载，虚拟列表重入不创建不可见的操作组件。 -->
           <VCardText
             v-if="isMediaCardDetailVisible(hover.isHovering)"
-            class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-            style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
+            class="media-card-detail w-full h-full flex flex-col flex-wrap justify-end align-left absolute bottom-0 cursor-pointer pa-2"
           >
-            <span class="font-semibold text-sm">{{ props.media?.year }}</span>
-            <h1 class="media-card-title font-bold mb-2 text-white line-clamp-2 overflow-hidden text-ellipsis ...">
+            <span class="media-card-year num">{{ props.media?.year }}</span>
+            <h1 class="media-card-title font-semibold mb-2 line-clamp-2 overflow-hidden text-ellipsis">
               {{ props.media?.title }}
             </h1>
-            <p class="media-card-overview line-clamp-3 overflow-hidden text-ellipsis ...">
+            <p class="media-card-overview line-clamp-3 overflow-hidden text-ellipsis">
               {{ props.media?.overview }}
             </p>
             <div v-if="props.media?.collection_id" class="mb-3" @click.stop=""></div>
@@ -723,10 +721,10 @@ onBeforeUnmount(() => {
           <!-- 类型角标 -->
           <VChip
             v-show="isImageLoaded"
-            variant="elevated"
+            variant="flat"
             size="small"
             :class="getChipColor(props.media?.type || '')"
-            class="absolute left-2 top-2 bg-opacity-80 text-white font-bold"
+            class="media-card-badge absolute left-2 top-2"
           >
             {{ getMediaTypeText(props.media?.type) }}
           </VChip>
@@ -735,10 +733,10 @@ onBeforeUnmount(() => {
           <!-- 评分角标 -->
           <VChip
             v-if="isImageLoaded && props.media?.vote_average && !(isExists && !isMediaCardActive(hover.isHovering))"
-            variant="elevated"
+            variant="flat"
             size="small"
             :class="getChipColor('rating')"
-            class="absolute right-2 top-2 bg-opacity-80 text-white font-bold"
+            class="media-card-badge num absolute right-2 top-2"
           >
             {{ formatRating(props.media?.vote_average) }}
           </VChip>
@@ -776,36 +774,69 @@ onBeforeUnmount(() => {
   inline-size: 100%;
 }
 
+.media-card--image-loaded {
+  border: 1px solid var(--mp-border);
+}
+
 .media-card-placeholder {
   aspect-ratio: 2 / 3;
-  background: rgba(var(--v-theme-on-surface), 0.08);
+  background: var(--mp-muted);
   block-size: 100%;
   inline-size: 100%;
 }
 
+.media-card-detail {
+  background: linear-gradient(
+    180deg,
+    rgba(11, 19, 34, 0.36) 0%,
+    rgba(11, 19, 34, 0.74) 50%,
+    rgba(11, 19, 34, 0.94) 100%
+  );
+  color: var(--mp-on-media);
+}
+
+.media-card-year {
+  color: var(--mp-on-media-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
 .media-card-title {
-  font-size: 1.125rem;
-  line-height: 1.25rem;
+  color: var(--mp-on-media);
+  font-size: 1.0625rem;
+  line-height: 1.3;
 }
 
 .media-card-overview {
-  font-size: 0.875rem;
-  line-height: 1rem;
+  color: var(--mp-on-media-muted);
+  font-size: 0.8125rem;
+  line-height: 1.35;
 }
 
-.media-card-subscribe-summary {
-  display: flex;
-  align-items: center;
-  color: white;
+.media-card-badge {
+  border: 1px solid rgba(248, 250, 252, 0.22);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  color: var(--mp-on-media) !important;
   font-size: 0.75rem;
-  gap: 0.25rem;
-  line-height: 1rem;
-  min-block-size: 1.25rem;
+  font-weight: 600;
 }
 
-.media-card-subscribe-summary span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.media-card-badge--movie {
+  background: rgba(37, 99, 235, 0.78) !important;
+}
+
+.media-card-badge--tv {
+  background: rgba(79, 70, 229, 0.78) !important;
+}
+
+.media-card-badge--music {
+  background: rgba(219, 39, 119, 0.78) !important;
+}
+
+.media-card-badge--rating {
+  background: rgba(15, 23, 42, 0.72) !important;
 }
 </style>

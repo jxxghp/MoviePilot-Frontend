@@ -81,17 +81,20 @@ const getImgUrl = computed(() => {
           :style="cardStyle"
           :role="nativeChromeActive ? 'group' : undefined"
           :aria-label="nativeChromeActive ? props.media?.title : undefined"
-          class="app-hover-lift-card ring-gray-500"
+          :data-glass-optical-mode="
+            Boolean(props.media?.image) && imageLoaded && !imageLoadError ? 'excluded' : undefined
+          "
+          class="backdrop-card app-hover-lift-card"
           :class="{
             'app-hover-lift-card--hovering': hover.isHovering && !nativeChromeActive,
-            'ring-1': imageLoaded,
+            'backdrop-card--loaded': imageLoaded,
           }"
           @click="goPlay"
         >
           <template #image>
             <VImg
               :src="getImgUrl"
-              aspect-ratio="2/3"
+              :aspect-ratio="3 / 2"
               class="backdrop-card-image"
               :class="{ 'backdrop-card-image--loaded': imageLoaded }"
               cover
@@ -105,14 +108,12 @@ const getImgUrl = computed(() => {
               </template>
               <template #default>
                 <VCardText
-                  class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
+                  class="backdrop-card-overlay w-full flex flex-col flex-wrap justify-end align-left absolute bottom-0 cursor-pointer pa-3"
                 >
-                  <h1
-                    class="mb-1 text-white text-shadow font-bold text-lg line-clamp-2 overflow-hidden text-ellipsis ..."
-                  >
+                  <h1 class="backdrop-card-title mb-1 line-clamp-2 overflow-hidden text-ellipsis">
                     {{ props.media?.title }}
                   </h1>
-                  <span class="text-shadow text-sm">{{ props.media?.subtitle }}</span>
+                  <span class="backdrop-card-subtitle">{{ props.media?.subtitle }}</span>
                 </VCardText>
               </template>
             </VImg>
@@ -139,9 +140,35 @@ const getImgUrl = computed(() => {
   inline-size: 100%;
 }
 
+.backdrop-card--loaded {
+  border: 1px solid var(--mp-border);
+}
+
 .backdrop-card-image {
   block-size: 100%;
   inline-size: 100%;
+}
+
+.backdrop-card-overlay {
+  background: var(--mp-media-scrim);
+  color: var(--mp-on-media);
+  padding-block-start: 2rem;
+}
+
+.backdrop-card-title {
+  color: var(--mp-on-media);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.backdrop-card-subtitle {
+  color: var(--mp-on-media-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
 .backdrop-card-placeholder,

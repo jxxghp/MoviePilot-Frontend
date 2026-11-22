@@ -37,10 +37,21 @@ const media: MediaServerPlayItem = {
 const VImgStub = defineComponent({
   inheritAttrs: false,
   props: {
+    aspectRatio: [String, Number],
     crossorigin: String,
     src: String,
   },
-  setup: props => () => h('img', { crossorigin: props.crossorigin, src: props.src }),
+  emits: ['load', 'error'],
+  setup:
+    (props, { emit }) =>
+    () =>
+      h('img', {
+        'data-aspect-ratio': props.aspectRatio !== undefined ? String(props.aspectRatio) : undefined,
+        crossorigin: props.crossorigin,
+        src: props.src,
+        onLoad: () => emit('load'),
+        onError: () => emit('error'),
+      }),
 })
 
 describe.each([
@@ -98,6 +109,32 @@ describe('BackdropCard image request mode', () => {
     expect(image?.src).toContain('&use_cookies=true')
     expect(image?.src).toContain('&maxWidth=1280')
     expect(image?.src).toContain('&quality=80')
+    expect(Number(image?.dataset.aspectRatio)).toBeCloseTo(3 / 2, 5)
+  })
+})
+
+describe.each([
+  ['PosterCard', PosterCard],
+  ['BackdropCard', BackdropCard],
+  ['PlayingBackdropCard', PlayingBackdropCard],
+])('%s glass optical exclusion lifecycle', (_name, component) => {
+  it('excludes glass backdrop sampling only after the real image loads cleanly', async () => {
+    const { container } = await renderWithProviders(component, {
+      global: { stubs: { VImg: VImgStub } },
+      props: { media },
+    })
+    const card = container.querySelector('.v-card')!
+    const image = container.querySelector('img')!
+
+    expect(card).not.toHaveAttribute('data-glass-optical-mode')
+
+    image.dispatchEvent(new Event('load'))
+    await nextTick()
+    expect(card).toHaveAttribute('data-glass-optical-mode', 'excluded')
+
+    image.dispatchEvent(new Event('error'))
+    await nextTick()
+    expect(card).not.toHaveAttribute('data-glass-optical-mode')
   })
 })
 

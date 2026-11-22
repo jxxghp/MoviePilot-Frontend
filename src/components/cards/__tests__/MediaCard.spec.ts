@@ -470,7 +470,7 @@ describe('MediaCard', () => {
 
     await waitFor(() => expect(existsRequest).toHaveBeenCalledOnce())
     await waitFor(() => expect(console.error).toHaveBeenCalled())
-    expect(container.querySelector('.bg-green-500')).toBeNull()
+    expect(container.querySelector('.exist-icon-badge')).toBeNull()
   })
 
   it.each([
@@ -962,7 +962,7 @@ describe('MediaCard', () => {
 
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
     requests[0].load()
-    await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('ring-1'))
+    await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('media-card--image-loaded'))
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
 
     requests[0].reveal()
@@ -976,7 +976,7 @@ describe('MediaCard', () => {
     )
     await waitFor(() => expect(container.querySelector('.media-card-placeholder')).not.toBeNull())
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
-    expect(getCard(container)).not.toHaveClass('ring-1')
+    expect(getCard(container)).not.toHaveClass('media-card--image-loaded')
     expect(requests.some(request => request.src.includes('no-image'))).toBe(false)
   })
 
@@ -990,7 +990,7 @@ describe('MediaCard', () => {
 
     expect(requests).toHaveLength(0)
     expect(container.querySelector('.media-card-placeholder')).not.toBeNull()
-    expect(getCard(container)).not.toHaveClass('ring-1')
+    expect(getCard(container)).not.toHaveClass('media-card--image-loaded')
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
   })
 

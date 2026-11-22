@@ -11,8 +11,10 @@ describe('horizontal navigation alignment', () => {
     )
 
     expect(horizontalActions).toContain('min-inline-size: 0')
-    expect(horizontalActions).toContain('flex: 0 1 clamp(12rem, 20vw, 17.5rem)')
+    expect(horizontalActions).toContain('flex: 0 1 clamp(9.5rem, 14vw, 16rem)')
     expect(horizontalActions).toContain('min-inline-size: 8rem')
+    expect(layout).toContain('@media (width <= 1536px)')
+    expect(layout).toContain('flex: 0 1 clamp(8rem, 13.5vw, 14rem)')
   })
 
   it('keeps the horizontal navbar full width while page content remains boxed', () => {

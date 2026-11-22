@@ -48,7 +48,7 @@ MoviePilot 同时承载影视海报浏览与全天候自动化运维。海报、
 
 全站页面与 32 类业务卡片统一归入七种表面原型，后续新增或调优页面必须复用对应原型，不在全局主题文件里追加私有选择器
 
-1. **海报与封面媒体卡**（`MediaCard`、`PosterCard`、`BackdropCard`、`MusicCard` 等） 图片铺满整卡并退出玻璃背景填充（`.no-blur`），底部叠 `media-scrim` 渐变遮罩，文字固定使用 `on-media`。
+1. **海报与封面媒体卡**（`MediaCard`、`PosterCard`、`BackdropCard`、`PlayingBackdropCard` 等全铺实图卡；双栏横向信息卡 `MusicCard` 沿用常规一级 `card` 表面） 实图加载完成后通过 `data-glass-optical-mode="excluded"` 退出玻璃背景采样（骨架与无图占位保持玻璃材质），底部叠 `media-scrim` 渐变遮罩，文字固定使用 `on-media`。
 2. **影像底图运维卡**（`SubscribeCard`、`DownloadingCard`、`LibraryCard` 等） 剧照加载成功时走 `media-scrim`、`on-media` 与烟熏毛玻璃镜头徽标，未加载或无图态回退到标准 `card` 与语义前景。
 3. **品牌色与全彩主题卡**（`PluginCard`、`PluginAppCard`、`WorkflowTaskCard`、`WorkflowShareCard`） 插件卡保持整卡一体材质（浅色局部图标柔光、深色透光渐变，创作者铭牌栏靠留白与字阶分层）；无图标的工作流双卡采用饱满彩色渐变卡身配 `on-media` 浅白文字。
 4. **彩色配置摘要卡**（存储、下载器、媒体服务器、通知、规则组卡片） 沿用 `.app-card-colorful` 紧凑摘要骨架与统一内边距。
