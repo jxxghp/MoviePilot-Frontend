@@ -13,7 +13,6 @@ import {
   resolvePluginAuthorUrl,
   usePluginCardAccent,
 } from '@/composables/usePluginCardAccent'
-import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -167,6 +166,38 @@ const cardRatingSummary = computed(() =>
     count: props.plugin?.rating_count || 0,
   }),
 )
+
+/** 紧凑格式化卡片下载量，省略整数冗余小数位并为署名留出横向空间。 */
+function formatCardCount(count?: number): string {
+  const value = Number(count || 0)
+  if (!Number.isFinite(value) || value <= 0) return '0'
+  if (value < 1000) return `${Math.round(value)}`
+  if (value < 99950) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  if (value < 999500) return `${Math.round(value / 1000)}k`
+  return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+}
+
+/** 拆分中英文逗号分隔的插件联合署名列表。 */
+function parseAuthorParts(author?: string): string[] {
+  return (author || '')
+    .split(/[,，]/)
+    .map(part => part.trim())
+    .filter(Boolean)
+}
+
+/** 格式化卡片作者展示名，联合署名紧凑显示主作者与协作者人数后缀。 */
+function formatAuthorDisplay(author?: string): string {
+  const parts = parseAuthorParts(author)
+  if (parts.length <= 1) return parts[0] || ''
+  return `${parts[0]} +${parts.length - 1}`
+}
+
+const pluginVersion = computed(() => {
+  const raw = props.plugin?.plugin_version || (props.plugin as (Plugin & { version?: string }) | undefined)?.version
+  return raw ? raw.replace(/^v/i, '') : ''
+})
+const authorDisplay = computed(() => formatAuthorDisplay(props.plugin?.plugin_author))
+const authorFullTitle = computed(() => parseAuthorParts(props.plugin?.plugin_author).join(' · '))
 
 // 显示器宽度
 const display = useDisplay()
@@ -933,9 +964,8 @@ watch(
                     class="plugin-card__state-dot"
                     :aria-label="props.plugin?.state ? t('plugin.running') : t('plugin.disable')"
                   />
-                  <span class="plugin-card__name">{{ props.plugin?.plugin_name }}</span>
-                  <span v-if="props.plugin?.plugin_version" class="plugin-card__version num">
-                    v{{ props.plugin?.plugin_version }}
+                  <span class="plugin-card__title-text plugin-card__name" :title="props.plugin?.plugin_name">
+                    {{ props.plugin?.plugin_name }}
                   </span>
                 </VCardTitle>
                 <button
@@ -970,18 +1000,21 @@ watch(
                 <button
                   v-else-if="props.plugin?.has_update"
                   type="button"
-                  class="plugin-card__status plugin-card__status--update"
+                  class="plugin-card__status plugin-card__status--update num"
                   :aria-label="t('plugin.hasUpdate')"
                   @click.stop="handleUpdateAction"
                 >
                   <VIcon icon="mdi-arrow-up-bold-circle-outline" size="13" />
-                  {{ t('plugin.hasUpdate') }}
+                  <span class="plugin-card__status-label">{{
+                    pluginVersion ? `v${pluginVersion}` : t('plugin.hasUpdate')
+                  }}</span>
                   <VTooltip activator="parent" location="top">{{ updateBadgeTitle }}</VTooltip>
                 </button>
+                <span v-else-if="pluginVersion" class="plugin-card__version-pill num"> v{{ pluginVersion }} </span>
               </div>
               <div class="plugin-card__body">
                 <div class="plugin-card__body-main">
-                  <div class="plugin-card__desc line-clamp-3">
+                  <div class="plugin-card__desc line-clamp-2">
                     {{ props.plugin?.plugin_desc }}
                   </div>
                 </div>
@@ -1033,23 +1066,28 @@ watch(
                   />
                   <VIcon
                     v-if="!authorPath || !isAvatarLoaded || isAvatarError"
-                    size="14"
+                    size="13"
                     icon="mdi-github"
                     class="plugin-card__author-fallback"
                   />
                 </div>
-                <span v-if="props.sortable || !authorLinkHref" class="plugin-card__author-name">
-                  {{ props.plugin?.plugin_author }}
+                <span
+                  v-if="props.sortable || !authorLinkHref"
+                  class="plugin-card__author-name num"
+                  :title="authorFullTitle || undefined"
+                >
+                  {{ authorDisplay }}
                 </span>
                 <a
                   v-else
                   :href="authorLinkHref"
                   target="_blank"
                   rel="noopener noreferrer"
+                  :title="authorFullTitle || undefined"
                   @click.stop
-                  class="plugin-card__author-name"
+                  class="plugin-card__author-name num"
                 >
-                  {{ props.plugin?.plugin_author }}
+                  {{ authorDisplay }}
                 </a>
               </div>
               <div class="plugin-card__metrics">
@@ -1059,17 +1097,17 @@ watch(
                   :title="t('plugin.totalDownloads', { count: props.count })"
                 >
                   <VIcon size="14" icon="mdi-download-outline" />
-                  <span>{{ formatDownloadCount(props.count) }}</span>
+                  <span>{{ formatCardCount(props.count) }}</span>
                 </span>
                 <button
                   v-if="hasCardRating"
                   type="button"
-                  class="plugin-card__rating plugin-card__status--rating num"
+                  class="plugin-card__rating-pill plugin-card__rating plugin-card__status--rating num"
                   :aria-label="cardRatingSummary"
                   :title="cardRatingSummary"
                   @click.stop="handleRatingClick"
                 >
-                  <VIcon icon="mdi-star" color="warning" size="13" />
+                  <VIcon icon="mdi-star" color="warning" size="14" />
                   <span>{{ cardRatingValue }}</span>
                 </button>
                 <IconBtn
@@ -1152,21 +1190,23 @@ watch(
 
 .plugin-card {
   overflow: hidden;
+  container-name: plugin-card;
+  container-type: inline-size;
 }
 
 .plugin-card__banner {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-block: 0.875rem 0.75rem;
-  padding-inline: 1rem;
+  gap: 0.375rem;
+  padding-block: 0.75rem 0.6875rem;
+  padding-inline: 0.875rem;
 }
 
 .plugin-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.25rem;
   min-inline-size: 0;
 }
 
@@ -1176,9 +1216,9 @@ watch(
   align-items: center;
   padding: 0;
   color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
-  font-size: 1rem;
+  font-size: 0.90625rem;
   font-weight: 600;
-  gap: 0.375rem;
+  gap: 0.3125rem;
   letter-spacing: 0;
   line-height: 1.35;
   min-inline-size: 0;
@@ -1188,20 +1228,29 @@ watch(
   flex-shrink: 0;
 }
 
-.plugin-card__name {
+.plugin-card__title-text {
   overflow: hidden;
+  flex: 1 1 auto;
   min-inline-size: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.plugin-card__version {
+.plugin-card__version-pill {
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  border: 1px solid var(--mp-border-subtle, rgba(128, 128, 128, 0.14));
+  border-radius: 9999px;
+  background: rgba(var(--v-theme-on-surface), 0.045);
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.15;
+  padding-block: 0.1875rem;
+  padding-inline: 0.4375rem;
+  white-space: nowrap;
 }
 
 .plugin-card__status {
@@ -1212,10 +1261,10 @@ watch(
   border-radius: 9999px;
   font-size: 0.6875rem;
   font-weight: 600;
-  gap: 0.25rem;
+  gap: 0.1875rem;
   line-height: 1.15;
   padding-block: 0.1875rem;
-  padding-inline: 0.4375rem;
+  padding-inline: 0.3125rem;
   white-space: nowrap;
 }
 
@@ -1223,13 +1272,13 @@ watch(
 .plugin-card__status--restart {
   border: 1px solid var(--mp-warning-border, rgba(var(--v-theme-warning), 0.38));
   background: var(--mp-warning-soft, rgba(var(--v-theme-warning), 0.14));
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg, rgb(var(--v-theme-warning)));
 }
 
 .plugin-card__status--update {
   border: 1px solid var(--mp-success-border, rgba(var(--v-theme-success), 0.34));
   background: var(--mp-success-soft, rgba(var(--v-theme-success), 0.14));
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg, rgb(var(--v-theme-success)));
 }
 
 button.plugin-card__status {
@@ -1251,7 +1300,7 @@ button.plugin-card__status {
 .plugin-card__body {
   display: flex;
   flex: 1 1 auto;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   min-inline-size: 0;
@@ -1261,14 +1310,19 @@ button.plugin-card__status {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.25rem;
   min-inline-size: 0;
 }
 
 .plugin-card__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
   font-size: 0.8125rem;
-  line-height: 1.48;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.42;
 }
 
 .plugin-card__icon-slot {
@@ -1280,9 +1334,9 @@ button.plugin-card__status {
 .plugin-card__plugin-icon {
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid var(--mp-border-subtle, rgba(128, 128, 128, 0.12));
+  border: none;
   border-radius: var(--app-control-radius, 12px);
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   block-size: 2.75rem;
   inline-size: 2.75rem;
   transition:
@@ -1304,25 +1358,25 @@ button.plugin-card__status {
   flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
-  background: var(--mp-card-dock-bg, var(--mp-muted, rgba(var(--v-theme-on-surface), 0.04)));
-  block-size: 2.625rem;
+  background: var(--mp-card-dock-bg, transparent);
+  block-size: 2.5rem;
   border-block-start: 1px solid var(--mp-card-dock-border, var(--mp-border-subtle, rgba(128, 128, 128, 0.08)));
-  gap: 0.5rem;
+  gap: 0.375rem;
   inline-size: 100%;
-  min-block-size: 2.625rem;
-  padding-inline: 1rem 0.5rem;
+  min-block-size: 2.5rem;
+  padding-inline: 0.875rem 0.5rem;
 }
 
 .plugin-card__creator-bar--sortable,
 .plugin-card[data-native-card-menu-ready] .plugin-card__creator-bar {
-  padding-inline-end: 1rem;
+  padding-inline-end: 0.875rem;
 }
 
 .plugin-card__creator {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   min-inline-size: 0;
 }
 
@@ -1336,9 +1390,9 @@ button.plugin-card__status {
   border: 1px solid var(--mp-border-subtle, rgba(128, 128, 128, 0.12));
   border-radius: 9999px;
   background: rgba(var(--v-theme-on-surface), 0.06);
-  block-size: 1.375rem;
+  block-size: 1.25rem;
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
-  inline-size: 1.375rem;
+  inline-size: 1.25rem;
 }
 
 .plugin-card__author-img {
@@ -1383,7 +1437,7 @@ a.plugin-card__author-name:focus-visible {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.25rem;
 }
 
 .plugin-card__metric {
@@ -1393,16 +1447,16 @@ a.plugin-card__author-name:focus-visible {
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  gap: 0.1875rem;
+  gap: 0.125rem;
   line-height: 1.2;
 }
 
-.plugin-card__rating {
+.plugin-card__rating-pill {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--mp-warning-border, rgba(var(--v-theme-warning), 0.24));
-  border-radius: 9999px;
-  background: var(--mp-warning-soft, rgba(var(--v-theme-warning), 0.1));
+  border: none;
+  border-radius: 999px;
+  background: transparent;
   color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
   cursor: pointer;
   font-size: 0.75rem;
@@ -1410,15 +1464,13 @@ a.plugin-card__author-name:focus-visible {
   font-weight: 600;
   gap: 0.1875rem;
   line-height: 1.2;
-  padding-block: 0.125rem;
-  padding-inline: 0.375rem;
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease;
+  padding-block: 0.1875rem;
+  padding-inline: 0.25rem;
+  transition: background-color 0.16s ease;
 
-  &:hover {
-    border-color: rgba(var(--v-theme-warning), 0.42);
-    background: rgba(var(--v-theme-warning), 0.16);
+  &:hover,
+  &:focus-visible {
+    background: var(--mp-warning-soft, rgba(var(--v-theme-warning), 0.12));
   }
 
   &:focus-visible {
@@ -1428,9 +1480,59 @@ a.plugin-card__author-name:focus-visible {
 }
 
 .plugin-card__menu {
-  block-size: 2rem;
+  --v-btn-height: 1.75rem;
+
+  block-size: 1.75rem !important;
   color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
-  inline-size: 2rem;
+  inline-size: 1.75rem !important;
+  min-inline-size: 1.75rem !important;
+}
+
+@container plugin-card (max-width: 240px) {
+  .plugin-card__status--update {
+    justify-content: center;
+    padding: 0;
+    block-size: 1.375rem;
+    inline-size: 1.375rem;
+
+    .plugin-card__status-label {
+      display: none;
+    }
+  }
+}
+
+@container plugin-card (max-width: 300px) {
+  .plugin-card__author-name {
+    font-size: 0.75rem;
+  }
+
+  .plugin-card__creator {
+    gap: 0.25rem;
+  }
+
+  .plugin-card__metrics {
+    gap: 0.125rem;
+  }
+
+  .plugin-card__rating-pill {
+    gap: 0.125rem;
+    padding-inline: 0.125rem;
+  }
+}
+
+@container plugin-card (max-width: 280px) {
+  .plugin-card__creator-bar {
+    gap: 0.25rem;
+    padding-inline-end: 0.25rem;
+  }
+
+  .plugin-card__menu {
+    --v-btn-height: 1.5rem;
+
+    block-size: 1.5rem !important;
+    inline-size: 1.5rem !important;
+    min-inline-size: 1.5rem !important;
+  }
 }
 
 .plugin-card--runtime-pending {

@@ -64,7 +64,7 @@ function getActionButton(container: Element, index: number) {
 }
 
 function getTestButton(container: Element) {
-  const button = container.querySelector('.pulse-dot')?.closest('button')
+  const button = container.querySelector<HTMLButtonElement>('.site-card-actions__test')
   if (!button) throw new Error('Missing connectivity test button')
   return button
 }
@@ -100,32 +100,41 @@ describe('SiteCard display', () => {
     expect(screen.getByText('1.00 KB')).toBeInTheDocument()
     expect(container.querySelector('.site-card')).toHaveClass('border-success')
     expect(container.querySelectorAll('.ml-auto.flex.shrink-0.items-center.gap-2 > div')).toHaveLength(4)
+    expect(container.querySelectorAll('.site-card__stat-value.num')).toHaveLength(2)
+    expect(container.querySelector('.site-card__main')).not.toHaveClass('site-card__main--with-dock')
+    expect(container.querySelector('.pulse-dot')).toHaveClass('success')
+    expect(container.querySelector('.site-card-actions')).not.toHaveClass('v-sheet')
     expect(
-      [...container.querySelectorAll('.border-t .v-progress-linear')].map(progress =>
+      [...container.querySelectorAll('.site-card__stats .v-progress-linear')].map(progress =>
         progress.getAttribute('aria-valuenow'),
       ),
     ).toEqual(['100', '50'])
   })
 
   it.each([
-    ['failed', createSiteStatistic({ lst_state: 1 }), 'border-error'],
-    ['slow', createSiteStatistic({ lst_state: 0, seconds: 5 }), 'border-warning'],
-    ['unknown without stats', undefined, null],
-    ['unknown without duration', createSiteStatistic({ lst_state: 0, seconds: 0 }), null],
-  ] as const)('projects %s connection state without inventing status', async (_case, stats, borderClass) => {
-    const { container } = await renderCard({}, stats ? { stats } : {})
-    const card = container.querySelector('.site-card')
+    ['failed', createSiteStatistic({ lst_state: 1 }), 'border-error', 'error'],
+    ['slow', createSiteStatistic({ lst_state: 0, seconds: 5 }), 'border-warning', 'warning'],
+    ['unknown without stats', undefined, null, 'secondary'],
+    ['unknown without duration', createSiteStatistic({ lst_state: 0, seconds: 0 }), null, 'secondary'],
+  ] as const)(
+    'projects %s connection state onto the top-right pulse dot without inventing border status',
+    async (_case, stats, borderClass, dotClass) => {
+      const { container } = await renderCard({}, stats ? { stats } : {})
+      const card = container.querySelector('.site-card')
+      const pulseDot = container.querySelector('.pulse-dot')
 
-    if (borderClass) expect(card).toHaveClass(borderClass)
-    else expect(card).not.toHaveClass('border-error', 'border-warning', 'border-success')
-  })
+      if (borderClass) expect(card).toHaveClass(borderClass)
+      else expect(card).not.toHaveClass('border-error', 'border-warning', 'border-success')
+      expect(pulseDot).toHaveClass(dotClass)
+    },
+  )
 
   it('keeps zero transfer data visible with stable minimum progress', async () => {
     await renderCard({ is_active: false }, { data: createSiteUserData({ download: 0, upload: 0 }) })
 
     expect(screen.getAllByText('0.00 B')).toHaveLength(2)
     expect(
-      [...document.querySelectorAll('.border-t .v-progress-linear')].map(progress =>
+      [...document.querySelectorAll('.site-card__stats .v-progress-linear')].map(progress =>
         progress.getAttribute('aria-valuenow'),
       ),
     ).toEqual(['3', '3'])
@@ -161,6 +170,20 @@ describe('SiteCard interactions', () => {
       expect(getTestButton(container)).not.toBeDisabled()
     },
   )
+
+  it('triggers connectivity testing from the top-right pulse dot button without opening the resource dialog', async () => {
+    const requested = vi.fn()
+    const { container, emitted, site } = await renderCard({}, { stats: createSiteStatistic({ lst_state: 1 }) })
+    server.use(testSiteConnectionHandler(site.id, { success: true }, 200, requested))
+
+    const pulseBtn = container.querySelector<HTMLButtonElement>('.site-card-actions__test')
+    expect(pulseBtn?.querySelector('.pulse-dot')).toHaveClass('error')
+    await fireEvent.click(pulseBtn!)
+
+    await waitFor(() => expect(requested).toHaveBeenCalledOnce())
+    expect(emitted('refresh-stats')).toEqual([[site.domain]])
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+  })
 
   it('restores connectivity controls after an HTTP failure', async () => {
     const requested = vi.fn()

@@ -852,7 +852,7 @@ onMounted(async () => {
 
 .theme-horizontal-nav__menu,
 .theme-horizontal-nav__submenu {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border: var(--app-overlay-border);
 }
 
 .theme-horizontal-nav__submenu-activator {

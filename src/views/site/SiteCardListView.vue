@@ -132,6 +132,15 @@ const currentFilter = computed(() => {
   return filterOptions.value.find(option => option.value === filterOption.value)
 })
 
+// 仅在存在启用且连接失败的站点时暴露顶部快速筛选胶囊，正常时保持静默。
+const failedSiteCount = computed(
+  () => siteList.value.filter(site => site.is_active && getConnectionStatus(site.domain) === 'failed').length,
+)
+
+function toggleFailedFilter() {
+  selectFilter(filterOption.value === 'failed' ? 'all' : 'failed')
+}
+
 // 获取站点列表数据
 async function fetchData(context: KeepAliveRefreshContext = {}) {
   const showLoading = !context.silent || !isRefreshed.value
@@ -442,7 +451,18 @@ useNativePageHeader({
     <div class="d-flex justify-space-between align-center mb-3" data-native-page-heading>
       <VPageContentTitle :title="t('navItems.siteManager')" class="my-0" style="margin-block: 0" />
       <!-- 右侧按钮组：保留筛选和排序，其他页面动作移到 FAB -->
-      <div class="d-flex align-center gap-1">
+      <div class="d-flex align-center gap-1.5">
+        <button
+          v-if="!nativeChromeActive && failedSiteCount > 0"
+          type="button"
+          class="site-anomaly-filter-chip num"
+          :class="{ 'site-anomaly-filter-chip--active': filterOption === 'failed' }"
+          :aria-pressed="filterOption === 'failed'"
+          @click="toggleFailedFilter"
+        >
+          <span class="site-anomaly-filter-chip__dot" />
+          <span>{{ t('site.connectionFailed') }} {{ failedSiteCount }}</span>
+        </button>
         <!-- 筛选按钮 -->
         <VMenu
           v-model="filterMenu"
@@ -592,3 +612,46 @@ useNativePageHeader({
     </div>
   </Teleport>
 </template>
+
+<style lang="scss" scoped>
+.site-anomaly-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--mp-destructive-border, rgba(220, 38, 38, 0.28));
+  border-radius: 999px;
+  background: var(--mp-destructive-soft, rgba(220, 38, 38, 0.14));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 0.375rem;
+  line-height: 1;
+  padding-block: 0.375rem;
+  padding-inline: 0.625rem;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+
+  &:hover {
+    border-color: rgba(var(--v-theme-error), 0.48);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mp-ring);
+    outline-offset: 2px;
+  }
+
+  &--active {
+    border-color: rgb(var(--v-theme-error));
+    background: rgb(var(--v-theme-error));
+    color: rgb(var(--v-theme-on-error));
+  }
+}
+
+.site-anomaly-filter-chip__dot {
+  border-radius: 999px;
+  background: currentcolor;
+  block-size: 0.375rem;
+  inline-size: 0.375rem;
+}
+</style>

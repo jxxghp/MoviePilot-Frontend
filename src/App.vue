@@ -1252,21 +1252,35 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
     rgba(var(--glass-material-rgb, 28, 28, 30), 8%);
 }
 
-// 浅色玻璃壁纸叠加晨雾柔白遮罩，保证深石板色正文与半透白卡在鲜艳底图上清晰可读
-html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active,
-html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(var(--glass-wallpaper-brightness, 1)) saturate(0.96);
+// 浅色玻璃保留清晰柔和的剧照壁纸景深，仅用清透日光薄纱提亮死黑暗部，防脏交给卡片自身半透白材质层
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme {
+  background-color: #eef1f7;
 }
 
-html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active {
-  opacity: 0.96;
+html[data-glass-color-scheme='light'] .glass-optical-canvas {
+  opacity: 0;
+}
+
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active,
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous {
+  filter: none;
+  opacity: 0.94;
+}
+
+html[data-glass-color-scheme='light']
+  .background-container.is-glass-theme
+  :is(.background-image.active, .background-image.previous)
+  .background-image__source {
+  filter: saturate(1.06) brightness(1.06) contrast(0.92);
+  opacity: 1;
+  transform: none;
 }
 
 html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
-    linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%);
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.24) 0%, rgba(244, 246, 251, 0.44) 100%),
+    linear-gradient(180deg, rgba(250, 251, 254, 0.28) 0%, rgba(242, 245, 250, 0.48) 100%);
 }
 
 html[data-glass-color-scheme='light'][data-glass-appearance='tinted']
@@ -1276,9 +1290,9 @@ html[data-glass-color-scheme='light'][data-glass-appearance='tinted']
   .background-container.is-glass-theme
   .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.44) 100%),
-    linear-gradient(rgba(248, 249, 252, 0.34) 0%, rgba(242, 244, 249, 0.56) 100%),
-    rgba(var(--glass-material-accent-rgb), 4%);
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.42) 100%),
+    linear-gradient(180deg, rgba(250, 251, 254, 0.26) 0%, rgba(242, 245, 250, 0.46) 100%),
+    rgba(var(--glass-material-accent-rgb), 5%);
 }
 
 html[data-glass-color-scheme='light'][data-glass-appearance='frosted']
@@ -1288,8 +1302,8 @@ html[data-glass-color-scheme='light'][data-glass-appearance='frosted']
   .background-container.is-glass-theme
   .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.28) 0%, rgba(244, 246, 251, 0.52) 100%),
-    linear-gradient(rgba(248, 249, 252, 0.52) 0%, rgba(242, 244, 249, 0.7) 100%);
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.36) 0%, rgba(246, 247, 251, 0.56) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(244, 246, 250, 0.58) 100%);
 }
 
 .app-wrapper--decorative-motion-paused {
