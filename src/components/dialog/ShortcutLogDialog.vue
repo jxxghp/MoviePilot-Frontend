@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 
 const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 
@@ -9,6 +11,17 @@ const { t } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
+
+const globalSettingsStore = useGlobalSettingsStore()
+const userStore = useUserStore()
+
+/** 仅在智能助手入口已启用且当前为系统管理员（read_log 仅管理员可用）时显示诊断按钮。 */
+const canDiagnose = computed(
+  () =>
+    globalSettingsStore.data?.AI_AGENT_ENABLE === true &&
+    globalSettingsStore.data?.AI_AGENT_HIDE_ENTRY !== true &&
+    userStore.superUser === true,
+)
 
 // 输入参数
 const props = defineProps({
@@ -43,6 +56,13 @@ function allLoggingDownloadUrl() {
 /** 复用现有日志地址，网页按钮和原生 Sheet 菜单均触发同一打开行为。 */
 function openLogging(download: boolean) {
   window.open(download ? allLoggingDownloadUrl() : allLoggingUrl(), '_blank', 'noopener')
+}
+
+/** 呼叫智能助手按提示词约束分析主程序日志；关闭日志弹窗，避免遮挡助手面板。 */
+function diagnoseLogging() {
+  if (!canDiagnose.value) return
+  requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile: 'moviepilot.log' }))
+  visible.value = false
 }
 </script>
 
@@ -83,6 +103,19 @@ function openLogging(download: boolean) {
               <VChip color="grey-darken-1" size="small">
                 <VIcon icon="mdi-open-in-new" size="small" start />
                 {{ t('common.openInNewWindow') }}
+              </VChip>
+            </button>
+            <button
+              v-if="canDiagnose"
+              type="button"
+              class="d-inline-flex align-center"
+              data-native-sheet-action="mdi-robot-happy-outline"
+              :aria-label="t('agentAssistant.diagnosticAction')"
+              @click="diagnoseLogging"
+            >
+              <VChip color="primary" size="small">
+                <VIcon icon="mdi-robot-happy-outline" size="small" start />
+                {{ t('agentAssistant.diagnosticAction') }}
               </VChip>
             </button>
           </span>

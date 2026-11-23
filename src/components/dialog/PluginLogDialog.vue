@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Plugin } from '@/api/types'
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 
 const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 
@@ -10,6 +12,17 @@ const { t } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
+
+const globalSettingsStore = useGlobalSettingsStore()
+const userStore = useUserStore()
+
+/** 仅在智能助手入口已启用且当前为系统管理员（read_log 仅管理员可用）时显示诊断按钮。 */
+const canDiagnose = computed(
+  () =>
+    globalSettingsStore.data?.AI_AGENT_ENABLE === true &&
+    globalSettingsStore.data?.AI_AGENT_HIDE_ENTRY !== true &&
+    userStore.superUser === true,
+)
 
 // 输入参数
 const props = defineProps({
@@ -48,6 +61,14 @@ function downloadLogger() {
   const url = `${import.meta.env.VITE_API_BASE_URL}system/logging/download/${props.plugin?.id?.toLowerCase()}`
   window.open(url, '_blank')
 }
+
+/** 呼叫智能助手按提示词约束分析当前插件日志；关闭日志弹窗，避免遮挡助手面板。 */
+function diagnoseLogger() {
+  if (!canDiagnose.value) return
+  const logfile = `plugins/${props.plugin?.id?.toLowerCase()}.log`
+  requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile }))
+  visible.value = false
+}
 </script>
 
 <template>
@@ -77,6 +98,18 @@ function downloadLogger() {
                 {{ t('common.openInNewWindow') }}
               </VChip>
             </a>
+            <button
+              v-if="canDiagnose"
+              type="button"
+              class="d-inline-flex align-center cursor-pointer"
+              :aria-label="t('agentAssistant.diagnosticAction')"
+              @click="diagnoseLogger"
+            >
+              <VChip color="primary" size="small">
+                <VIcon icon="mdi-robot-happy-outline" size="small" start />
+                {{ t('agentAssistant.diagnosticAction') }}
+              </VChip>
+            </button>
           </span>
         </VCardTitle>
       </VCardItem>
