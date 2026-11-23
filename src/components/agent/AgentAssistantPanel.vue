@@ -416,9 +416,12 @@ const filteredSlashCommands = computed(() => {
     return haystack.includes(query)
   })
 })
+// 仅超级管理员支持加载与使用 Web 智能助手斜杠命令补全。
+const canUseSlashCommands = computed(() => Boolean(userStore.superUser))
 // 判断是否展示命令建议浮层。
 const showSlashCommandMenu = computed(
   () =>
+    canUseSlashCommands.value &&
     inputText.value.trimStart().startsWith('/') &&
     !sending.value &&
     !recording.value &&
@@ -1017,7 +1020,11 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
 
 // 加载 Web 智能助手可补全的斜杠命令列表。
 async function loadSlashCommands() {
-  if (!isAccountActive()) return
+  if (!isAccountActive() || !canUseSlashCommands.value) {
+    slashCommands.value = []
+    slashCommandsLoaded.value = false
+    return
+  }
 
   if (slashCommandsLoaded.value || slashCommandsLoading.value) return
 
@@ -1060,7 +1067,7 @@ function selectSlashCommand(command: AgentSlashCommand) {
 // 输入内容变化时同步高度，并按需预加载命令建议。
 function handleInputChange() {
   syncInputHeight()
-  if (inputText.value.trimStart().startsWith('/')) loadSlashCommands()
+  if (canUseSlashCommands.value && inputText.value.trimStart().startsWith('/')) loadSlashCommands()
 }
 
 // 处理历史菜单的无限滚动加载事件。
@@ -3400,7 +3407,18 @@ function disposeAccountSession() {
   sending.value = false
   historyMenuOpen.value = false
   petPickerOpen.value = false
+  slashCommands.value = []
+  slashCommandsLoaded.value = false
+  slashCommandsLoading.value = false
 }
+
+watch(canUseSlashCommands, allowed => {
+  if (!allowed) {
+    slashCommands.value = []
+    slashCommandsLoaded.value = false
+    slashCommandsLoading.value = false
+  }
+})
 
 watch(
   () => [authStore.token, userStore.getUserID],
