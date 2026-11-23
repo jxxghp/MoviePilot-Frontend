@@ -119,7 +119,7 @@ describe('dashboard recent imports', () => {
 
     expect(await screen.findByRole('img', { name: '远端海报' })).toHaveAttribute(
       'src',
-      `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(remotePoster)}`,
+      `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(remotePoster)}&maxWidth=185&quality=80`,
     )
     expect(screen.getByRole('img', { name: '默认海报' })).toHaveAttribute('src', noImage)
   })

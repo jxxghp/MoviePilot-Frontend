@@ -11,6 +11,18 @@ vi.mock('@/views/system/LoggingView.vue', () => ({
   default: { name: 'LoggingView', template: '<div />' },
 }))
 
+const adminAssistantState = {
+  globalSettings: {
+    data: {
+      AI_AGENT_ENABLE: true,
+      AI_AGENT_HIDE_ENTRY: false,
+    },
+  },
+  user: {
+    superUser: true,
+  },
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
   document.documentElement.removeAttribute('data-native-sheet')
@@ -22,6 +34,7 @@ describe('ShortcutLogDialog', () => {
     const prompts: string[] = []
     const stopDiagnostics = onAgentAssistantDiagnostic(({ prompt }) => prompts.push(prompt))
     const view = await renderWithProviders(ShortcutLogDialog, {
+      initialState: adminAssistantState,
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
     const adapter = new NativeSheetAdapter(document)
@@ -56,6 +69,31 @@ describe('ShortcutLogDialog', () => {
     await user.click(await screen.findByRole('button', { name: '下载' }))
     await user.click(screen.getByRole('button', { name: '在新窗口中打开' }))
     expect(open).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('button', { name: 'AI 诊断' })).not.toBeInTheDocument()
     expect(document.querySelector('[data-native-sheet-current]')).toBeNull()
+  })
+
+  it.each([
+    {
+      label: 'assistant entry is hidden',
+      initialState: {
+        globalSettings: { data: { AI_AGENT_ENABLE: true, AI_AGENT_HIDE_ENTRY: true } },
+        user: { superUser: true },
+      },
+    },
+    {
+      label: 'user is not a superuser',
+      initialState: {
+        globalSettings: { data: { AI_AGENT_ENABLE: true, AI_AGENT_HIDE_ENTRY: false } },
+        user: { superUser: false },
+      },
+    },
+  ])('hides the AI diagnosis action when $label', async ({ initialState }) => {
+    await renderWithProviders(ShortcutLogDialog, {
+      initialState,
+      global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
+    })
+    expect(await screen.findByRole('button', { name: '下载' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'AI 诊断' })).not.toBeInTheDocument()
   })
 })

@@ -1,20 +1,18 @@
 import api from '@/api'
 import { getMediaSubscribedSeasons } from '@/api/mediaStatus'
-import type { MediaDataSource, MediaInfo } from '@/api/types'
+import type { MediaInfo } from '@/api/types'
+import type { NativeSubscribe, NativeSubscribeMediaInfo, NativeSubscribeResult } from '@/sdk/plugin'
+export type { NativeSubscribe, NativeSubscribeMediaInfo, NativeSubscribeResult } from '@/sdk/plugin'
 import { type SeasonSubscribeModes, useMediaSubscribeFactory } from '@/composables/useMediaSubscribe'
 import { useUserStore } from '@/stores'
-import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
-import { computed, ref } from 'vue'
+import { buildUserPermissionContext, hasPermission, hasItemPermission } from '@/utils/permission'
+import { computed, onScopeDispose, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { isMediaDataSource } from '@/utils/mediaId'
 
 type AuxiliaryMediaIdKey =
   'tmdb_id' | 'imdb_id' | 'tvdb_id' | 'douban_id' | 'bangumi_id' | 'anilist_id' | 'anidb_id' | 'collection_id'
-
-export type NativeSubscribeMediaInfo = Omit<Partial<MediaInfo>, AuxiliaryMediaIdKey> & {
-  media_source?: MediaDataSource
-}
 
 // 插件输入只接受统一主身份；各来源辅助 ID 仍可存在于后端返回的 MediaInfo 中用于展示。
 const auxiliaryMediaIdKeys = new Set<AuxiliaryMediaIdKey>([
@@ -28,16 +26,6 @@ const auxiliaryMediaIdKeys = new Set<AuxiliaryMediaIdKey>([
   'collection_id',
 ])
 
-export type NativeSubscribeResult =
-  | { success: true }
-  | {
-      success: false
-      code: 'INVALID_MEDIA' | 'PERMISSION_DENIED'
-      message: string
-    }
-
-export type NativeSubscribe = (media: NativeSubscribeMediaInfo) => Promise<NativeSubscribeResult>
-
 type MediaNormalizationResult =
   | { success: true; media: MediaInfo }
   | {
@@ -50,6 +38,7 @@ function normalizeMediaType(value: unknown) {
   if (typeof value !== 'string') return undefined
 
   const normalized = value.trim().toLowerCase()
+  if (normalized === '音乐' || normalized === 'music') return '音乐'
   if (normalized === '电影' || normalized === 'movie') return '电影'
   if (normalized === '电视剧' || normalized === 'tv' || normalized === 'television') return '电视剧'
   return undefined
@@ -71,7 +60,8 @@ export function normalizeNativeSubscribeMedia(input: unknown): MediaNormalizatio
 
   const raw = input as Record<string, unknown>
   const type = normalizeMediaType(raw.type)
-  if (!type) return { success: false, reason: 'unsupportedType' }
+  if (!type || (type === '音乐' && raw.music_type !== 'album' && raw.music_type !== 'recording'))
+    return { success: false, reason: 'unsupportedType' }
 
   const title = typeof raw.title === 'string' ? raw.title.trim() : ''
   if (!title) return { success: false, reason: 'missingTitle' }
@@ -95,7 +85,11 @@ export function normalizeNativeSubscribeMedia(input: unknown): MediaNormalizatio
 }
 
 /** 为插件联邦组件创建主程序原生订阅入口。 */
-export function usePluginNativeSubscribe(): NativeSubscribe {
+export function usePluginNativeSubscribe(capture?: () => () => void, musicOnly = false): NativeSubscribe {
+  let disposed = false
+  onScopeDispose(() => {
+    disposed = true
+  })
   const { t } = useI18n()
   const $toast = useToast()
   const userStore = useUserStore()
@@ -104,14 +98,21 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
   const createSubscribeActions = useMediaSubscribeFactory()
 
   /** 每次调用拥有独立媒体、加载状态和弹窗回调，异步操作不会切换到另一次调用的媒体。 */
-  function createInteraction(currentMedia: MediaInfo) {
+  function createInteraction(currentMedia: MediaInfo, check: () => void) {
     const isSubscribed = ref(false)
     const isExists = ref(false)
     const subscribedSeasons = ref<number[]>([])
     const subscribedSeasonModes = ref<SeasonSubscribeModes>({})
     const subscribeActions = createSubscribeActions({
       media: () => currentMedia,
-      canSubscribe: () => canSubscribe.value,
+      canSubscribe: () => {
+        try {
+          check()
+          return canSubscribe.value
+        } catch {
+          return false
+        }
+      },
       isSubscribed,
       isExists: () => isExists.value,
       subscribedSeasons,
@@ -161,6 +162,7 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
       async start() {
         if (currentMedia.type === '电视剧') await loadTvState(currentMedia)
         else await loadMovieState(currentMedia)
+        check()
         await subscribeActions.handleSubscribe()
       },
     }
@@ -175,15 +177,44 @@ export function usePluginNativeSubscribe(): NativeSubscribe {
   /** 校验插件媒体信息并启动电影或电视剧的主程序原生订阅交互。 */
   async function nativeSubscribe(input: NativeSubscribeMediaInfo): Promise<NativeSubscribeResult> {
     const normalized = normalizeNativeSubscribeMedia(input)
-    if (!normalized.success) {
-      return rejectNativeSubscribe('INVALID_MEDIA', t(`subscribe.native.${normalized.reason}`))
+    if (!normalized.success || (musicOnly && normalized.media.type !== '音乐')) {
+      return rejectNativeSubscribe(
+        'INVALID_MEDIA',
+        t(`subscribe.native.${normalized.success ? 'unsupportedType' : normalized.reason}`),
+      )
     }
     if (!canSubscribe.value) {
       return rejectNativeSubscribe('PERMISSION_DENIED', t('subscribe.native.permissionDenied'))
     }
 
-    await createInteraction(normalized.media).start()
-    return { success: true }
+    try {
+      const username = userStore.userName
+      const userId = userStore.userID
+      const externalCheck = capture?.()
+      const check = () => {
+        if (disposed || userStore.userName !== username || userStore.userID !== userId)
+          throw Object.assign(new Error('HOST_DISPOSED'), { code: 'HOST_DISPOSED' })
+        externalCheck?.()
+        const feature =
+          normalized.media.type === '音乐'
+            ? 'subscribe.music'
+            : normalized.media.type === '电影'
+              ? 'subscribe.movie'
+              : 'subscribe.tv'
+        if (!canSubscribe.value || !hasItemPermission({ permission: 'subscribe', feature }, userPermissions.value))
+          throw Object.assign(new Error('PERMISSION_DENIED'), { code: 'PERMISSION_DENIED' })
+      }
+      check()
+      await createInteraction(normalized.media, check).start()
+      return { success: true }
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      return {
+        success: false,
+        code: code === 'HOST_DISPOSED' || code === 'PERMISSION_DENIED' ? code : 'REQUEST_FAILED',
+        message: t('subscribe.requestFailed'),
+      }
+    }
   }
 
   return nativeSubscribe

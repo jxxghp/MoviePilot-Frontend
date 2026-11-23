@@ -3,7 +3,7 @@ import { getLogoUrl } from '@/utils/imageUtils'
 import type { Plugin } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { useWindowSize } from '@vueuse/core'
+import { useVisualViewportHeight } from '@/composables/useVisualViewportHeight'
 
 const props = defineProps({
   keyword: {
@@ -30,7 +30,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const display = useDisplay()
 // 随软键盘和浏览器工具栏变化收窄弹窗高度，列表只使用当前可见区域。
-const { height: viewportHeight } = useWindowSize({ type: 'visual' })
+const { height: viewportHeight } = useVisualViewportHeight()
 const pluginIconLoaded = ref<Record<string, boolean>>({})
 
 const dialogVisible = computed({

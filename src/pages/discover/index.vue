@@ -269,6 +269,7 @@ registerHeaderTab({
 })
 
 useDynamicButton({
+  title: computed(() => t('discover.customizeTabs')),
   icon: 'mdi-tune',
   onClick: openTabSettingsDialog,
   permission: 'discovery',

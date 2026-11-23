@@ -72,7 +72,7 @@ onUnmounted(() => {
 
   &:hover {
     background-color: rgba(var(--v-theme-background), 0.95);
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
     transform: translateY(-4px);
   }
 

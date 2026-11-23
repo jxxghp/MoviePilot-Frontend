@@ -4,7 +4,7 @@ import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'wor
 import { ExpirationPlugin } from 'workbox-expiration'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import * as navigationPreload from 'workbox-navigation-preload'
-import { corsSafeCachePlugin, shouldCacheStaticResource } from '@/utils/serviceWorkerCache'
+import { corsSafeCachePlugin, shouldCacheStaticResource, usesHttpResourceCache } from '@/utils/serviceWorkerCache'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
@@ -64,6 +64,9 @@ const options = {
 const UNREAD_COUNT_KEY = 'mp_unread_count'
 
 // --- 缓存策略配置 ---
+
+// 插件文件和图片响应自带缓存校验器；保留浏览器的私有 HTTP 缓存，不写入 URL 共享的 Cache Storage。
+registerRoute(({ url }) => usesHttpResourceCache(url), new NetworkOnly())
 
 // 业务 API 可能携带会话身份或资源 Cookie，不按 URL 共享离线数据。
 // 放在图片、脚本等资源路由之前，防止私有 API 文件被其他缓存策略截获。

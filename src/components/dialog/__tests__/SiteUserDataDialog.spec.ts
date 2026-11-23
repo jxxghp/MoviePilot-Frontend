@@ -477,6 +477,7 @@ describe('SiteUserDataDialog refresh and recovery', () => {
     await flushPromises()
 
     expect(screen.getByText(/刷新站点数据失败/)).toBeInTheDocument()
+    expect(screen.getByText('站点不支持刷新')).toBeInTheDocument()
     expect(refreshRequested).toHaveBeenCalledOnce()
 
     server.use(refreshSiteUserDataHandler(site.id, { data: {}, success: true }, 200, refreshRequested))
@@ -484,6 +485,7 @@ describe('SiteUserDataDialog refresh and recovery', () => {
 
     await waitFor(() => expect(refreshRequested).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByText(/刷新站点数据失败/)).not.toBeInTheDocument())
+    expect(screen.queryByText('站点不支持刷新')).not.toBeInTheDocument()
   })
 
   it.each([
@@ -502,6 +504,7 @@ describe('SiteUserDataDialog refresh and recovery', () => {
       expect(document.querySelector('.v-progress-linear[aria-label="加载中"]')).not.toBeInTheDocument(),
     )
     expect(await screen.findByText(/刷新站点数据失败/)).toBeInTheDocument()
+    expect(screen.getByText(response.message)).toBeInTheDocument()
     expect(getRetryButton()).toBeInTheDocument()
 
     server.use(refreshSiteUserDataHandler(site.id, { data: {}, success: true }, 200, refreshRequested))
@@ -509,6 +512,32 @@ describe('SiteUserDataDialog refresh and recovery', () => {
 
     await waitFor(() => expect(refreshRequested).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByText(/刷新站点数据失败/)).not.toBeInTheDocument())
+    expect(screen.queryByText(response.message)).not.toBeInTheDocument()
+  })
+
+  it('renders a backend failure as text while keeping existing statistics', async () => {
+    const message = '令牌权限不足，请重新授权。<img src=x onerror=alert(1)>'
+    const { site } = await renderDialog({ data: [createSiteUserData()], success: true })
+    await screen.findByText('Elite')
+    server.use(refreshSiteUserDataHandler(site.id, { data: {}, success: false, message }))
+
+    await fireEvent.click(getRefreshButton())
+
+    const detail = await screen.findByText(message)
+    expect(detail).toBeInTheDocument()
+    expect(screen.getByText('Elite')).toBeInTheDocument()
+    const alert = detail.closest('[role="alert"]')
+    expect(alert).not.toBeNull()
+    expect(alert?.querySelector('img')).not.toBeInTheDocument()
+  })
+
+  it.each([200, 500])('shows a non-empty backend load failure reason with HTTP %s', async status => {
+    const message = '站点资料接口拒绝访问，请检查 API Key 权限'
+    await renderDialog({ data: [], success: false, message }, status)
+
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(screen.getByText(/加载站点数据失败/)).toBeInTheDocument()
+    expect(getRetryButton()).toBeInTheDocument()
   })
 
   it('distinguishes initial HTTP failure from empty data and retries the same site', async () => {

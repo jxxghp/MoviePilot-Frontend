@@ -9,6 +9,7 @@ import { getApiBusinessErrorMessage } from '@/api/client'
 import { resetSubscription, searchSubscription } from '@/api/subscription'
 import type { Subscribe } from '@/api/types'
 import router from '@/router'
+import { useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
@@ -19,10 +20,15 @@ import { buildMusicDetailRoute, formatMusicAudioSpecs, formatMusicBitrate } from
 import SubscribeExecutionDialog from '@/components/dialog/SubscribeExecutionDialog.vue'
 import SubscribeSourceMark from '@/components/misc/SubscribeSourceMark.vue'
 import type { SubscribeSource } from '@/utils/subscribeSource'
+import {
+  formatSubscriptionResumeTime,
+  subscriptionExecutionLabel,
+  subscriptionExecutionResumeAt,
+  type SubscriptionExecutionLabel,
+} from '@/utils/subscriptionExecution'
 
 const TERMINAL_EXECUTION_VISIBLE_MS: Record<string, number> = {
   completed: 5_000,
-  skipped: 10_000,
   cancelled: 10_000,
   failed: 60_000,
 }
@@ -37,7 +43,7 @@ const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/Subscr
 const display = useDisplay()
 
 // 国际化
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // 输入参数
 const props = defineProps({
@@ -104,7 +110,11 @@ function clearExecutionStatusTimer() {
 // 活动状态持续展示；各种结束状态按重要程度短暂显示后恢复卡片原始信息。
 function syncVisibleExecutionStatus(execution: Subscribe['execution_status']) {
   clearExecutionStatusTimer()
-  if (execution?.source && BACKGROUND_EXECUTION_SOURCES.has(execution.source)) {
+  // 后台自动检查和被跳过的任务没有需要用户关注的信息，保留卡片原始信息。
+  if (
+    (execution?.source && BACKGROUND_EXECUTION_SOURCES.has(execution.source)) ||
+    (execution && subscriptionExecutionLabel(execution, Date.now()) === null)
+  ) {
     visibleExecutionStatus.value = null
     return
   }
@@ -132,33 +142,33 @@ function syncVisibleExecutionStatus(execution: Subscribe['execution_status']) {
   }, remaining)
 }
 
-// 将后端稳定业务状态映射为紧凑、可本地化的卡片展示。
+// 站点长等待的继续时间随时间推移失效，定期刷新让卡片回到「搜索中」。
+const now = useNow({ interval: 15_000 })
+
+const EXECUTION_APPEARANCE: Record<SubscriptionExecutionLabel, { color: string; icon: string }> = {
+  queued: { color: 'info', icon: 'mdi-clock-outline' },
+  searching: { color: 'primary', icon: 'mdi-magnify-scan' },
+  waiting: { color: 'info', icon: 'mdi-timer-sand' },
+  submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
+  submitted: { color: 'success', icon: 'mdi-check-circle-outline' },
+  noResult: { color: 'secondary', icon: 'mdi-magnify-close' },
+  failed: { color: 'error', icon: 'mdi-alert-outline' },
+  cancelling: { color: 'warning', icon: 'mdi-cancel' },
+  cancelled: { color: 'secondary', icon: 'mdi-cancel' },
+}
+
+// 将后端执行状态归并为紧凑、可本地化的卡片展示词。
 const executionStateDisplay = computed(() => {
   const execution = visibleExecutionStatus.value
   if (!execution) return null
-  const displays: Record<string, { color: string; icon: string }> = {
-    queued: { color: 'info', icon: 'mdi-clock-outline' },
-    scheduled: { color: 'info', icon: 'mdi-calendar-clock-outline' },
-    running: { color: 'info', icon: 'mdi-progress-clock' },
-    matching: { color: 'info', icon: 'mdi-filter-search-outline' },
-    searching: { color: 'primary', icon: 'mdi-magnify-scan' },
-    waiting_subscription: { color: 'warning', icon: 'mdi-timer-sync-outline' },
-    waiting_site_budget: { color: 'info', icon: 'mdi-timer-sand' },
-    preparing: { color: 'primary', icon: 'mdi-package-variant-closed' },
-    submitting: { color: 'primary', icon: 'mdi-download-network-outline' },
-    skipped: { color: 'secondary', icon: 'mdi-skip-next-circle-outline' },
-    failed: { color: 'error', icon: 'mdi-alert-outline' },
-    cancelling: { color: 'warning', icon: 'mdi-cancel' },
-    cancelled: { color: 'secondary', icon: 'mdi-cancel' },
-    completed: { color: 'success', icon: 'mdi-check-circle-outline' },
-  }
-  const displayState = TERMINAL_EXECUTION_VISIBLE_MS[execution.state]
-    ? execution.state
-    : execution.phase || execution.state
-  const display = displays[displayState] || displays[execution.state] || displays.running
+  const label = subscriptionExecutionLabel(execution, now.value.getTime())
+  if (!label) return null
+  const resumeAt = subscriptionExecutionResumeAt(execution, now.value.getTime())
   return {
-    ...display,
-    label: t(`subscribe.execution.state.${displayState}`),
+    ...EXECUTION_APPEARANCE[label],
+    label: t(`subscribe.execution.label.${label}`, {
+      time: resumeAt === null ? '' : formatSubscriptionResumeTime(resumeAt, locale.value),
+    }),
   }
 })
 
@@ -173,7 +183,7 @@ function openExecutionDetails(event: Event) {
 }
 
 // 判断后端数字/布尔开关是否启用
-function isEnabledFlag(value: any) {
+function isEnabledFlag(value: unknown) {
   return value === true || value === 1 || value === '1'
 }
 
@@ -314,9 +324,32 @@ const musicSubscribeMeta = computed(() => {
   }
 })
 
+// 电影或无总集数订阅在手机底座展示紧凑状态词，避免只剩孤立图标造成视觉失衡。
+const mobileIdleStateLabel = computed(() => {
+  if (subscribeState.value === 'S') return t('subscribe.cardStatePaused')
+  if (subscribeState.value === 'P') return t('subscribe.cardStatePending')
+  if (hasBestVersion.value) return t('subscribe.bestVersion')
+  return t('subscribe.subscribing')
+})
+
 const compactStateText = computed(
-  () => executionStateDisplay.value?.label || subscribeProgressText.value || musicSubscribeMeta.value?.text || '',
+  () =>
+    executionStateDisplay.value?.label ||
+    subscribeProgressText.value ||
+    musicSubscribeMeta.value?.text ||
+    mobileIdleStateLabel.value,
 )
+
+// 常态分集与曲目计数使用高对比正文色突出数字，执行反馈与纯状态词保留语义强调色。
+const isCompactNumericProgress = computed(() => !executionStateDisplay.value && Boolean(subscribeProgressText.value))
+
+// 手机底座右侧辅助元信息：有进度展示百分比，无进度且非音乐展示年份，平衡原生隐藏三点菜单后的留白。
+const mobileTrailingMetaText = computed(() => {
+  if (executionStateDisplay.value) return ''
+  if (hasSubscribeProgress.value) return `${getPercentage()}%`
+  if (musicSubscribeMeta.value) return ''
+  return props.media?.year ? String(props.media.year).trim() : ''
+})
 
 // 订阅卡片 hover 文案：
 // - 普通订阅：「已下载 X · 共 Y 集」
@@ -617,7 +650,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 // 监听插件窗口状态变化
 watch(
   () => props.media?.page_open,
-  (newOpenState, _) => {
+  newOpenState => {
     if (newOpenState) editSubscribeDialog()
   },
   { immediate: true },
@@ -794,7 +827,7 @@ function handleCardClick() {
                           <template #prepend>
                             <VIcon :icon="item.props.prependIcon" />
                           </template>
-                          <VListItemTitle v-text="item.title" />
+                          <VListItemTitle>{{ item.title }}</VListItemTitle>
                         </VListItem>
                       </template>
                     </VList>
@@ -837,9 +870,9 @@ function handleCardClick() {
                 <div class="subscribe-card-mobile-media">
                   <div
                     v-if="showPlaceholder"
-                    class="subscribe-card-placeholder d-flex align-center justify-center relative"
+                    class="subscribe-card-placeholder subscribe-card-placeholder--mobile d-flex align-center justify-center relative"
                   >
-                    <VIcon :icon="placeholderIcon" size="64" color="medium-emphasis" />
+                    <VIcon :icon="placeholderIcon" size="42" class="subscribe-card-placeholder__icon" />
                     <div class="absolute inset-0 outline-none subscribe-card-background"></div>
                   </div>
                   <VImg
@@ -858,7 +891,7 @@ function handleCardClick() {
                   <div class="subscribe-card-mobile-image-scrim subscribe-card-background"></div>
 
                   <div v-if="props.source || lastUpdateText" class="subscribe-card-mobile-image-meta">
-                    <!-- 来源只放头像徽标在左上角，与右上角更新时间对称 -->
+                    <!-- 来源只放头像徽标在左上角，与右上角更新时间胶囊对称 -->
                     <SubscribeSourceMark
                       v-if="props.source"
                       :source="props.source"
@@ -868,7 +901,7 @@ function handleCardClick() {
                       v-if="lastUpdateText"
                       class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__updated"
                     >
-                      <VIcon icon="mdi-download" size="14" />
+                      <VIcon icon="mdi-download" size="11" />
                       <span>{{ lastUpdateText }}</span>
                     </div>
                   </div>
@@ -900,15 +933,25 @@ function handleCardClick() {
                         "
                         @click="openExecutionDetails"
                       >
-                        <VIcon
-                          :icon="compactStateDisplay.icon"
-                          :data-subscribe-state-icon="compactStateDisplay.icon"
-                          size="16"
-                        />
-                        <span v-if="compactStateText" class="subscribe-card-mobile-progress-text">
+                        <span class="subscribe-card-mobile-state-glyph">
+                          <VIcon
+                            :icon="compactStateDisplay.icon"
+                            :data-subscribe-state-icon="compactStateDisplay.icon"
+                            size="13"
+                          />
+                        </span>
+                        <span
+                          v-if="compactStateText"
+                          class="subscribe-card-mobile-progress-text"
+                          :class="{ 'subscribe-card-mobile-progress-text--numeric': isCompactNumericProgress }"
+                        >
                           {{ compactStateText }}
                         </span>
                       </component>
+
+                      <span v-if="mobileTrailingMetaText" class="subscribe-card-mobile-trailing-meta">
+                        {{ mobileTrailingMetaText }}
+                      </span>
 
                       <IconBtn
                         data-native-card-menu-trigger
@@ -918,7 +961,7 @@ function handleCardClick() {
                         :aria-label="t('nav.more')"
                         @click.stop
                       >
-                        <VIcon icon="mdi-dots-horizontal" size="18" />
+                        <VIcon icon="mdi-dots-horizontal" size="17" />
                         <VMenu activator="parent" close-on-content-click>
                           <VList>
                             <template v-for="(item, i) in dropdownItems" :key="i">
@@ -930,7 +973,7 @@ function handleCardClick() {
                                 <template #prepend>
                                   <VIcon :icon="item.props.prependIcon" />
                                 </template>
-                                <VListItemTitle v-text="item.title" />
+                                <VListItemTitle>{{ item.title }}</VListItemTitle>
                               </VListItem>
                             </template>
                           </VList>
@@ -941,10 +984,11 @@ function handleCardClick() {
                     <div v-if="hasSubscribeProgress" class="subscribe-card-mobile-progress">
                       <VProgressLinear
                         :model-value="getPercentage()"
-                        :bg-color="compactStateDisplay.color"
+                        :buffer-value="isBestVersion ? getBufferPercentage() : undefined"
                         :color="compactStateDisplay.color"
-                        bg-opacity="0.18"
-                        height="3"
+                        :buffer-color="isBestVersion ? compactStateDisplay.color : undefined"
+                        :buffer-opacity="isBestVersion ? 0.38 : undefined"
+                        height="4"
                         rounded
                       />
                     </div>
@@ -1087,6 +1131,8 @@ function handleCardClick() {
   </div>
 </template>
 <style lang="scss" scoped>
+/* stylelint-disable no-descending-specificity */
+
 .subscribe-card-hover-area {
   inline-size: 100%;
 }
@@ -1098,6 +1144,11 @@ function handleCardClick() {
   border-radius: var(--app-surface-radius);
 }
 
+/* 原生长按使用卡片矩形定位预览；上浮和缩放会被位置校验当成布局变化而撤销菜单。 */
+.subscribe-card-shell:has([data-native-card-menu-ready]) {
+  transform: none;
+}
+
 .subscribe-card {
   border: var(--app-card-light-border);
 }
@@ -1106,12 +1157,25 @@ function handleCardClick() {
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
+  background-color: var(--subscribe-mobile-media-base, #263244);
   flex-shrink: 0;
   inline-size: 100%;
 }
 
+.subscribe-card-mobile-media::after {
+  position: absolute;
+  z-index: 2;
+  background: var(--subscribe-mobile-divider, rgba(15, 23, 42, 0.06));
+  block-size: 1px;
+  content: '';
+  inset-block-end: 0;
+  inset-inline: 0;
+  pointer-events: none;
+}
+
 .subscribe-card-mobile-media .v-img {
   block-size: 100%;
+  transition: filter 0.22s ease;
 }
 
 .subscribe-card-mobile-image-scrim {
@@ -1127,129 +1191,218 @@ function handleCardClick() {
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.6875rem;
+  font-size: 0.65625rem;
   font-weight: 500;
+  gap: 0.375rem;
   inset-block-start: 0.5rem;
   inset-inline: 0.5rem;
   pointer-events: none;
 }
 
 .subscribe-card-mobile-image-meta__item {
-  display: flex;
+  display: inline-flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.25rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--mp-on-media, #f8fafc);
   line-height: 1.2;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-/* 手机没有悬停，徽标常驻，同样降饱和压暗而不做透明 */
+/* 手机端来源角标嵌入静态暗色光学托环，与右上角时间胶囊呼应，不重复叠加背景模糊 */
 .subscribe-card-mobile-image-meta__source {
-  flex: 0 1 auto;
-  filter: saturate(0.5) brightness(0.85);
+  flex: 0 0 auto;
+  padding: 1.5px;
+  border-radius: 999px;
+  background: rgba(10, 15, 24, 0.48);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
+    0 1px 3px rgba(0, 0, 0, 0.26);
+  filter: saturate(0.92) brightness(0.96);
 }
 
+/* 右上角更新时间采用高遮蔽 iOS 静态胶囊底座与等宽数字，在亮白海报上同样锐利清晰 */
 .subscribe-card-mobile-image-meta__updated {
   flex-shrink: 0;
+  padding: 0.15625rem 0.4375rem;
+  border-radius: 999px;
+  background: rgba(10, 15, 24, 0.56);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.2),
+    0 1px 2.5px rgba(0, 0, 0, 0.24);
+  color: rgba(248, 250, 252, 0.92);
+  font-variant-numeric: tabular-nums;
+  gap: 0.1875rem;
+  letter-spacing: 0.01em;
   margin-inline-start: auto;
-  color: rgba(255, 255, 255, 0.84);
+  text-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.32);
+}
+
+.subscribe-card-mobile-image-meta__updated :deep(.v-icon) {
+  opacity: 0.84;
 }
 
 .subscribe-card-mobile-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 0.25rem 0.625rem 0.375rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  padding: 0.4375rem 0.6875rem 0.53125rem;
+  background-color: var(--subscribe-mobile-dock-bg, rgba(24, 24, 27, 0.018));
+  color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
 }
 
 .subscribe-card-mobile-title {
   position: absolute;
   z-index: 2;
-  color: white;
-  font-size: 1rem;
-  font-weight: 650;
+  padding: 1.25rem 0.6875rem 0.46875rem;
+  color: var(--mp-on-media, #f8fafc);
+  font-size: 0.90625rem;
+  font-weight: 600;
   inset-block-end: 0;
   inset-inline: 0;
-  line-height: 1.3;
-  padding: 1rem 0.75rem 0.625rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  letter-spacing: -0.01em;
+  line-height: 1.28;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.56),
+    0 2px 8px rgba(0, 0, 0, 0.34);
 }
 
 .subscribe-card-mobile-title-text {
   display: -webkit-box;
-  max-block-size: 3.9em;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
+  max-block-size: 2.56em;
 }
 
 .subscribe-card-mobile-season {
-  margin-inline-start: 0.25rem;
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 0.8125rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.3125rem;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.22);
+  color: rgba(248, 250, 252, 0.92);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  margin-inline-start: 0.3125rem;
+  text-shadow: none;
+  vertical-align: 0.0625rem;
   white-space: nowrap;
 }
 
 .subscribe-card-mobile-footer {
   display: flex;
   flex-direction: column;
-  gap: 0.1875rem;
+  gap: 0.3125rem;
   margin-block-start: auto;
 }
 
 .subscribe-card-mobile-meta {
   display: flex;
+  min-block-size: 1.5rem;
   min-inline-size: 0;
-  min-block-size: 1.75rem;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.3125rem;
   justify-content: space-between;
 }
 
 .subscribe-card-mobile-state {
   display: flex;
   min-inline-size: 0;
-  align-items: center;
   flex: 1 1 auto;
-  gap: 0.35rem;
+  align-items: center;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
+  gap: 0.375rem;
+  letter-spacing: -0.005em;
   line-height: 1.25;
   white-space: nowrap;
 }
 
-.subscribe-card-mobile-state span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+button.subscribe-card-mobile-state {
+  padding: 0.0625rem 0.375rem 0.0625rem 0.125rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentcolor 10%, transparent);
+  margin-inline-start: -0.125rem;
+  transition: background-color 0.16s ease;
+}
+
+button.subscribe-card-mobile-state:active {
+  background: color-mix(in srgb, currentcolor 18%, transparent);
+}
+
+.subscribe-card-mobile-state-glyph {
+  display: inline-grid;
+  flex: 0 0 1.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentcolor var(--subscribe-mobile-glyph-fill, 13%), transparent);
+  block-size: 1.25rem;
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, currentcolor var(--subscribe-mobile-glyph-ring, 24%), transparent);
+  inline-size: 1.25rem;
+  place-items: center;
 }
 
 /* 状态与集数共用单行槽位，小屏空间不足时允许省略而不挤压操作按钮。 */
 .subscribe-card-mobile-progress-text {
+  overflow: hidden;
   min-inline-size: 0;
   flex-shrink: 1;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+
+.subscribe-card-mobile-progress-text--numeric {
+  color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
+  font-size: 0.78125rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.subscribe-card-mobile-trailing-meta {
+  flex: 0 0 auto;
+  color: var(--mp-faint, rgba(var(--v-theme-on-surface), 0.48));
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-inline-start: auto;
 }
 
 .subscribe-card-mobile-menu {
-  block-size: 1.75rem;
-  min-block-size: 1.75rem;
-  inline-size: 1.75rem;
-  min-inline-size: 1.75rem;
-  flex: 0 0 1.75rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  flex: 0 0 1.625rem;
+  border-radius: 999px;
+  block-size: 1.625rem;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  inline-size: 1.625rem;
+  margin-inline-end: -0.1875rem;
+  min-block-size: 1.625rem;
+  min-inline-size: 1.625rem;
 }
 
 .subscribe-card-mobile-progress {
   display: flex;
-  block-size: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  block-size: 4px;
   inline-size: 100%;
 }
 
 .subscribe-card-mobile-progress .v-progress-linear {
   flex: 1 1 auto;
+  border-radius: 999px;
+}
+
+.subscribe-card-mobile-progress :deep(.v-progress-linear__background) {
+  background-color: var(--subscribe-mobile-track-bg, rgba(120, 120, 128, 0.16)) !important;
+  opacity: 1 !important;
+}
+
+.subscribe-card-mobile-progress :deep(.v-progress-linear__determinate),
+.subscribe-card-mobile-progress :deep(.v-progress-linear__buffer) {
+  border-radius: 999px;
 }
 
 .subscribe-card-shell--selected::after {
@@ -1257,6 +1410,7 @@ function handleCardClick() {
   z-index: 5;
   border: 2px solid rgb(var(--v-theme-primary));
   border-radius: inherit;
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.16);
   content: '';
   inset: 0;
   pointer-events: none;
@@ -1367,9 +1521,18 @@ function handleCardClick() {
 
 /* 缺失封面时的媒体占位背景（图标 + 底色），对齐音乐媒体卡片 */
 .subscribe-card-placeholder {
+  background: rgba(var(--v-theme-on-surface), 0.08);
   block-size: 100%;
   inline-size: 100%;
-  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* 手机端无图占位使用深石板中性渐变承托压图白字，避免浅色主题下发灰看不清标题 */
+.subscribe-card-placeholder--mobile {
+  background: var(--subscribe-mobile-placeholder-bg, linear-gradient(145deg, #475569 0%, #283548 100%));
+}
+
+.subscribe-card-placeholder__icon {
+  color: rgba(248, 250, 252, 0.32) !important;
 }
 
 /* 桌面版占位与图片同高，避免无图时卡片整体塌陷上浮 */
@@ -1430,45 +1593,129 @@ function handleCardClick() {
 }
 
 @media (width <= 599px) {
+  .subscribe-card-shell {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .subscribe-card-shell:not(
+      :has(
+        [data-native-card-menu-ready],
+        .cursor-move,
+        .subscribe-card-mobile-menu:active,
+        button.subscribe-card-mobile-state:active
+      )
+    ):active {
+    transform: scale(0.978);
+  }
+
   .subscribe-card {
+    --subscribe-mobile-media-base: #334155;
+    --subscribe-mobile-placeholder-bg: linear-gradient(145deg, #475569 0%, #283548 100%);
+    --subscribe-mobile-divider: rgba(15, 23, 42, 0.06);
+    --subscribe-mobile-dock-bg: rgba(15, 23, 42, 0.018);
+    --subscribe-mobile-track-bg: rgba(120, 120, 128, 0.16);
+    --subscribe-mobile-glyph-fill: 13%;
+    --subscribe-mobile-glyph-ring: 22%;
+    --subscribe-mobile-tint-ring-alpha: 0.24;
+    --subscribe-mobile-tint-dock-alpha: 0.045;
+    --app-surface-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.92), 0 1px 2px rgba(15, 23, 42, 0.04),
+      0 8px 20px -6px rgba(15, 23, 42, 0.07);
+    --app-surface-hover-shadow: var(--app-surface-shadow);
+
+    border: 1px solid rgba(15, 23, 42, 0.065);
     min-block-size: 0 !important;
   }
 
-  .subscribe-card-background.subscribe-card-mobile-image-scrim {
-    background-image:
-      linear-gradient(180deg, rgba(8, 12, 18, 0.28) 0%, rgba(8, 12, 18, 0) 44%),
-      linear-gradient(0deg, rgba(8, 12, 18, 0.7) 0%, rgba(8, 12, 18, 0) 72%);
+  :global(html[data-glass-color-scheme='dark']) .subscribe-card {
+    --subscribe-mobile-media-base: #1b2434;
+    --subscribe-mobile-placeholder-bg: linear-gradient(145deg, #273449 0%, #151e2e 100%);
+    --subscribe-mobile-divider: rgba(255, 255, 255, 0.075);
+    --subscribe-mobile-dock-bg: rgba(255, 255, 255, 0.024);
+    --subscribe-mobile-track-bg: rgba(120, 120, 128, 0.28);
+    --subscribe-mobile-glyph-fill: 18%;
+    --subscribe-mobile-glyph-ring: 32%;
+    --subscribe-mobile-tint-ring-alpha: 0.34;
+    --subscribe-mobile-tint-dock-alpha: 0.075;
+    --app-surface-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.11), 0 2px 6px rgba(0, 0, 0, 0.24), 0 12px 24px -8px rgba(0, 0, 0, 0.38);
+    --app-surface-hover-shadow: var(--app-surface-shadow);
+
+    border-color: rgba(255, 255, 255, 0.085);
   }
 
+  :global(html[data-theme='glass']) .subscribe-card {
+    --subscribe-mobile-dock-bg: var(--mp-card-dock-bg);
+
+    border-color: var(--glass-border);
+  }
+
+  /* 多段平滑缓动渐变遮罩：保护顶部角标与底部片名对比度，同时保持画面主体通透 */
+  .subscribe-card-background.subscribe-card-mobile-image-scrim {
+    background-image:
+      linear-gradient(180deg, rgba(8, 12, 20, 0.38) 0%, rgba(8, 12, 20, 0.12) 22%, rgba(8, 12, 20, 0) 42%),
+      linear-gradient(
+        0deg,
+        rgba(8, 12, 20, 0.84) 0%,
+        rgba(8, 12, 20, 0.58) 24%,
+        rgba(8, 12, 20, 0.22) 48%,
+        rgba(8, 12, 20, 0.04) 66%,
+        rgba(8, 12, 20, 0) 78%
+      );
+  }
+
+  /* 暂停态用降饱和暗调滤镜替代半透明淡出，防止浅色模式下透出白底导致压图白字丢失对比度 */
   .subscribe-card-paused {
     opacity: 1;
   }
 
-  .subscribe-card-paused .subscribe-card-mobile-media .v-img {
-    filter: saturate(0.65);
-    opacity: 0.58;
+  .subscribe-card-paused .subscribe-card-mobile-media .v-img,
+  .subscribe-card-paused .subscribe-card-placeholder--mobile {
+    filter: grayscale(0.42) saturate(0.58) brightness(0.84);
+  }
+
+  .subscribe-card-paused .subscribe-card-mobile-body {
+    opacity: 0.78;
+  }
+
+  .subscribe-card-pending-tint .subscribe-card-mobile-body {
+    background-color: color-mix(
+      in srgb,
+      rgb(var(--v-theme-info)) calc(var(--subscribe-mobile-tint-dock-alpha, 0.045) * 100%),
+      var(--subscribe-mobile-dock-bg)
+    );
   }
 
   .subscribe-card-pending-tint::after {
-    box-shadow:
-      inset 0 0 0 1px rgba(var(--v-theme-info), 0.28),
-      inset 0 -4rem 5rem rgba(var(--v-theme-info), 0.08);
+    box-shadow: inset 0 0 0 1px rgba(var(--v-theme-info), var(--subscribe-mobile-tint-ring-alpha, 0.24));
   }
 
   .subscribe-card-best-version-tint {
     position: relative;
   }
 
+  .subscribe-card-best-version-tint .subscribe-card-mobile-body {
+    background-color: color-mix(
+      in srgb,
+      rgb(var(--v-theme-success)) calc(var(--subscribe-mobile-tint-dock-alpha, 0.045) * 100%),
+      var(--subscribe-mobile-dock-bg)
+    );
+  }
+
   .subscribe-card-best-version-tint::after {
     position: absolute;
     z-index: 3;
     border-radius: inherit;
-    box-shadow:
-      inset 0 0 0 1px rgba(var(--v-theme-success), 0.34),
-      inset 0 -4rem 5rem rgba(var(--v-theme-success), 0.12);
+    box-shadow: inset 0 0 0 1px rgba(var(--v-theme-success), var(--subscribe-mobile-tint-ring-alpha, 0.24));
     content: '';
     inset: 0;
     pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subscribe-card-shell {
+    transition: none;
   }
 }
 </style>

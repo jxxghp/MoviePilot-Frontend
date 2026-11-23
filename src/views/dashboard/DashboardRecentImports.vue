@@ -6,6 +6,7 @@ import { formatDateDifference, formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { formatMusicAudioSpecs } from '@/utils/music'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
+import { getProxyImageUrl } from '@/utils/imageUtils'
 
 const { t } = useI18n()
 
@@ -31,7 +32,7 @@ async function loadRecentImports() {
 function getPosterUrl(item: TransferHistory) {
   if (!item.image) return noImage
 
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(item.image)}`
+  return getProxyImageUrl(item.image, { maxWidth: 185, quality: 80 })
 }
 
 /** 组合媒体类型、季集和文件大小作为记录副标题。 */

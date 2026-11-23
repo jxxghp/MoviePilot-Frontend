@@ -1,6 +1,7 @@
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import { nativeCardMenus } from '@/native/card'
+import { NativeLayoutAdapter } from '@/native/layout'
 import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
 import { clearMediaPosterPresentationCache, wasMediaPosterRevealed } from '@/utils/mediaPosterPresentationCache'
 import { fireEvent, waitFor } from '@testing-library/vue'
@@ -242,7 +243,11 @@ function nativeMediaMenu(container: Element) {
   }
 }
 
-afterEach(() => nativeCardMenus.setContext(undefined))
+afterEach(() => {
+  nativeCardMenus.setContext(undefined)
+  new NativeLayoutAdapter(document, window).setActive(false)
+  delete window.MoviePilotNative
+})
 
 describe('MediaCard', () => {
   beforeEach(() => {
@@ -282,6 +287,34 @@ describe('MediaCard', () => {
       path: '/resource',
       query: { media_source: 'themoviedb', media_id: '9591', title: '长按媒体' },
     })
+  })
+
+  it('adds playback to a native long-press menu only for an existing movie', async () => {
+    const adapter = new NativeLayoutAdapter(document, window)
+    adapter.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: vi.fn(),
+    }
+    server.use(mediaExistsHandler({ data: { item: { id: 'library-movie-1', server: 'Emby-客厅' } }, success: true }))
+    const media = createMediaInfo({ media_id: 'movie-1', tmdb_id: 9110, title: '可播放电影', type: '电影' })
+    const { container } = await renderCard(media)
+    getStatusObservers()[0]?.trigger()
+
+    await waitFor(() => expect(nativeMediaMenu(container).menu?.items[0]?.title).toBe('播放'))
+    const { menu } = nativeMediaMenu(container)
+    const playbackOpen = vi.fn()
+    window.addEventListener('moviepilot:playback-open', playbackOpen, { once: true })
+    expect(await nativeCardMenus.menus.select(menu!.presentationId, 'action-play', vi.fn())).toBe(true)
+
+    expect(playbackOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: { itemId: 'library-movie-1', server: 'Emby-客厅', title: '可播放电影' },
+      }),
+    )
+    window.removeEventListener('moviepilot:playback-open', playbackOpen)
+    adapter.setActive(false)
   })
 
   it('uses the original TV season subscription dialog for native and inline subscribe', async () => {
@@ -437,7 +470,7 @@ describe('MediaCard', () => {
 
     await waitFor(() => expect(existsRequest).toHaveBeenCalledOnce())
     await waitFor(() => expect(console.error).toHaveBeenCalled())
-    expect(container.querySelector('.bg-green-500')).toBeNull()
+    expect(container.querySelector('.exist-icon-badge')).toBeNull()
   })
 
   it.each([
@@ -929,7 +962,7 @@ describe('MediaCard', () => {
 
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
     requests[0].load()
-    await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('ring-1'))
+    await waitFor(() => expect(container.querySelector('.media-card')).toHaveClass('media-card--image-loaded'))
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
 
     requests[0].reveal()
@@ -943,7 +976,7 @@ describe('MediaCard', () => {
     )
     await waitFor(() => expect(container.querySelector('.media-card-placeholder')).not.toBeNull())
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
-    expect(getCard(container)).not.toHaveClass('ring-1')
+    expect(getCard(container)).not.toHaveClass('media-card--image-loaded')
     expect(requests.some(request => request.src.includes('no-image'))).toBe(false)
   })
 
@@ -957,7 +990,7 @@ describe('MediaCard', () => {
 
     expect(requests).toHaveLength(0)
     expect(container.querySelector('.media-card-placeholder')).not.toBeNull()
-    expect(getCard(container)).not.toHaveClass('ring-1')
+    expect(getCard(container)).not.toHaveClass('media-card--image-loaded')
     expect(getCard(container)).not.toHaveAttribute('data-glass-optical-mode')
   })
 

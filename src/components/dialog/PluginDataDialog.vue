@@ -1,17 +1,12 @@
 <script setup lang="ts">
+import { providePluginHostSDK } from '@/composables/usePluginHostSDK'
 import { useDisplay } from 'vuetify'
 import type { Plugin, RenderProps } from '@/api/types'
 import PageRender from '@/components/render/PageRender.vue'
 import api, { createPluginInstanceApi } from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
-import { useToast } from 'vue-toastification'
-import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
-import { provideScopedAgentHost } from '@/composables/useAgentHost'
-import { useConfirm } from '@/composables/useConfirm'
-import { openSharedDialog } from '@/composables/useSharedDialog'
-import RemoteComponentError from '@/components/misc/RemoteComponentError.vue'
-import RemoteComponentLoading from '@/components/misc/RemoteComponentLoading.vue'
+import { useRetryableRemoteComponent } from '@/composables/useRetryableRemoteComponent'
 
 // 输入参数
 const props = defineProps({
@@ -33,23 +28,15 @@ const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
 
-// 向联邦插件提供主应用 Toast，确保通知沿用统一主题和路由逻辑。
-const $toast = useToast()
-provide('moviepilot:toast', $toast)
-
-// 向联邦插件提供主应用公共弹窗，内容由 App 的 SharedDialogHost 统一承载。
-provide('moviepilot:dialog', openSharedDialog)
-
-// 确认弹窗单独提供，避免把简单确认与自定义组件弹窗混为一谈。
-const createConfirm = useConfirm()
-provide('moviepilot:confirm', createConfirm)
-
-// 向联邦插件同时提供 prop 与 inject 形式的主程序原生订阅入口。
-const nativeSubscribe = usePluginNativeSubscribe()
-provide('moviepilot:nativeSubscribe', nativeSubscribe)
-
-// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
-provideScopedAgentHost(() => props.plugin?.id)
+// 统一 SDK 与兼容注入共用同一组宿主服务。
+const hostSdk = providePluginHostSDK({
+  surface: 'page',
+  pluginId: () => props.plugin?.id,
+  sourcePluginId: () => props.plugin?.source_plugin_id,
+  api: () => scopedPluginApi.value,
+})
+const nativeSubscribe = hostSdk.subscriptions.create
+const subscriptionManager = hostSdk.subscriptions.manage
 
 // 数据页沿用源插件组件，同时把其动态 API 限定到当前实例。
 const scopedPluginApi = computed(() => createPluginInstanceApi(props.plugin?.id || '', props.plugin?.source_plugin_id))
@@ -90,30 +77,21 @@ function handleVueComponentLayout(layout?: PluginDataLayout | null) {
 }
 
 // Vue 模式：动态加载的组件
-const dynamicComponent = defineAsyncComponent({
-  // 工厂函数
-  loader: async () => {
-    try {
-      if (!props.plugin?.id) {
-        throw new Error('插件ID不存在')
-      }
-
-      // 动态加载远程组件
-      const module = await loadRemoteComponent(props.plugin.id, 'Page')
-      componentLoaded.value = true
-      return module
-    } catch (error) {
-      console.error('加载远程组件失败:', error)
-      componentLoaded.value = false
-      throw error
+const dynamicComponent = useRetryableRemoteComponent(async () => {
+  try {
+    if (!props.plugin?.id) {
+      throw new Error('插件ID不存在')
     }
-  },
-  // 加载中显示的组件
-  loadingComponent: RemoteComponentLoading,
-  // 添加错误处理
-  errorComponent: RemoteComponentError,
-  // 添加超时设置
-  timeout: 20000,
+
+    // 动态加载远程组件
+    const module = await loadRemoteComponent(props.plugin.id, 'Page')
+    componentLoaded.value = true
+    return module
+  } catch (error) {
+    console.error('加载远程组件失败:', error)
+    componentLoaded.value = false
+    throw error
+  }
 })
 
 /** 读取当前插件实例的页面声明，加载状态和错误不替代业务内容。 */
@@ -213,6 +191,8 @@ onMounted(() => {
         <component
           :is="dynamicComponent"
           :api="scopedPluginApi"
+          :host-sdk="hostSdk"
+          :subscription-manager="subscriptionManager"
           :plugin-id="props.plugin?.id"
           :source-plugin-id="props.plugin?.source_plugin_id"
           :native-subscribe="nativeSubscribe"

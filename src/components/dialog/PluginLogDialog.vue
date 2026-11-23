@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Plugin } from '@/api/types'
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
@@ -11,6 +12,17 @@ const { t } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
+
+const globalSettingsStore = useGlobalSettingsStore()
+const userStore = useUserStore()
+
+/** 仅在智能助手入口已启用且当前为系统管理员（read_log 仅管理员可用）时显示诊断按钮。 */
+const canDiagnose = computed(
+  () =>
+    globalSettingsStore.get('AI_AGENT_ENABLE') === true &&
+    globalSettingsStore.get('AI_AGENT_HIDE_ENTRY') !== true &&
+    userStore.superUser === true,
+)
 
 // 输入参数
 const props = defineProps({
@@ -52,6 +64,7 @@ function downloadLogger() {
 
 /** 呼叫智能助手按提示词约束分析当前插件日志；关闭日志弹窗，避免遮挡助手面板。 */
 function diagnoseLogger() {
+  if (!canDiagnose.value) return
   const logfile = `plugins/${props.plugin?.id?.toLowerCase()}.log`
   requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile }))
   visible.value = false
@@ -85,12 +98,18 @@ function diagnoseLogger() {
                 {{ t('common.openInNewWindow') }}
               </VChip>
             </a>
-            <a class="d-inline-flex align-center cursor-pointer" @click="diagnoseLogger">
+            <button
+              v-if="canDiagnose"
+              type="button"
+              class="d-inline-flex align-center cursor-pointer"
+              :aria-label="t('agentAssistant.diagnosticAction')"
+              @click="diagnoseLogger"
+            >
               <VChip color="primary" size="small">
                 <VIcon icon="mdi-robot-happy-outline" size="small" start />
                 {{ t('agentAssistant.diagnosticAction') }}
               </VChip>
-            </a>
+            </button>
           </span>
         </VCardTitle>
       </VCardItem>

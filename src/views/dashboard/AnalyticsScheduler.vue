@@ -112,7 +112,7 @@ async function loadSchedulerList() {
 useDataRefresh(
   'dashboard-scheduler',
   loadSchedulerList,
-  3000, // 3秒间隔，及时发现任务启停；运行中进度由独立轮询每秒刷新
+  10000, // 任务清单每十秒更新，运行中进度继续由独立轮询刷新。
   true, // 立即执行
 )
 </script>

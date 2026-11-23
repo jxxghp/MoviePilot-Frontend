@@ -349,7 +349,7 @@ describe('FileBrowser state and child contracts', () => {
     const clearance = () =>
       (mountBrowser().get('.file-workspace').element as HTMLElement).style.getPropertyValue('--file-list-fab-clearance')
 
-    expect(clearance()).toBe('var(--app-fab-clearance)')
+    expect(clearance()).toBe('var(--mp-bottom-clearance)')
 
     // App 模式下新建按钮位于底部 Dock，文件列表高度已避让，不再额外预留。
     mocks.appMode = true

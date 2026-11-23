@@ -180,6 +180,18 @@ describe('AgentAssistantPanel modal presentation', () => {
     await waitFor(() => expect(panel.style.getPropertyValue('--agent-assistant-content-height')).toBe('700px'))
   })
 
+  it('keeps the conversation height equal to the visual viewport when the page is zoomed', async () => {
+    // 页面缩放非 100% 时 visualViewport.height 已是缩放后的 CSS 像素，不应再乘 scale。
+    const viewport = Object.assign(new EventTarget(), { width: 390, height: 987, scale: 0.37 })
+    vi.stubGlobal('visualViewport', viewport)
+    await renderPanel()
+    const panel = screen.getByRole('dialog', { name: '智能助手' }).querySelector<HTMLElement>('.agent-assistant-panel')!
+    expect(panel.style.getPropertyValue('--agent-assistant-content-height')).toBe('987px')
+    viewport.height = 640
+    viewport.dispatchEvent(new Event('resize'))
+    await waitFor(() => expect(panel.style.getPropertyValue('--agent-assistant-content-height')).toBe('640px'))
+  })
+
   it('keeps the desktop sidebar non-modal and leaves the page focusable', async () => {
     resize(1440)
     await renderPanel()

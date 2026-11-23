@@ -140,7 +140,7 @@ const { stop } = useIntersectionObserver(
 
 <template>
   <div ref="containerRef">
-    <div class="comment-header">
+    <div class="comment-header app-filter-bar app-filter-bar--compact">
       <VTabs :model-value="activeTab" density="compact" @update:model-value="handleTabChange">
         <VTab value="interests">
           {{ $t('media.comments') }}
@@ -272,7 +272,7 @@ const { stop } = useIntersectionObserver(
 .comment-author {
   font-size: 0.875rem;
   font-weight: 600;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .comment-text {

@@ -5,9 +5,12 @@ import { getApiBusinessErrorMessage } from '@/api/client'
 import type { Plugin, PluginInstallOutcome, PluginSourceOptions } from '@/api/types'
 import { getLogoUrl, getProxyImageUrl } from '@/utils/imageUtils'
 import { useGlobalSettingsStore } from '@/stores'
-import { usePluginCardAccent } from '@/composables/usePluginCardAccent'
+import {
+  resolvePluginAuthorAvatar,
+  resolvePluginAuthorUrl,
+  usePluginCardAccent,
+} from '@/composables/usePluginCardAccent'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -47,6 +50,47 @@ const createConfirm = useConfirm()
 
 const { accentStyle, imageRef, resetAccentColor, updateAccentColor } = usePluginCardAccent()
 
+const hasCardRating = computed(() => (props.plugin?.rating_count || 0) > 0)
+const cardRatingValue = computed(() => Number(props.plugin?.average_rating || 0).toFixed(1))
+const cardRatingSummary = computed(() =>
+  t('plugin.ratingSummary', {
+    rating: cardRatingValue.value,
+    count: props.plugin?.rating_count || 0,
+  }),
+)
+
+/** 紧凑格式化卡片下载量，省略整数冗余小数位并为署名留出横向空间。 */
+function formatCardCount(count?: number): string {
+  const value = Number(count || 0)
+  if (!Number.isFinite(value) || value <= 0) return '0'
+  if (value < 1000) return `${Math.round(value)}`
+  if (value < 99950) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  if (value < 999500) return `${Math.round(value / 1000)}k`
+  return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+}
+
+/** 拆分中英文逗号分隔的插件联合署名列表。 */
+function parseAuthorParts(author?: string): string[] {
+  return (author || '')
+    .split(/[,，]/)
+    .map(part => part.trim())
+    .filter(Boolean)
+}
+
+/** 格式化卡片作者展示名，联合署名紧凑显示主作者与协作者人数后缀。 */
+function formatAuthorDisplay(author?: string): string {
+  const parts = parseAuthorParts(author)
+  if (parts.length <= 1) return parts[0] || ''
+  return `${parts[0]} +${parts.length - 1}`
+}
+
+const pluginVersion = computed(() => {
+  const raw = props.plugin?.plugin_version || (props.plugin as (Plugin & { version?: string }) | undefined)?.version
+  return raw ? raw.replace(/^v/i, '') : ''
+})
+const authorDisplay = computed(() => formatAuthorDisplay(props.plugin?.plugin_author))
+const authorFullTitle = computed(() => parseAuthorParts(props.plugin?.plugin_author).join(' · '))
+
 // 获取当前插件的标签
 const pluginLabels = computed(() => {
   if (!props.plugin?.plugin_label) return []
@@ -57,8 +101,10 @@ const pluginLabels = computed(() => {
     .filter(tag => tag.length > 0)
 })
 
-// 图片是否加载失败
+// 图标与作者头像加载状态
 const imageLoadError = ref(false)
+const isAvatarLoaded = ref(false)
+const isAvatarError = ref(false)
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
@@ -98,6 +144,33 @@ const iconPath: Ref<string> = computed(() => {
   return `./plugin_icon/${props.plugin?.plugin_icon}`
 })
 
+// 插件作者头像路径（与已安装插件卡片共用同一联合署名解析规则）
+const authorPath: Ref<string> = computed(() => {
+  const avatarUrl = resolvePluginAuthorAvatar(props.plugin?.author_url, props.plugin?.plugin_author)
+  if (!avatarUrl) return ''
+
+  return getProxyImageUrl(avatarUrl, {
+    proxy: true,
+    useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
+  })
+})
+
+// 归一化作者主页链接
+const authorLinkHref = computed(() => resolvePluginAuthorUrl(props.plugin?.author_url, props.plugin?.plugin_author))
+
+watch(authorPath, () => {
+  isAvatarLoaded.value = false
+  isAvatarError.value = false
+})
+
+function handleAuthorAvatarLoad() {
+  isAvatarLoaded.value = true
+  isAvatarError.value = false
+}
+
+function handleAuthorAvatarError() {
+  isAvatarError.value = true
+}
 // 访问插件页面
 function visitPluginPage() {
   // 将raw.githubusercontent.com转换为项目地址
@@ -261,7 +334,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="h-full">
     <VHover>
       <template #default="hover">
         <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
@@ -278,75 +351,107 @@ onUnmounted(() => {
             :style="accentStyle"
           >
             <div class="plugin-card__banner flex-grow">
-              <VCardText class="px-2 pt-2 pb-0">
-                <VCardTitle
-                  class="plugin-app-card__title text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
-                  :class="{ 'plugin-app-card__title--with-rating': (props.plugin?.rating_count || 0) > 0 }"
-                >
-                  {{ props.plugin?.plugin_name }}
-                  <span class="text-sm mt-1 text-gray-200"> v{{ props.plugin?.plugin_version }} </span>
+              <div class="plugin-card__header">
+                <VCardTitle class="plugin-card__title plugin-app-card__title">
+                  <span class="plugin-card__title-text plugin-card__name" :title="props.plugin?.plugin_name">
+                    {{ props.plugin?.plugin_name }}
+                  </span>
                 </VCardTitle>
-              </VCardText>
-              <div class="relative flex flex-row items-start px-2 justify-between grow">
-                <div class="relative flex-1 min-w-0">
-                  <div
-                    class="text-white text-sm px-2 py-1 text-shadow overflow-hidden ..."
-                    :class="{ 'line-clamp-3': !props.plugin?.plugin_label, 'line-clamp-2': props.plugin?.plugin_label }"
-                  >
+                <span v-if="pluginVersion" class="plugin-card__version-pill num"> v{{ pluginVersion }} </span>
+              </div>
+              <div class="plugin-card__body">
+                <div class="plugin-card__body-main">
+                  <div v-if="pluginLabels.length > 0" class="plugin-card__meta-row">
+                    <div class="plugin-app-card__tags-section">
+                      <span
+                        v-for="(tag, tagIndex) in pluginLabels"
+                        :key="`${tag}-${tagIndex}`"
+                        class="plugin-app-card__tag"
+                      >
+                        {{ tag }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="plugin-card__desc line-clamp-2">
                     {{ props.plugin?.plugin_desc }}
                   </div>
-                  <!-- 插件标签 -->
-                  <div v-if="pluginLabels.length > 0" class="plugin-app-card__tags-section px-2 mb-2">
-                    <VChip
-                      v-for="tag in pluginLabels"
-                      :key="tag"
-                      size="x-small"
-                      variant="tonal"
-                      color="info"
-                      class="plugin-app-card__tag"
-                      tile
-                    >
-                      {{ tag }}
-                    </VChip>
-                  </div>
                 </div>
-                <div class="relative flex-shrink-0 self-center pb-3">
-                  <VAvatar size="48">
+                <div class="plugin-card__icon-slot">
+                  <div class="plugin-card__plugin-icon">
                     <VImg
                       ref="imageRef"
                       :src="iconPath"
-                      aspect-ratio="4/3"
+                      class="w-full h-full"
                       cover
                       @load="imageLoaded"
                       @error="imageFailed"
                     />
-                  </VAvatar>
+                  </div>
                 </div>
               </div>
             </div>
-            <VCardText
-              class="flex flex-col align-self-baseline justify-between px-2 py-2 w-full overflow-hidden max-h-10 min-h-10"
-            >
-              <div class="flex flex-nowrap items-center w-full pe-10">
-                <div class="flex flex-nowrap max-w-40 items-center align-middle">
-                  <VIcon icon="mdi-github" class="me-1" />
-                  <a
-                    class="overflow-hidden text-ellipsis whitespace-nowrap"
-                    :href="props.plugin?.author_url"
-                    target="_blank"
-                    @click.stop
-                  >
-                    {{ props.plugin?.plugin_author }}
-                  </a>
+            <!-- 创作者生态铭牌栏：与我的插件卡片统一对齐作者头像、署名、下载量与星级评分 -->
+            <div class="plugin-card__creator-bar">
+              <div class="plugin-card__creator">
+                <div class="plugin-card__author-avatar">
+                  <VImg
+                    :src="authorPath"
+                    class="plugin-card__author-img"
+                    :class="{ 'is-loaded': isAvatarLoaded && !isAvatarError }"
+                    cover
+                    @load="handleAuthorAvatarLoad"
+                    @error="handleAuthorAvatarError"
+                  />
+                  <VIcon
+                    v-if="!authorPath || !isAvatarLoaded || isAvatarError"
+                    size="13"
+                    icon="mdi-github"
+                    class="plugin-card__author-fallback"
+                  />
                 </div>
-                <div v-if="props.count" class="ms-2 flex-shrink-0 download-count align-middle items-center">
-                  <VIcon size="small" icon="mdi-download" />
-                  <span class="text-sm">{{ formatDownloadCount(props.count) }}</span>
-                </div>
+                <span v-if="!authorLinkHref" class="plugin-card__author-name num" :title="authorFullTitle || undefined">
+                  {{ authorDisplay }}
+                </span>
+                <a
+                  v-else
+                  class="plugin-card__author-name num"
+                  :href="authorLinkHref"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :title="authorFullTitle || undefined"
+                  @click.stop
+                >
+                  {{ authorDisplay }}
+                </a>
               </div>
-              <div class="absolute bottom-0 right-0">
-                <IconBtn data-native-card-menu-trigger @click.stop>
-                  <VIcon size="small" icon="mdi-dots-vertical" />
+              <div class="plugin-card__metrics">
+                <span
+                  v-if="props.count"
+                  class="plugin-card__metric download-count num"
+                  :title="t('plugin.totalDownloads', { count: props.count })"
+                >
+                  <VIcon size="14" icon="mdi-download-outline" />
+                  <span>{{ formatCardCount(props.count) }}</span>
+                </span>
+                <button
+                  v-if="hasCardRating"
+                  type="button"
+                  class="plugin-card__rating-pill plugin-card__rating plugin-app-card__rating plugin-card__status--rating num"
+                  :aria-label="cardRatingSummary"
+                  :title="cardRatingSummary"
+                  @click.stop="showPluginDetail"
+                >
+                  <VIcon icon="mdi-star" color="warning" size="14" />
+                  <span>{{ cardRatingValue }}</span>
+                </button>
+                <IconBtn
+                  data-native-card-menu-trigger
+                  class="plugin-card__menu"
+                  size="small"
+                  :aria-label="t('nav.more')"
+                  @click.stop
+                >
+                  <VIcon size="18" icon="mdi-dots-vertical" />
                   <VMenu activator="parent" close-on-content-click>
                     <VList>
                       <VListItem
@@ -364,25 +469,6 @@ onUnmounted(() => {
                   </VMenu>
                 </IconBtn>
               </div>
-            </VCardText>
-            <div
-              v-if="(props.plugin?.rating_count || 0) > 0"
-              class="plugin-app-card__rating"
-              :aria-label="
-                t('plugin.ratingSummary', {
-                  rating: Number(props.plugin?.average_rating || 0).toFixed(1),
-                  count: props.plugin?.rating_count || 0,
-                })
-              "
-              :title="
-                t('plugin.ratingSummary', {
-                  rating: Number(props.plugin?.average_rating || 0).toFixed(1),
-                  count: props.plugin?.rating_count || 0,
-                })
-              "
-            >
-              <VIcon icon="mdi-star" color="warning" size="16" />
-              <span>{{ Number(props.plugin?.average_rating || 0).toFixed(1) }}</span>
             </div>
           </VCard>
         </div>
@@ -391,47 +477,319 @@ onUnmounted(() => {
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .plugin-app-card-hover-area {
   inline-size: 100%;
+}
+
+.plugin-card {
+  overflow: hidden;
+  container-name: plugin-card;
+  container-type: inline-size;
+}
+
+.plugin-card__banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-block: 0.75rem 0.6875rem;
+  padding-inline: 0.875rem;
+}
+
+.plugin-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.plugin-card__title {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  padding: 0;
+  color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
+  font-size: 0.90625rem;
+  font-weight: 600;
+  gap: 0.3125rem;
+  letter-spacing: 0;
+  line-height: 1.35;
+  min-inline-size: 0;
+}
+
+.plugin-card__title-text {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-card__body {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.plugin-card__body-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-inline-size: 0;
+}
+
+.plugin-card__meta-row {
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+.plugin-card__version-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  border: 1px solid var(--mp-border-subtle, rgba(128, 128, 128, 0.14));
+  border-radius: 9999px;
+  background: rgba(var(--v-theme-on-surface), 0.045);
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1.15;
+  padding-block: 0.1875rem;
+  padding-inline: 0.4375rem;
+  white-space: nowrap;
+}
+
+.plugin-card__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  font-size: 0.8125rem;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.42;
 }
 
 .plugin-app-card__tags-section {
   display: flex;
   overflow: hidden;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
-  gap: 4px;
-  max-inline-size: 100%;
-}
-
-.plugin-app-card__title--with-rating {
-  padding-inline-end: 4rem !important;
-}
-
-.plugin-app-card__tag {
-  flex: 0 0 auto;
-  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.25rem;
   min-inline-size: 0;
 }
 
-.plugin-app-card__rating {
-  position: absolute;
-  z-index: 2;
+.plugin-app-card__tag {
   display: inline-flex;
-  align-items: center;
-  gap: 0.125rem;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  inset-block-start: 0.625rem;
-  inset-inline-end: 0.625rem;
-  line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 65%);
-}
-
-.plugin-app-card__tag :deep(.v-chip__content) {
   overflow: hidden;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid var(--mp-info-border, rgba(var(--v-theme-info), 0.22));
+  border-radius: 6px;
+  background: var(--mp-info-soft, rgba(var(--v-theme-info), 0.1));
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  padding-block: 0.0625rem;
+  padding-inline: 0.3125rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.plugin-card__icon-slot {
+  position: relative;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.plugin-card__plugin-icon {
+  overflow: hidden;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--app-control-radius, 12px);
+  background: transparent;
+  block-size: 2.75rem;
+  inline-size: 2.75rem;
+}
+
+.plugin-card__creator-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--mp-card-dock-bg, transparent);
+  block-size: 2.5rem;
+  border-block-start: 1px solid var(--mp-card-dock-border, var(--mp-border-subtle, rgba(128, 128, 128, 0.08)));
+  gap: 0.375rem;
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  padding-inline: 0.875rem 0.5rem;
+}
+
+.plugin-card[data-native-card-menu-ready] .plugin-card__creator-bar {
+  padding-inline-end: 0.875rem;
+}
+
+.plugin-card__creator {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+.plugin-card__author-avatar {
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mp-border-subtle, rgba(128, 128, 128, 0.12));
+  border-radius: 9999px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  block-size: 1.25rem;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  inline-size: 1.25rem;
+}
+
+.plugin-card__author-img {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+
+  &.is-loaded {
+    opacity: 1;
+  }
+}
+
+.plugin-card__author-fallback {
+  pointer-events: none;
+}
+
+.plugin-card__author-name {
+  overflow: hidden;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  min-inline-size: 0;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  transition: color 0.16s ease;
+  white-space: nowrap;
+}
+
+a.plugin-card__author-name:hover {
+  color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
+}
+
+a.plugin-card__author-name:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--mp-ring, rgba(var(--v-theme-primary), 0.68));
+  outline-offset: 2px;
+}
+
+.plugin-card__metrics {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.plugin-card__metric {
+  display: inline-flex;
+  align-items: center;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  gap: 0.125rem;
+  line-height: 1.2;
+}
+
+.plugin-card__rating-pill {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mp-fg, rgb(var(--v-theme-on-surface)));
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  gap: 0.1875rem;
+  line-height: 1.2;
+  padding-block: 0.1875rem;
+  padding-inline: 0.25rem;
+  transition: background-color 0.16s ease;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--mp-warning-soft, rgba(var(--v-theme-warning), 0.12));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mp-ring, rgba(var(--v-theme-primary), 0.68));
+    outline-offset: 2px;
+  }
+}
+
+.plugin-card__menu {
+  --v-btn-height: 1.75rem;
+
+  block-size: 1.75rem !important;
+  color: var(--mp-muted-fg, rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)));
+  inline-size: 1.75rem !important;
+  min-inline-size: 1.75rem !important;
+}
+
+@container plugin-card (max-width: 315px) {
+  .plugin-card__author-name {
+    font-size: 0.75rem;
+  }
+
+  .plugin-card__creator {
+    gap: 0.25rem;
+  }
+
+  .plugin-card__metrics {
+    gap: 0.125rem;
+  }
+
+  .plugin-card__rating-pill {
+    gap: 0.125rem;
+    padding-inline: 0.125rem;
+  }
+}
+
+@container plugin-card (max-width: 280px) {
+  .plugin-card__creator-bar {
+    gap: 0.25rem;
+    padding-inline-end: 0.25rem;
+  }
+
+  .plugin-card__menu {
+    --v-btn-height: 1.5rem;
+
+    block-size: 1.5rem !important;
+    inline-size: 1.5rem !important;
+    min-inline-size: 1.5rem !important;
+  }
 }
 </style>

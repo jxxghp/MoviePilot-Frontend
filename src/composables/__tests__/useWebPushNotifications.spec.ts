@@ -5,8 +5,18 @@ import { useWebPushNotifications } from '@/composables/useWebPushNotifications'
 import { initializeRequestOptimizer, setNavigatingState } from '@/utils/requestOptimizer'
 import axios from 'axios'
 
-const mocks = vi.hoisted(() => ({ post: vi.fn() }))
-vi.mock('@/api', () => ({ default: { post: mocks.post } }))
+const mocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  isApiBusinessFailure: vi.fn(() => false),
+}))
+vi.mock('@/api', () => ({
+  default: {
+    get: mocks.get,
+    post: mocks.post,
+  },
+  isApiBusinessFailure: mocks.isApiBusinessFailure,
+}))
 
 /** 控制浏览器查询和请求的完成时机，验证会话切换及并发行为。 */
 function deferred<T>() {
@@ -17,11 +27,28 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+/** 构造模拟 PushSubscription，便于验证不同公钥下的复用与自动重建。 */
+function createSubscription(
+  payload: { endpoint: string; keys: { p256dh: string; auth: string } },
+  applicationServerKey?: Uint8Array | null,
+) {
+  return {
+    options:
+      applicationServerKey === undefined
+        ? undefined
+        : {
+            applicationServerKey: applicationServerKey ? applicationServerKey.slice().buffer : null,
+          },
+    unsubscribe: vi.fn().mockResolvedValue(true),
+    toJSON: () => payload,
+  }
+}
+
 describe('useWebPushNotifications', () => {
   let scope: EffectScope
   const session = ref<string | null>(null)
   const payload = { endpoint: 'https://push.invalid/device', keys: { p256dh: 'key', auth: 'auth' } }
-  const subscription = { toJSON: () => payload }
+  let subscription: ReturnType<typeof createSubscription>
   let worker: EventTarget & { getRegistration: ReturnType<typeof vi.fn> }
   let registration: {
     active: object | null
@@ -36,9 +63,9 @@ describe('useWebPushNotifications', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.stubEnv('VITE_PUBLIC_VAPID_KEY', 'AQID')
     vi.stubGlobal('PushManager', class PushManagerStub {})
     vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+    subscription = createSubscription(payload, new Uint8Array([1, 2, 3]))
     registration = {
       active: {},
       pushManager: {
@@ -49,7 +76,9 @@ describe('useWebPushNotifications', () => {
     worker = Object.assign(new EventTarget(), { getRegistration: vi.fn().mockResolvedValue(registration) })
     vi.stubGlobal('navigator', { serviceWorker: worker })
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mocks.get.mockReset().mockResolvedValue({ public_key: 'AQID' })
     mocks.post.mockReset().mockResolvedValue(null)
+    mocks.isApiBusinessFailure.mockReset().mockReturnValue(false)
     scope = effectScope()
   })
 
@@ -62,9 +91,15 @@ describe('useWebPushNotifications', () => {
     vi.useRealTimers()
   })
 
-  it('保留登录态打开页面时复用已有订阅，并在后端重启后定期重新登记', async () => {
+  it('保留登录态打开页面时从后端拉取公钥并复用匹配订阅，定期重新登记', async () => {
     start()
     await flushPromises()
+    expect(mocks.get).toHaveBeenCalledWith('/message/webpush/public-key', {
+      feedback: 'silent',
+      skipNavigationCancellation: true,
+      signal: expect.any(AbortSignal),
+      timeout: 10_000,
+    })
     expect(mocks.post).toHaveBeenCalledWith('/message/webpush/subscribe', payload, {
       feedback: 'silent',
       skipNavigationCancellation: true,
@@ -77,10 +112,30 @@ describe('useWebPushNotifications', () => {
     expect(mocks.post).toHaveBeenCalledTimes(2)
   })
 
+  it('服务端 VAPID 公钥轮换后自动退订旧订阅并按新公钥重建', async () => {
+    const rotatedPayload = { endpoint: 'https://push.invalid/rotated', keys: { p256dh: 'new-key', auth: 'new-auth' } }
+    const oldSubscription = createSubscription(payload, new Uint8Array([1, 2, 3]))
+    const newSubscription = createSubscription(rotatedPayload, new Uint8Array([4, 5, 6]))
+    registration.pushManager.getSubscription.mockResolvedValue(oldSubscription)
+    registration.pushManager.subscribe.mockResolvedValue(newSubscription)
+    mocks.get.mockResolvedValue({ public_key: 'BAUG' })
+
+    start()
+    await flushPromises()
+
+    expect(oldSubscription.unsubscribe).toHaveBeenCalledOnce()
+    expect(registration.pushManager.subscribe).toHaveBeenCalledWith({
+      userVisibleOnly: true,
+      applicationServerKey: new Uint8Array([4, 5, 6]),
+    })
+    expect(mocks.post).toHaveBeenCalledWith('/message/webpush/subscribe', rotatedPayload, expect.any(Object))
+  })
+
   it('未登录或非管理员时不登记，管理员登录后立即登记', async () => {
     start(null)
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
     expect(worker.getRegistration).not.toHaveBeenCalled()
+    expect(mocks.get).not.toHaveBeenCalled()
     session.value = 'admin:token'
     await flushPromises()
     expect(mocks.post).toHaveBeenCalledTimes(1)
@@ -98,7 +153,16 @@ describe('useWebPushNotifications', () => {
     expect(mocks.post).toHaveBeenCalledTimes(1)
   })
 
-  it('用户点击时同步发起订阅，再异步登记到后端', async () => {
+  it('后端未返回有效公钥时跳过订阅与登记', async () => {
+    registration.pushManager.getSubscription.mockResolvedValue(null)
+    mocks.get.mockResolvedValue({ public_key: '' })
+    start()
+    await flushPromises()
+    expect(registration.pushManager.subscribe).not.toHaveBeenCalled()
+    expect(mocks.post).not.toHaveBeenCalled()
+  })
+
+  it('用户点击时使用已预取公钥同步发起订阅，再异步登记到后端', async () => {
     registration.pushManager.getSubscription.mockResolvedValue(null)
     vi.stubGlobal('Notification', { permission: 'default', requestPermission: vi.fn() })
     const lifecycle = start()
@@ -114,6 +178,31 @@ describe('useWebPushNotifications', () => {
       applicationServerKey: new Uint8Array([1, 2, 3]),
     })
     expect(mocks.post).toHaveBeenCalledWith('/message/webpush/subscribe', payload, expect.any(Object))
+  })
+
+  it('点击时遇到旧公钥冲突错误应退订后按最新公钥重建', async () => {
+    const oldSubscription = createSubscription(payload, new Uint8Array([1, 2, 3]))
+    const rotatedPayload = { endpoint: 'https://push.invalid/retry', keys: { p256dh: 'p2', auth: 'a2' } }
+    const newSubscription = createSubscription(rotatedPayload, new Uint8Array([4, 5, 6]))
+    registration.pushManager.getSubscription.mockResolvedValue(oldSubscription)
+    registration.pushManager.subscribe
+      .mockRejectedValueOnce(
+        new DOMException('A subscription with a different applicationServerKey already exists', 'InvalidStateError'),
+      )
+      .mockResolvedValueOnce(newSubscription)
+    mocks.get.mockResolvedValueOnce({ public_key: 'AQID' }).mockResolvedValueOnce({ public_key: 'BAUG' })
+    vi.stubGlobal('Notification', { permission: 'default', requestPermission: vi.fn() })
+
+    const lifecycle = start()
+    await flushPromises()
+
+    await expect(lifecycle.requestPermissionAndSync()).resolves.toBe('granted')
+    expect(oldSubscription.unsubscribe).toHaveBeenCalledOnce()
+    expect(registration.pushManager.subscribe).toHaveBeenLastCalledWith({
+      userVisibleOnly: true,
+      applicationServerKey: new Uint8Array([4, 5, 6]),
+    })
+    expect(mocks.post).toHaveBeenLastCalledWith('/message/webpush/subscribe', rotatedPayload, expect.any(Object))
   })
 
   it('已有通知权限但静默订阅失败时仍可由点击重试', async () => {

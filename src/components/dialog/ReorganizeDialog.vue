@@ -33,7 +33,12 @@ import { isMusicMediaSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { useMediaSources } from '@/composables/useMediaSources'
 import MusicTransferPreview from './music-transfer/Preview.vue'
 import MusicTransferCorrectionDialog from './music-transfer/CorrectionDialog.vue'
-import { useMusicTransferCorrection, type MusicAlbumSelection, type MusicPreviewGroup } from './music-transfer/state'
+import {
+  MusicTransferScopeChangedError,
+  useMusicTransferCorrection,
+  type MusicAlbumSelection,
+  type MusicPreviewGroup,
+} from './music-transfer/state'
 
 // 主整理弹窗继续接收调用方的 v-model，纠正弹窗不共享可见状态。
 defineOptions({ inheritAttrs: false })
@@ -147,7 +152,7 @@ const progressValue = ref(0)
 const transferSubmitting = ref(false)
 
 // 进度SSE连接
-const progressSSE = ref<any>(null)
+const progressSSE = ref<ReturnType<typeof useProgressSSE> | null>(null)
 
 // 预览加载状态
 const previewLoading = ref(false)
@@ -216,6 +221,7 @@ const musicTransferBlocked = computed(() =>
     musicCorrection.busy.value ||
     musicCorrectionGroup.value ||
     previewLoading.value ||
+    getMusicBrainzReleaseIdError(transferForm.musicbrainz_release_id) ||
     (musicCorrection.hasCorrections.value &&
       (!musicCorrection.scopeComplete.value || previewHasFailures(previewData.value))),
   ),
@@ -451,7 +457,7 @@ const previewPageSize = ref(20)
 const storages = ref<StorageOption[]>([])
 
 // 所有剧集组
-const episodeGroups = ref<{ [key: string]: any }[]>([])
+const episodeGroups = ref<{ id: string; name: string; group_count: number; episode_count: number }[]>([])
 
 // 剧集组加载状态
 const episodeGroupLoading = ref(false)
@@ -592,9 +598,12 @@ const transferForm = reactive<TransferForm>({
   media_source: null,
   media_id: null,
   music_type: null,
+  musicbrainz_release_id: null,
   music_release_regions: null,
   music_release_scripts: null,
   music_cue_enable: globalSettings.MUSIC_CUE_ENABLE !== false,
+  music_track_match: 'strict',
+  music_target_path: null,
   transfer_type: null,
   min_filesize: 0,
   scrape: initialTargetPath ? false : null,
@@ -618,6 +627,18 @@ watch(skipSuccessfulRecords, () => {
 
 // 当前是否保留后端自动匹配目的路径的语义。
 const isAutomaticTargetPath = computed(() => !normalizeTargetPath(transferForm.target_path))
+
+// 未显式切换时展示目标目录的刮削设置，保留提交空值以跟随后端自动匹配。
+const effectiveScrape = computed(() => {
+  if (transferForm.scrape !== null) return transferForm.scrape
+  if (isAutomaticTargetPath.value && targetPathMatch.value?.scrape != null) return targetPathMatch.value.scrape
+  return false
+})
+
+/** 用户显式切换刮削开关后，提交本次选择而不再跟随目录默认值。 */
+function setScrape(value: boolean | null) {
+  transferForm.scrape = value
+}
 
 // 自动匹配返回的存储使用用户配置名称展示，未知类型回退到稳定标识。
 const matchedTargetStorageLabel = computed(() => {
@@ -645,6 +666,10 @@ const mediaIdLabel = computed(() => {
   }
   return labels[mediaSource.value] ?? t('dialog.reorganize.mediaId')
 })
+
+const canSelectMusicBrainzRelease = computed(
+  () => transferForm.type_name === '音乐' && transferForm.music_type === 'album' && mediaSource.value === 'musicbrainz',
+)
 
 // 处理媒体搜索结果选择，同步搜索结果中已识别的媒体类型。
 function handleMediaSelected(item: Pick<MediaInfo, 'type' | 'music_type'>) {
@@ -825,9 +850,12 @@ watch(
     }
     transferForm.music_type = isMusicType ? (transferForm.music_type ?? defaultMusicEntity.value) : null
     if (!isMusicType) {
+      transferForm.musicbrainz_release_id = null
       customMusicReleasePreference.value = false
       transferForm.music_release_regions = null
       transferForm.music_release_scripts = null
+      transferForm.music_track_match = 'strict'
+      transferForm.music_target_path = null
     }
   },
 )
@@ -836,11 +864,20 @@ watch(
   () => transferForm.music_type,
   musicType => {
     artistCollectionEntries.value = undefined
+    if (musicType !== 'album') transferForm.musicbrainz_release_id = null
+    if (musicType !== 'album') transferForm.music_track_match = 'strict'
     if (musicType === 'artist_collection') {
       transferForm.media_id = null
       mediaSelectorDialog.value = false
     }
     resetPreviewState()
+  },
+)
+
+watch(
+  () => transferForm.media_id,
+  (mediaId, previousMediaId) => {
+    if (mediaId !== previousMediaId) transferForm.musicbrainz_release_id = null
   },
 )
 
@@ -867,6 +904,7 @@ watch(
   (source, previousSource) => {
     if (source !== previousSource) {
       transferForm.media_id = null
+      transferForm.musicbrainz_release_id = null
       mediaSelectorDialog.value = false
     }
     if (isMusicMediaSource(source ?? undefined) && transferForm.type_name !== '音乐') {
@@ -878,6 +916,30 @@ watch(
 /** 按当前来源校验手动整理使用的原生媒体 ID。 */
 function validateMediaId(value?: string | number | null) {
   return isValidMediaSourceId(value, mediaSource.value) || t('dialog.reorganize.mediaIdInvalid')
+}
+
+/** 校验直接指定的 MusicBrainz 发行 ID，保留 media_id 作为发行组身份。 */
+function getMusicBrainzReleaseIdError(value?: string | number | null) {
+  const releaseId = normalizeOptionalText(value == null ? undefined : String(value))
+  if (!releaseId) return undefined
+  if (!/^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$/.test(releaseId)) {
+    return t('dialog.reorganize.musicReleaseIdInvalid')
+  }
+  if (!normalizeOptionalText(transferForm.media_id)) return t('dialog.reorganize.musicReleaseIdNeedsGroup')
+  return undefined
+}
+
+/** 表单与请求边界共用发行 ID 校验，避免无效 UUID 进入后端整理流程。 */
+function validateMusicBrainzReleaseId(value?: string | number | null) {
+  return getMusicBrainzReleaseIdError(value) || true
+}
+
+/** 拦截缺少所属专辑组或格式无效的发行 ID，提示修正后再请求。 */
+function validateMusicBrainzReleaseSelection() {
+  const error = getMusicBrainzReleaseIdError(transferForm.musicbrainz_release_id)
+  if (!error) return true
+  $toast.error(error)
+  return false
 }
 
 watch(
@@ -986,9 +1048,7 @@ function normalizePath(path?: string) {
 
 // 获取文件名
 function getFileName(path?: string) {
-  const normalizedPath = normalizePath(path).replace(/\/+$/, '')
-  if (!normalizedPath) return '-'
-  return normalizedPath.split('/').pop() || normalizedPath
+  return normalizePath(path).split('/').filter(Boolean).pop() || '-'
 }
 
 // 获取唯一非空值
@@ -1373,6 +1433,18 @@ function createTransferPayload(options: {
     music_type:
       options.musicType ?? (transferForm.music_type === 'artist_collection' ? 'album' : transferForm.music_type),
   }
+  if (transferForm.type_name === '音乐') {
+    payload.music_target_path = normalizeOptionalText(transferForm.music_target_path)
+  } else {
+    delete payload.music_target_path
+    delete payload.music_track_match
+  }
+
+  const selectedMusicBrainzReleaseId = canSelectMusicBrainzRelease.value
+    ? normalizeOptionalText(transferForm.musicbrainz_release_id)?.toLowerCase()
+    : undefined
+  if (selectedMusicBrainzReleaseId) payload.musicbrainz_release_id = selectedMusicBrainzReleaseId
+  else delete payload.musicbrainz_release_id
 
   if (normalizedMediaId) {
     payload.media_source = mediaSource.value
@@ -1510,9 +1582,9 @@ async function handleRecommendEpisodeFormat() {
         ? t('dialog.reorganize.episodeFormatRecommendOverwriteSuccess')
         : t('dialog.reorganize.episodeFormatRecommendSuccess'),
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log(error)
-    $toast.error(error?.message || t('dialog.reorganize.episodeFormatRecommendFailed'))
+    $toast.error(error instanceof Error ? error.message : t('dialog.reorganize.episodeFormatRecommendFailed'))
   } finally {
     episodeFormatRecommendState.loading = false
   }
@@ -1610,6 +1682,7 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
 // 预览整理结果
 async function previewTransfer() {
   if (!props.logids?.length && !normalizedItems.value.length) return
+  if (!validateMusicBrainzReleaseSelection()) return
 
   resetPreviewState()
   const generation = previewGeneration
@@ -1770,7 +1843,10 @@ async function correctMusicAlbum(selection: MusicAlbumSelection) {
     )
     if (accepted) musicCorrectionGroup.value = undefined
   } catch (error) {
-    $toast.error(getApiBusinessErrorMessage(error) || t('dialog.reorganize.musicPreview.correctionFailed'))
+    const correctionMessage = error instanceof MusicTransferScopeChangedError ? error.businessMessage : undefined
+    $toast.error(
+      getApiBusinessErrorMessage(error) || correctionMessage || t('dialog.reorganize.musicPreview.correctionFailed'),
+    )
   }
 }
 
@@ -1790,7 +1866,7 @@ async function transferCorrectedMusic(background: boolean) {
       $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.transferRequestFailed')))
     }
   }
-  if (succeeded && !submissionResults.value.length) emit('done')
+  if (succeeded && !submissionResults.value.length) finishTransfer()
   return true
 }
 
@@ -1905,8 +1981,15 @@ function stopLoadingProgress() {
   }
 }
 
+/** 成功收尾时说明未开启刮削，避免用户把仅整理入库误认为已完成刮削。 */
+function finishTransfer() {
+  if (!effectiveScrape.value) $toast.warning(t('dialog.reorganize.scrapeSkippedHint'))
+  emit('done')
+}
+
 // 整理文件
 async function transfer(background: boolean = false) {
+  if (!validateMusicBrainzReleaseSelection()) return
   if (
     (!props.logids?.length && !normalizedItems.value.length) ||
     transferSubmitting.value ||
@@ -1937,7 +2020,7 @@ async function transfer(background: boolean = false) {
           })
           allSucceeded = (await handleTransfer(entry.item, background, entry.musicType)) && allSucceeded
         }
-        if (allSucceeded && !submissionResults.value.length) emit('done')
+        if (allSucceeded && !submissionResults.value.length) finishTransfer()
       } catch (error: unknown) {
         allSucceeded = false
         $toast.error(getManualTransferErrorMessage(error, t('dialog.reorganize.artistCollectionScanFailed')))
@@ -1975,7 +2058,7 @@ async function transfer(background: boolean = false) {
       allSucceeded = (await handleTransferLogs(props.logids, background)) && allSucceeded
     }
 
-    if (allSucceeded && !submissionResults.value.length) emit('done')
+    if (allSucceeded && !submissionResults.value.length) finishTransfer()
   } finally {
     if (!background) stopLoadingProgress()
     progressDialog.value = false
@@ -2205,6 +2288,19 @@ onUnmounted(() => {
                       @click:append-inner="mediaSelectorDialog = true"
                     />
                   </VCol>
+                  <VCol v-if="canSelectMusicBrainzRelease" cols="12">
+                    <VTextField
+                      v-model="transferForm.musicbrainz_release_id"
+                      :label="t('dialog.reorganize.musicReleaseId')"
+                      :hint="t('dialog.reorganize.musicReleaseIdHint')"
+                      :error-messages="getMusicBrainzReleaseIdError(transferForm.musicbrainz_release_id)"
+                      :rules="[validateMusicBrainzReleaseId]"
+                      autocomplete="off"
+                      clearable
+                      persistent-hint
+                      prepend-inner-icon="mdi-album"
+                    />
+                  </VCol>
                 </VRow>
                 <VAlert
                   v-if="isArtistCollectionMode"
@@ -2216,7 +2312,8 @@ onUnmounted(() => {
                 >
                   {{ t('dialog.reorganize.artistCollectionHint') }}
                 </VAlert>
-                <VRow v-if="!transferForm.type_name || transferForm.type_name === '音乐'">
+                <!-- 自动类型尚未确定媒体分类，不展示音乐专属设置。 -->
+                <VRow v-if="transferForm.type_name === '音乐'">
                   <VCol cols="12">
                     <VSwitch
                       v-model="transferForm.music_cue_enable"
@@ -2224,6 +2321,40 @@ onUnmounted(() => {
                       :hint="t('dialog.reorganize.musicCueEnableHint')"
                       persistent-hint
                       :disabled="transferSubmitting || hasAcceptedSubmission"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-if="transferForm.type_name === '音乐'">
+                  <VCol v-if="transferForm.music_type === 'album'" cols="12">
+                    <VSelect
+                      v-model="transferForm.music_track_match"
+                      :label="t('dialog.reorganize.musicTrackMatch')"
+                      :items="[
+                        { title: t('dialog.reorganize.musicTrackMatchStrict'), value: 'strict' },
+                        { title: t('dialog.reorganize.musicTrackMatchIgnoreDuration'), value: 'ignore_duration' },
+                        { title: t('dialog.reorganize.musicTrackMatchSequential'), value: 'sequential' },
+                      ]"
+                      :hint="t('dialog.reorganize.musicTrackMatchHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-playlist-check"
+                    />
+                    <VAlert
+                      v-if="transferForm.music_track_match === 'sequential'"
+                      type="warning"
+                      variant="tonal"
+                      class="mt-3"
+                    >
+                      {{ t('dialog.reorganize.musicTrackMatchWarning') }}
+                    </VAlert>
+                  </VCol>
+                  <VCol cols="12">
+                    <VTextField
+                      v-model="transferForm.music_target_path"
+                      :label="t('dialog.reorganize.musicTargetPath')"
+                      :hint="t('dialog.reorganize.musicTargetPathHint')"
+                      clearable
+                      persistent-hint
+                      prepend-inner-icon="mdi-folder-edit-outline"
                     />
                   </VCol>
                 </VRow>
@@ -2345,6 +2476,7 @@ onUnmounted(() => {
                   <VCol cols="12" md="6">
                     <VTextField
                       v-model="transferForm.episode_offset"
+                      class="num"
                       :label="t('dialog.reorganize.episodeOffset')"
                       :placeholder="t('dialog.reorganize.episodeOffsetPlaceholder')"
                       :hint="t('dialog.reorganize.episodeOffsetHint')"
@@ -2367,6 +2499,7 @@ onUnmounted(() => {
                   <VCol cols="12" md="6">
                     <VTextField
                       v-model.number="transferForm.min_filesize"
+                      class="num"
                       :label="t('dialog.reorganize.minFileSize')"
                       :rules="[numberValidator]"
                       placeholder="0"
@@ -2395,10 +2528,11 @@ onUnmounted(() => {
                   </VCol>
                   <VCol cols="12" md="6">
                     <VSwitch
-                      v-model="transferForm.scrape"
+                      :model-value="effectiveScrape"
                       :label="t('dialog.reorganize.scrapeOption')"
                       :hint="t('dialog.reorganize.scrapeHint')"
                       persistent-hint
+                      @update:model-value="setScrape"
                     />
                   </VCol>
                   <VCol cols="12" md="6" v-if="props.logids?.length">
@@ -2486,13 +2620,13 @@ onUnmounted(() => {
                 <div class="reorganize-preview-pane__title-row">
                   <div class="text-h6">{{ t('dialog.reorganize.previewTitle') }}</div>
                   <div v-if="previewLoaded" class="preview-title-stats">
-                    <VChip color="primary" variant="tonal" size="small">
+                    <VChip color="primary" variant="tonal" size="small" class="num">
                       {{ t('dialog.reorganize.previewTotal', { count: previewSummary.total }) }}
                     </VChip>
-                    <VChip color="success" variant="tonal" size="small">
+                    <VChip color="success" variant="tonal" size="small" class="num">
                       {{ t('dialog.reorganize.previewSuccess', { count: previewSummary.success }) }}
                     </VChip>
-                    <VChip color="error" variant="tonal" size="small">
+                    <VChip color="error" variant="tonal" size="small" class="num">
                       {{ t('dialog.reorganize.previewFailed', { count: previewSummary.failed }) }}
                     </VChip>
                   </div>
@@ -2529,7 +2663,7 @@ onUnmounted(() => {
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewSeasonLabel')
                         }}</span>
-                        <span class="preview-overview-card__value">{{ previewSeasonText }}</span>
+                        <span class="preview-overview-card__value num">{{ previewSeasonText }}</span>
                       </div>
                       <div
                         v-if="!previewIsMovie && !isArtistCollectionMode && !hasMusicPreview"
@@ -2538,13 +2672,13 @@ onUnmounted(() => {
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewEpisodeCount')
                         }}</span>
-                        <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
+                        <span class="preview-overview-card__value num">{{ previewEpisodeCountText }}</span>
                       </div>
                       <div v-if="isArtistCollectionMode" class="preview-overview-card">
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.artistCollectionGroupCount')
                         }}</span>
-                        <span class="preview-overview-card__value">{{ artistCollectionPreviewGroups.length }}</span>
+                        <span class="preview-overview-card__value num">{{ artistCollectionPreviewGroups.length }}</span>
                       </div>
                     </div>
                     <div v-if="previewRecognitionDetails.length" class="preview-custom-words">
@@ -2602,7 +2736,7 @@ onUnmounted(() => {
                           <div class="artist-collection-group__title">
                             <VIcon :icon="group.entity === 'album' ? 'mdi-album' : 'mdi-music-note'" size="20" />
                             <span>{{ group.name }}</span>
-                            <VChip size="x-small" variant="tonal">
+                            <VChip size="x-small" variant="tonal" class="num">
                               {{ t('dialog.reorganize.artistCollectionTrackCount', { count: group.items.length }) }}
                             </VChip>
                           </div>
@@ -2612,7 +2746,7 @@ onUnmounted(() => {
                             <div
                               v-for="(item, index) in group.items"
                               :key="`${item.source}-${item.target}-${index}`"
-                              class="preview-file-row app-surface-shape"
+                              class="preview-file-row"
                               :class="{ 'preview-file-row--failed': item.success === false }"
                             >
                               <div class="preview-file-row__card preview-file-row__card--source">
@@ -2649,7 +2783,7 @@ onUnmounted(() => {
                       <div
                         v-for="(item, index) in pagedPreviewRows"
                         :key="`${item.source}-${item.target}-${index}`"
-                        class="preview-file-row app-surface-shape"
+                        class="preview-file-row"
                         :class="{ 'preview-file-row--failed': item.success === false }"
                       >
                         <div class="preview-file-row__card preview-file-row__card--source">
@@ -2688,7 +2822,7 @@ onUnmounted(() => {
                       :disabled="previewPage <= 1"
                       @click="previewPage--"
                     />
-                    <span class="text-caption">{{ previewPage }} / {{ previewTotalPages }}</span>
+                    <span class="text-caption num">{{ previewPage }} / {{ previewTotalPages }}</span>
                     <VBtn
                       size="x-small"
                       icon="mdi-chevron-right"
@@ -2786,8 +2920,8 @@ onUnmounted(() => {
 }
 
 .artist-collection-group {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.75rem !important;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius) !important;
 }
 
 .artist-collection-group__title {
@@ -2839,7 +2973,7 @@ onUnmounted(() => {
 }
 
 .reorganize-main-row--preview-visible .reorganize-form-pane {
-  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-inline-end: 1px solid var(--mp-border);
 }
 
 .reorganize-form-pane__content {
@@ -2859,6 +2993,7 @@ onUnmounted(() => {
 }
 
 .reorganize-form-pane__actions {
+  border-block-start: 1px solid var(--mp-border);
   margin-block-start: auto;
 }
 
@@ -2875,14 +3010,14 @@ onUnmounted(() => {
   display: grid;
   justify-items: start;
   gap: 0.375rem;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 1px solid var(--mp-border);
   padding-block-start: 1rem;
   min-inline-size: 0;
   white-space: pre-wrap;
 }
 
 .reorganize-action-btn--active {
-  background: rgba(var(--v-theme-info), 0.12);
+  background: var(--mp-info-soft, rgba(var(--v-theme-info), 0.12));
 }
 
 .target-path-match {
@@ -2934,7 +3069,7 @@ onUnmounted(() => {
   flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
-  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-end: 1px solid var(--mp-border);
   gap: 1rem;
   padding-block: 1.5rem 1rem;
   padding-inline: 1.5rem;
@@ -2977,7 +3112,7 @@ onUnmounted(() => {
 }
 
 .preview-note {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
   font-size: 0.875rem;
   line-height: 1.5;
   padding-block: 0.875rem;
@@ -2993,8 +3128,8 @@ onUnmounted(() => {
 .preview-overview-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
   gap: 0.375rem;
   min-inline-size: 0;
   padding-block: 0.875rem;
@@ -3002,7 +3137,7 @@ onUnmounted(() => {
 }
 
 .preview-overview-card__label {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.2;
   white-space: nowrap;
@@ -3010,7 +3145,7 @@ onUnmounted(() => {
 
 .preview-overview-card__value {
   overflow: hidden;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 0.9375rem;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -3020,8 +3155,8 @@ onUnmounted(() => {
 .preview-custom-words {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
   gap: 0.75rem;
   padding-block: 0.875rem;
   padding-inline: 1rem;
@@ -3030,7 +3165,7 @@ onUnmounted(() => {
 .preview-custom-words__title {
   display: inline-flex;
   align-items: center;
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg, rgb(var(--v-theme-info)));
   font-size: 0.875rem;
   font-weight: 600;
   gap: 0.375rem;
@@ -3051,7 +3186,7 @@ onUnmounted(() => {
 }
 
 .preview-custom-words__source {
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.4;
@@ -3059,7 +3194,7 @@ onUnmounted(() => {
 }
 
 .preview-custom-words__original {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -3136,8 +3271,8 @@ onUnmounted(() => {
 .preview-file-row {
   display: grid;
   align-items: center;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
   gap: 0.875rem;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   min-block-size: 5.25rem;
@@ -3147,7 +3282,7 @@ onUnmounted(() => {
 }
 
 .preview-file-row--failed {
-  background: rgba(var(--v-theme-error), 0.04);
+  background: rgba(var(--v-theme-error), 0.05);
 }
 
 .preview-file-row__card {
@@ -3158,7 +3293,7 @@ onUnmounted(() => {
 }
 
 .preview-file-row__label {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -3166,7 +3301,7 @@ onUnmounted(() => {
 
 .preview-file-row__name {
   overflow: hidden;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 0.95rem;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -3175,7 +3310,7 @@ onUnmounted(() => {
 
 .preview-file-row__path {
   overflow: visible;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.8125rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -3184,15 +3319,15 @@ onUnmounted(() => {
 }
 
 .preview-file-row__card--target .preview-file-row__name {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg, rgb(var(--v-theme-primary)));
 }
 
 .preview-file-row--failed .preview-file-row__card--target .preview-file-row__name {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
 }
 
 .preview-file-row__message {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
   font-size: 0.8125rem;
   line-height: 1.4;
 }
@@ -3203,7 +3338,7 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 999px;
   block-size: 2rem;
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg, rgb(var(--v-theme-info)));
   inline-size: 2rem;
 }
 
@@ -3212,7 +3347,7 @@ onUnmounted(() => {
   flex: 1;
   align-items: center;
   justify-content: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   padding-block: 2rem;
   padding-inline: 1rem;
   text-align: center;
@@ -3264,8 +3399,12 @@ onUnmounted(() => {
   }
 
   .reorganize-main-row--preview-visible .reorganize-form-pane {
-    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-block-end: 1px solid var(--mp-border);
     border-inline-end: none;
+  }
+
+  .reorganize-form-pane__content {
+    padding: 1rem !important;
   }
 
   .reorganize-main-row--preview-visible .reorganize-preview-pane__body,
@@ -3310,10 +3449,6 @@ onUnmounted(() => {
 
   .reorganize-preview-pane__header {
     padding-inline: 1rem;
-  }
-
-  .preview-file-body {
-    padding-inline: 0.75rem;
   }
 
   .preview-file-row {

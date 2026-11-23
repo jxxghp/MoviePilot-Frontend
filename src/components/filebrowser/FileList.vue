@@ -8,7 +8,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
 import { formatBytes } from '@core/utils/formatters'
 import type { Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
-import api from '@/api'
+import api, { getApiBusinessErrorMessage } from '@/api'
 import type { DataApiClient } from '@/api'
 import { useDisplay } from 'vuetify'
 import { useResizeObserver } from '@vueuse/core'
@@ -19,6 +19,8 @@ import type { FileAction, FileSortKey, FileSortOrder } from './types'
 import { vTailEllipsis } from './tailEllipsis'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useRangeSelection } from '@/composables/useRangeSelection'
+import { canUseNativeMediaPlayback, isLocalPlayableMediaFile, playLocalMediaFile } from '@/utils/mediaPlayback'
 
 // 原生滚动条宽度随系统变化，表头与可滚动列表使用同一内容宽度。
 const tableRef = ref<HTMLElement | null>(null)
@@ -185,6 +187,14 @@ function setItemSelected(item: FileItem, checked: boolean) {
   selected.value = selected.value.filter(selectedItem => getFileItemKey(selectedItem) !== itemKey)
 }
 
+// 选择模式下按住 Shift 连选，范围按筛选和排序后的显示顺序计算
+const rangeSelection = useRangeSelection<FileItem>({
+  items: () => displayItems.value,
+  getKey: getFileItemKey,
+  isSelected,
+  setSelected: (fileItems, checked) => fileItems.forEach(fileItem => setItemSelected(fileItem, checked)),
+})
+
 // 识别结果
 const nameTestResult = ref<Context>()
 
@@ -203,8 +213,19 @@ function closeProgressDialog() {
   progressDialogController = null
 }
 
-// 弹出菜单
-const dropdownItems = ref<{ [key: string]: any }[]>([])
+/** 文件行操作菜单项；value 经 fileMenuAction 映射为实际操作，props 提供图标、颜色与点击处理。 */
+interface FileDropdownItem {
+  title: string
+  value: number
+  show: boolean
+  props: {
+    prependIcon: string
+    color?: string
+    click: (item: FileItem) => unknown
+  }
+}
+
+const dropdownItems = ref<FileDropdownItem[]>([])
 
 // 进度是否激活
 const progressActive = ref(false)
@@ -311,14 +332,15 @@ function revokeCurrentImgLink() {
 
 /** 调整选择模式。 */
 function changeSelectMode() {
-  selectMode.value = !selectMode.value
-  if (!selectMode.value) selected.value = []
+  if (selectMode.value) exitSelectMode()
+  else selectMode.value = true
 }
 
 /** 退出多选模式。 */
 function exitSelectMode() {
   selectMode.value = false
   selected.value = []
+  rangeSelection.reset()
 }
 
 /** 调API加载文件夹内的内容。 */
@@ -476,9 +498,9 @@ function changePath(item: FileItem) {
 }
 
 /** 点击列表项。 */
-function listItemClick(item: FileItem) {
+function listItemClick(item: FileItem, event?: MouseEvent | KeyboardEvent) {
   if (selectMode.value) {
-    setItemSelected(item, !isSelected(item))
+    rangeSelection.select(item, !isSelected(item), !!event?.shiftKey)
     return false
   }
   if (item.type === 'dir') changePath(item)
@@ -577,8 +599,13 @@ function openActions(item: FileItem) {
 
 /** 单项入口共用原业务方法，移动详情先关闭，确认与失败反馈继续由原流程负责。 */
 function runAction(action: FileAction, item: FileItem) {
-  if (display.smAndDown.value) closeInspector()
   const target = normalizeItem(item)
+  if (action === 'play') {
+    closeInspector()
+    void playMediaFile(target)
+    return
+  }
+  if (display.smAndDown.value) closeInspector()
   if (action === 'recognize') void recognize(target.path || '')
   else if (action === 'scrape') showScrape(target)
   else if (action === 'rename') showRenmae(target)
@@ -587,13 +614,34 @@ function runAction(action: FileAction, item: FileItem) {
   else void deleteItem(target)
 }
 
+/** 先关闭当前文件详情，再让已协商的 iOS 播放器打开这一个文件。 */
+async function playMediaFile(item: FileItem) {
+  try {
+    await playLocalMediaFile(item, item.name)
+  } catch (error) {
+    console.error(error)
+    $toast.error(getApiBusinessErrorMessage(error) || t('file.playbackFailed'))
+  }
+}
+
 /** 将原菜单业务枚举转换为详情面板共用的动作，不以菜单位置识别操作。 */
 function fileMenuAction(value: number): FileAction {
+  if (value === 0) return 'play'
   if (value === 1) return 'recognize'
   if (value === 2) return 'scrape'
   if (value === 3) return 'rename'
   if (value === 4) return 'reorganize'
   return 'delete'
+}
+
+/** 普通菜单只在 App 已协商播放器且当前项可读时显示播放命令。 */
+function isFileMenuItemVisible(menu: FileDropdownItem, item: FileItem) {
+  return menu.value !== 0 || (canUseNativeMediaPlayback() && isLocalPlayableMediaFile(item))
+}
+
+/** 按当前文件过滤菜单，避免列表模板在循环节点上混用条件指令。 */
+function getVisibleFileMenuItems(item: FileItem) {
+  return dropdownItems.value.filter(menu => isFileMenuItemVisible(menu, item))
 }
 
 /** 文件与目录共用原操作；移动三点原本是详情入口，保持该功能独立存在。 */
@@ -608,6 +656,7 @@ function nativeFileMenu(item: FileItem): NativeCardMenuBinding {
           title: menu.title,
           icon: menu.props.prependIcon,
           color: menu.props.color,
+          visible: isFileMenuItemVisible(menu, item),
           invoke: () => runAction(fileMenuAction(menu.value), item),
         }),
       ),
@@ -797,6 +846,15 @@ watch(
     nameTestResult.value = undefined
     // 重置菜单
     dropdownItems.value = [
+      {
+        title: t('file.play'),
+        value: 0,
+        show: true,
+        props: {
+          prependIcon: 'mdi-play',
+          click: playMediaFile,
+        },
+      },
       {
         title: t('file.recognize'),
         value: 1,
@@ -1070,7 +1128,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
     </div>
     <div v-if="selectMode" class="file-list__selection">
       <VBtn variant="text" @click="toggleSelectAll">{{ t('file.selectAll') }}</VBtn>
-      <span>{{ t('file.selectedItems', { count: selected.length }) }}</span>
+      <span class="num">{{ t('file.selectedItems', { count: selected.length }) }}</span>
       <div class="file-list__batch">
         <IconBtn :disabled="!selected.length" :aria-label="t('file.scrape')" @click="showBatchScrape"
           ><VIcon icon="mdi-auto-fix"
@@ -1164,9 +1222,8 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
               }"
               role="listitem"
               tabindex="0"
-              @click="listItemClick(item)"
-              @keydown.enter.prevent="listItemClick(item)"
-              @keydown.space.prevent="listItemClick(item)"
+              @click="listItemClick(item, $event)"
+              @mousedown.shift.prevent
             >
               <div class="file-row__name">
                 <VCheckbox
@@ -1175,8 +1232,11 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   :aria-label="item.name"
                   hide-details
                   density="compact"
-                  @update:model-value="setItemSelected(item, !!$event)"
-                  @click.stop
+                  @update:model-value="rangeSelection.selectFromCheckbox(item, !!$event)"
+                  @click.stop="rangeSelection.onCheckboxClick"
+                  @input="rangeSelection.onCheckboxInput(item, $event)"
+                  @keydown.enter.stop
+                  @keydown.space.stop
                 />
                 <VIcon
                   v-else
@@ -1206,12 +1266,12 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   }}</small>
                 </div>
               </div>
-              <span class="file-row__size">{{
+              <span class="file-row__size num">{{
                 typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0
                   ? formatBytes(item.size)
                   : ''
               }}</span>
-              <span class="file-row__time" :title="item.modify_time ? formatTime(item.modify_time) : undefined">{{
+              <span class="file-row__time num" :title="item.modify_time ? formatTime(item.modify_time) : undefined">{{
                 display.mdAndUp.value && item.modify_time ? formatTime(item.modify_time) : formatDate(item.modify_time)
               }}</span>
               <template #append>
@@ -1232,7 +1292,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   ></template>
                   <VList
                     ><VListItem
-                      v-for="menu in dropdownItems"
+                      v-for="menu in getVisibleFileMenuItems(item)"
                       :key="menu.value"
                       :title="menu.title"
                       :prepend-icon="menu.props.prependIcon"
@@ -1254,7 +1314,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <p>{{ t(filter ? 'file.noFiles' : 'file.emptyDirectory') }}</p>
         </div>
         <div v-if="hasMoreFiles" class="d-flex align-center justify-space-between pa-2 gap-2">
-          <span class="text-caption"
+          <span class="text-caption num"
             >{{ t('common.loadedCount', { count: items.length }) }} · {{ t('file.partialListing') }}</span
           >
           <VBtn variant="text" :loading="loadingMoreFiles" @click="loadMoreFiles">{{ t('common.loadMore') }}</VBtn>
@@ -1338,7 +1398,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   padding-inline: 0.75rem;
   border-radius: var(--app-search-input-radius);
   background: var(--app-search-input-background);
-  color: rgba(var(--v-theme-on-surface), 0.45);
+  color: var(--mp-muted-fg);
 }
 .file-list__search input {
   flex: 1;
@@ -1347,11 +1407,11 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   border: 0;
   outline: none;
   background: transparent;
-  color: rgba(var(--v-theme-on-surface), 0.87);
+  color: var(--mp-fg);
   font-size: 0.8125rem;
 }
 .file-list__search input::placeholder {
-  color: rgba(var(--v-theme-on-surface), 0.38);
+  color: var(--mp-muted-fg);
 }
 .file-list__search:focus-within {
   box-shadow: inset 0 0 0 1px rgb(var(--v-theme-primary)) !important;
@@ -1397,7 +1457,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   gap: 1rem;
   font-size: 0.75rem;
   // 表头不铺底色，只用分隔线与弱化文字区分；玻璃主题下整条底色会显得过曝。
-  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  border-block-end: 1px solid var(--mp-list-row-divider);
 }
 .file-list__sort {
   display: inline-flex;
@@ -1406,7 +1466,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   padding: 0;
   border: 0;
   background: none;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   cursor: pointer;
   font: inherit;
   font-weight: 500;
@@ -1416,7 +1476,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .file-list__sort:hover,
 .file-list__sort:focus-visible,
 .file-list__sort--active {
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  color: var(--mp-fg);
 }
 // 非当前列的箭头只在悬停时提示可排序。
 .file-list__sort-icon {
@@ -1443,7 +1503,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .file-row {
   min-block-size: 3.625rem;
   padding-inline: 1rem 0.5rem;
-  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  border-block-end: 1px solid var(--mp-list-row-divider);
   border-radius: 0;
   display: grid;
   align-items: center;
@@ -1485,7 +1545,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 @media (hover: hover) and (pointer: fine) {
   .file-row:hover:not(.file-row--active) {
     border-radius: 12px;
-    background: rgba(var(--v-theme-on-surface), 4%);
+    background: var(--mp-list-row-hover);
   }
 }
 .file-row__name {
@@ -1526,12 +1586,12 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .file-row__size,
 .file-row__time {
   font-size: 0.875rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
 }
 .file-list__inspector {
   flex: 0 0 32%;
   min-inline-size: 16rem;
-  border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+  border-inline-start: 1px solid var(--mp-list-row-divider);
 }
 .file-list__content--file .file-list__inspector {
   flex: 1;
@@ -1545,7 +1605,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
 }
 @container file-list (width < 900px) {
   .file-list__content--detail .file-row :deep(.v-list-item__content) {
@@ -1629,7 +1689,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   }
   .file-row__meta {
     margin-block-start: 0.125rem;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    color: var(--mp-muted-fg);
     font-size: 0.6875rem;
     font-variant-numeric: tabular-nums;
     line-height: 1.3;

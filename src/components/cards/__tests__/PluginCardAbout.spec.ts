@@ -100,6 +100,23 @@ describe('PluginCard about menu', () => {
     expect(sidebarStore.ensureSidebarNav).toHaveBeenCalledWith(true)
   })
 
+  it('refreshes the market index before an update started from the about dialog', async () => {
+    // 卡片的「更新」不传版本号，宿主安装链路按市场索引里的版本拼 Release tag；
+    // 索引缓存期内打开关于必须强刷一次，否则会重装同一个旧版本并提示更新成功。
+    const { container } = await renderWithProviders(PluginCard, {
+      props: { plugin: { ...plugin, has_update: true } },
+    })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('关于'))
+
+    await waitFor(() => {
+      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
+        params: { force: true },
+      })
+    })
+  })
+
   it('routes a history source action into the source management dialog', async () => {
     const { container } = await renderWithProviders(PluginCard, {
       props: { plugin: { ...plugin, has_update: true }, count: 24 },
@@ -116,7 +133,7 @@ describe('PluginCard about menu', () => {
 
     expect(mocks.closeDialog).toHaveBeenCalled()
     expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
-      params: { force: false },
+      params: { force: true },
     })
     expect(mocks.openSharedDialog).toHaveBeenCalledTimes(2)
     expect(mocks.openSharedDialog.mock.calls[1][1].plugin).toMatchObject({
@@ -125,17 +142,13 @@ describe('PluginCard about menu', () => {
     })
   })
 
-  it('resolves a missing installed repo from market metadata before opening the project page', async () => {
+  it('resolves the bound repository through a single plugin query before opening the project page', async () => {
     mocks.apiGet.mockImplementation((url: string) => {
-      if (url === 'plugin/history/DemoPlugin') return Promise.resolve({ ...plugin, repo_url: 'local://DemoPlugin' })
-      if (url === 'plugin/') {
-        return Promise.resolve([
-          {
-            ...plugin,
-            repo_url: 'https://raw.githubusercontent.com/example/plugins/main/package.json',
-          },
-        ])
-      }
+      if (url === 'plugin/history/DemoPlugin')
+        return Promise.resolve({
+          ...plugin,
+          repo_url: 'https://raw.githubusercontent.com/example/plugins/main/package.json',
+        })
       throw new Error(`Unexpected request: ${url}`)
     })
     const replace = vi.fn()
@@ -151,24 +164,86 @@ describe('PluginCard about menu', () => {
     await fireEvent.click(await screen.findByText('项目主页'))
 
     await waitFor(() => {
-      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/', {
-        params: { force: false, state: 'market' },
+      expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
+        params: { force: false },
       })
     })
+    expect(mocks.apiGet).not.toHaveBeenCalledWith('plugin/', expect.anything())
     expect(open).toHaveBeenCalledWith('about:blank', '_blank')
     await waitFor(() => expect(replace).toHaveBeenCalledWith('https://github.com/example/plugins'))
     expect(popup.opener).toBeNull()
   })
 
-  it('prioritizes the update status over the rating status', async () => {
-    await renderWithProviders(PluginCard, {
+  it('keeps both the update badge and the creator plaque rating visible simultaneously', async () => {
+    const { container } = await renderWithProviders(PluginCard, {
       props: {
         plugin: { ...plugin, has_update: true, average_rating: 4.3, rating_count: 12 },
       },
     })
 
     expect(screen.getByLabelText('有更新')).toBeInTheDocument()
-    expect(screen.queryByLabelText('4.3 分，共 12 人评分')).not.toBeInTheDocument()
+    const ratingStatus = screen.getByLabelText('4.3 分，共 12 人评分')
+    expect(ratingStatus).toBeInTheDocument()
+    expect(ratingStatus).toHaveClass('plugin-card__status--rating')
+    expect(container.querySelector('.plugin-card__creator-bar')).toContainElement(ratingStatus)
+  })
+
+  it('uses the author page for an unbound local plugin without aggregating the market', async () => {
+    mocks.apiGet.mockResolvedValue({ ...plugin, repo_url: 'local://DemoPlugin' })
+    const replace = vi.fn()
+    vi.spyOn(window, 'open').mockReturnValue({
+      close: vi.fn(),
+      location: { replace },
+      opener: window,
+    } as unknown as Window)
+    const { container } = await renderWithProviders(PluginCard, { props: { plugin } })
+
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.v-card .v-btn')!)
+    await fireEvent.click(await screen.findByText('项目主页'))
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(plugin.author_url))
+    expect(mocks.apiGet).toHaveBeenCalledOnce()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', { params: { force: false } })
+  })
+
+  it('opens the market detail dialog directly when clicking the rating capsule without opening plugin config', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_page: false, has_update: true, average_rating: 4.6, rating_count: 8 },
+        count: 42,
+      },
+    })
+
+    await fireEvent.click(screen.getByLabelText('4.6 分，共 8 人评分'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      count: 42,
+      initialSourceSelectionOpen: false,
+      plugin: expect.objectContaining({ id: 'DemoPlugin' }),
+    })
+    expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({
+      closeOn: ['close', 'install', 'update:modelValue'],
+    })
+  })
+
+  it('triggers the update flow directly when clicking the has_update badge without opening plugin config', async () => {
+    await renderWithProviders(PluginCard, {
+      props: {
+        plugin: { ...plugin, has_page: false, has_update: true, average_rating: 4.6, rating_count: 8 },
+      },
+    })
+
+    await fireEvent.click(screen.getByLabelText('有更新'))
+
+    expect(mocks.openSharedDialog).toHaveBeenCalledOnce()
+    expect(mocks.openSharedDialog.mock.calls[0][1]).toMatchObject({
+      plugin: expect.objectContaining({ id: 'DemoPlugin', has_update: true }),
+      showUpdateAction: true,
+    })
+    expect(mocks.openSharedDialog.mock.calls[0][3]).toEqual({
+      closeOn: ['close', 'update:modelValue'],
+    })
   })
 
   it('shows the rating status when no update is available', async () => {

@@ -80,14 +80,20 @@ const connectionStatus = computed(() => {
     icon="mdi-github"
   >
     <template #status>
-      <div class="d-flex align-center ga-2">
-        <VChip size="small" :color="connectionStatus.color" variant="tonal" :prepend-icon="connectionStatus.icon">
+      <div class="d-flex flex-wrap align-center ga-2">
+        <VChip
+          size="small"
+          class="flex-shrink-0"
+          :color="connectionStatus.color"
+          variant="tonal"
+          :prepend-icon="connectionStatus.icon"
+        >
           {{ connectionStatus.label }}
         </VChip>
-        <span v-if="props.status?.configured && props.status.login" class="text-body-2">
+        <span v-if="props.status?.configured && props.status.login" class="text-body-2 text-no-wrap">
           {{ props.status.login }}
         </span>
-        <span v-if="props.status?.configured && props.status.masked_token" class="text-body-2 opacity-70">
+        <span v-if="props.status?.configured && props.status.masked_token" class="text-body-2 text-no-wrap opacity-70">
           {{ props.status.masked_token }}
         </span>
       </div>

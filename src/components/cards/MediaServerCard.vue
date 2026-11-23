@@ -11,9 +11,21 @@ const MediaServerInfoDialog = defineAsyncComponent(() => import('@/components/di
 
 // 获取i18n实例
 const { t } = useI18n()
-const { isRegisteredModuleOption, loadModuleCatalog } = useModuleCatalog()
+const { catalog, isRegisteredModuleOption, loadModuleCatalog } = useModuleCatalog()
 void loadModuleCatalog()
 const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor('#56CA00')
+
+// 媒体服务器内置类型回退展示名，避免模块目录尚未返回时只显示英文标识。
+const MEDIA_SERVER_TYPE_LABELS: Record<string, string> = {
+  emby: 'Emby',
+  jellyfin: 'Jellyfin',
+  plex: 'Plex',
+  zspace: '极空间',
+  trimemedia: '飞牛影视',
+  ugreen: '绿联影视',
+  mediavault: 'MediaVault',
+  navidrome: 'Navidrome',
+}
 
 // 定义输入
 const props = defineProps({
@@ -37,6 +49,17 @@ const props = defineProps({
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'done', 'change'])
 const isRegisteredMediaServer = computed(() => isRegisteredModuleOption('mediaserver', props.mediaserver.type))
+
+// 解析媒体服务器类型展示名，优先读取模块目录的本地化名称。
+const mediaServerTypeLabel = computed(() => {
+  if (!isRegisteredMediaServer.value) return t('setting.system.custom')
+  const matched = catalog?.value?.find(
+    item => item.type === 'mediaserver' && item.option_value === props.mediaserver.type,
+  )
+  return (
+    matched?.name_i18n || matched?.name || MEDIA_SERVER_TYPE_LABELS[props.mediaserver.type] || props.mediaserver.type
+  )
+})
 
 // 媒体统计数据
 const infoItems = ref([
@@ -142,31 +165,63 @@ onMounted(() => {
 
 <template>
   <VCard
-    variant="tonal"
-    class="app-card-shell app-card-colorful"
+    variant="flat"
+    class="app-card-shell app-card-colorful mp-setting-card mp-setting-card--interactive"
+    :class="{ 'mp-setting-card--inactive': !mediaserver.enabled }"
     :style="{ '--app-card-accent-rgb': accentRgb }"
     @click="openMediaServerInfoDialog"
   >
-    <VDialogCloseBtn @click="onClose" />
-    <VCardText class="app-card-summary app-card-summary--single-action">
-      <div class="app-card-summary__content">
-        <div class="app-card-summary__title text-h6">{{ mediaserver.name }}</div>
-        <div
-          v-if="isRegisteredMediaServer && mediaserver.enabled"
-          class="grid min-h-6 grid-cols-3 gap-2 text-sm text-medium-emphasis"
-        >
-          <span v-for="item in infoItems" :key="item.title" class="flex min-w-0 items-center">
-            <VIcon rounded :icon="item.avatar" class="me-1 shrink-0" />
-            <span class="truncate">{{ item.amount }}</span>
+    <div class="mp-setting-card__header">
+      <div class="mp-setting-card__icon mp-setting-card__icon--logo" aria-hidden="true">
+        <VImg ref="imageRef" :src="getIcon" contain class="mp-setting-card__logo" @load="updateAccentColor" />
+      </div>
+      <div class="mp-setting-card__heading">
+        <div class="mp-setting-card__title-row">
+          <span class="mp-setting-card__title" :title="mediaserver.name">{{ mediaserver.name }}</span>
+        </div>
+        <div class="mp-setting-card__subtitle">
+          <span class="mp-setting-card__subtitle-text">{{ mediaServerTypeLabel }}</span>
+          <span
+            class="mp-setting-card__status"
+            :class="mediaserver.enabled ? 'mp-setting-card__status--active' : 'mp-setting-card__status--inactive'"
+          >
+            <span
+              class="mp-setting-card__status-dot"
+              :class="
+                mediaserver.enabled ? 'mp-setting-card__status-dot--active' : 'mp-setting-card__status-dot--inactive'
+              "
+            />
+            {{ mediaserver.enabled ? t('settingCard.enabled') : t('settingCard.disabled') }}
           </span>
         </div>
-        <div v-else-if="!isRegisteredMediaServer" class="app-card-summary__subtitle text-sm">
-          {{ t('setting.system.custom') }}
-        </div>
       </div>
-      <div class="app-card-summary__media" aria-hidden="true">
-        <VImg ref="imageRef" :src="getIcon" contain class="app-card-summary__image" @load="updateAccentColor" />
+      <div class="mp-setting-card__actions">
+        <IconBtn class="mp-setting-card__action cursor-move" :aria-label="t('settingCard.dragSort')" @click.stop>
+          <VIcon class="cursor-move" icon="mdi-drag" />
+        </IconBtn>
+        <VDialogCloseBtn inner-class="mp-setting-card__action mp-setting-card__action--danger" @click="onClose" />
       </div>
-    </VCardText>
+    </div>
+
+    <div class="mp-setting-card__dock">
+      <div
+        v-if="isRegisteredMediaServer && mediaserver.enabled"
+        class="mp-setting-card__stats mp-setting-card__stats--grid-3"
+      >
+        <span
+          v-for="item in infoItems"
+          :key="item.title"
+          class="mp-setting-card__stat"
+          :title="`${item.title}: ${item.amount}`"
+        >
+          <VIcon :icon="item.avatar" size="14" class="shrink-0" />
+          <span class="mp-setting-card__stat-value">{{ item.amount }}</span>
+        </span>
+      </div>
+      <span v-else class="mp-setting-card__muted">
+        {{ !mediaserver.enabled ? t('settingCard.disabled') : t('setting.system.custom') }}
+      </span>
+      <VIcon class="mp-setting-card__chevron" icon="mdi-chevron-right" size="16" />
+    </div>
   </VCard>
 </template>

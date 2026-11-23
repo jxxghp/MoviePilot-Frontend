@@ -121,7 +121,7 @@ defineExpose({
       :items="workflowList"
       :get-item-key="item => item.id"
       :min-item-width="288"
-      :estimated-item-height="420"
+      :estimated-item-height="220"
       class="px-2"
     >
       <template #default="{ item }">

@@ -44,30 +44,40 @@ const selectFilterOptions = computed<{ [key: string]: string }[]>(() => {
 </script>
 
 <template>
-  <VCard variant="tonal" class="app-card-shell">
-    <span class="app-card-top-action absolute top-3 right-12">
-      <IconBtn @click.stop>
-        <VIcon class="cursor-move" icon="mdi-drag" />
-      </IconBtn>
-    </span>
-    <VDialogCloseBtn @click="onClose" />
-    <VCardItem>
-      <VCardTitle class="pr-8">{{ t('filterRule.priority') }} {{ props.pri }}</VCardTitle>
-      <VRow>
-        <VCol>
-          <VAutocomplete
-            v-model="props.rules"
-            variant="underlined"
-            :items="selectFilterOptions"
-            chips
-            :label="t('filterRule.rules')"
-            mobile-control-width="80%"
-            multiple
-            clearable
-            @update:modelValue="filtersChanged"
-          />
-        </VCol>
-      </VRow>
-    </VCardItem>
+  <VCard
+    variant="flat"
+    class="app-card-shell app-card-colorful mp-setting-card"
+    style="--app-card-accent-rgb: 139, 92, 246"
+  >
+    <div class="mp-setting-card__header pb-2">
+      <div class="mp-setting-card__heading">
+        <div class="mp-setting-card__title-row">
+          <span class="mp-setting-card__badge mp-setting-card__badge--primary num">P{{ props.pri }}</span>
+          <span class="mp-setting-card__title">{{ t('filterRule.priority') }} {{ props.pri }}</span>
+        </div>
+      </div>
+      <div class="mp-setting-card__actions">
+        <IconBtn class="mp-setting-card__action cursor-move" :aria-label="t('settingCard.dragSort')" @click.stop>
+          <VIcon class="cursor-move" icon="mdi-drag" />
+        </IconBtn>
+        <VDialogCloseBtn inner-class="mp-setting-card__action mp-setting-card__action--danger" @click="onClose" />
+      </div>
+    </div>
+    <VCardText class="pt-1 pb-4">
+      <VAutocomplete
+        :model-value="props.rules"
+        variant="outlined"
+        density="comfortable"
+        :items="selectFilterOptions"
+        chips
+        closable-chips
+        hide-details="auto"
+        :label="t('filterRule.rules')"
+        mobile-control-width="80%"
+        multiple
+        clearable
+        @update:model-value="filtersChanged"
+      />
+    </VCardText>
   </VCard>
 </template>

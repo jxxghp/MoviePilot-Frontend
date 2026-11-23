@@ -13,8 +13,7 @@ import DatabaseBackupPanel from '@/components/system/DatabaseBackupPanel.vue'
 import TransferHistoryMaintenancePanel from '@/components/system/TransferHistoryMaintenancePanel.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { useI18n } from 'vue-i18n'
-import { filterAvailableServiceOptions } from '@/api/constants'
-import { useDisplay, useTheme } from 'vuetify'
+import { useDisplay } from 'vuetify'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -28,8 +27,6 @@ import { fetchAgentPetDeclarations, getAgentPetId } from '@/stores/agentPet'
 import type { AgentPetDeclaration } from '@/types/agentHost'
 
 const display = useDisplay()
-const theme = useTheme()
-const allowsWallpaper = computed(() => theme.current.value.dark)
 
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -49,7 +46,7 @@ const LlmProviderAuthDialog = defineAsyncComponent(() => import('@/components/di
 const AgentMcpSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/AgentMcpSettingsDialog.vue'))
 
 // 系统设置项
-const SystemSettings = ref<any>({
+const systemSettingsDefaults = {
   // 基础设置
   Basic: {
     DB_TYPE: 'sqlite',
@@ -102,7 +99,7 @@ const SystemSettings = ref<any>({
   // 高级系统设置
   Advanced: {
     // 无其它配置项的内置模块开关
-    MODULE_ENABLE: {},
+    MODULE_ENABLE: {} as Record<string, boolean>,
     // 全局
     AUXILIARY_AUTH_ENABLE: false,
     GLOBAL_IMAGE_CACHE: false,
@@ -115,6 +112,7 @@ const SystemSettings = ref<any>({
     BIG_MEMORY_MODE: false,
     DB_WAL_ENABLE: false,
     AUTO_UPDATE_RESOURCE: true,
+    AI_AGENT_KNOWLEDGE_ENABLE: true,
     MOVIEPILOT_AUTO_UPDATE: false,
     MOVIEPILOT_UPDATE_DEV: false,
     DATA_CLEANUP_ENABLE: false,
@@ -173,8 +171,8 @@ const SystemSettings = ref<any>({
     DOH_ENABLE: false,
     DOH_RESOLVERS: null,
     DOH_DOMAINS: null,
-    SECURITY_IMAGE_DOMAINS: [],
-    IMAGE_PROXY_ALLOWED_PRIVATE_RANGES: [],
+    SECURITY_IMAGE_DOMAINS: [] as string[],
+    IMAGE_PROXY_ALLOWED_PRIVATE_RANGES: [] as string[],
     // 日志
     DEBUG: false,
     LOG_LEVEL: 'INFO',
@@ -197,7 +195,16 @@ const SystemSettings = ref<any>({
     FS_PROXY_TIMEOUT: 30,
     FS_PROXY_STALL_TIMEOUT: 120,
   },
-})
+}
+
+/** 保留设置分组与字段类型，初始为空的文本配置允许输入字符串。 */
+type EditableSettings<T> = {
+  [Section in keyof T]: {
+    [Key in keyof T[Section]]: T[Section][Key] extends null ? string | null : T[Section][Key]
+  }
+}
+
+const SystemSettings = ref<EditableSettings<typeof systemSettingsDefaults>>(systemSettingsDefaults)
 
 const audioProviderItems = computed(() => [
   { title: t('setting.system.audioProviderOpenAiAudio'), value: 'openai' },
@@ -285,19 +292,17 @@ const { moduleOptions, loadModuleCatalog, refreshModuleCatalog } = useModuleCata
 const downloaderCatalogOptions = moduleOptions('downloader')
 const mediaServerCatalogOptions = moduleOptions('mediaserver')
 
-// 已有服务全部关闭时隐藏新增菜单中的同类型，保留配置卡片上的开关作为重新启用入口。
-const availableDownloaderOptions = computed(() =>
-  filterAvailableServiceOptions(downloaderCatalogOptions.value, downloaders.value),
-)
-const availableMediaServerOptions = computed(() =>
-  filterAvailableServiceOptions(mediaServerCatalogOptions.value, mediaServers.value),
-)
+// 服务目录中的类型可创建多个配置，已有卡片的启用状态不影响新增入口。
+const availableDownloaderOptions = downloaderCatalogOptions
+const availableMediaServerOptions = mediaServerCatalogOptions
 
 // 提示框
 const $toast = useToast()
 
 // 高级设置对话框
 const advancedDialog = ref(false)
+// 前端可独立更新；旧后端未声明此设置时不展示或提交未知字段。
+const knowledgeSettingAvailable = ref(false)
 
 interface ModuleSettingInfo {
   id: string
@@ -523,6 +528,7 @@ function normalizeLlmTemperature(value: unknown): number | null {
   return Number.isFinite(temperature) ? temperature : null
 }
 
+/** 冻结连接测试需要的配置，避免异步结果覆盖编辑后的状态。 */
 function buildLlmSnapshot(): LlmSettingsSnapshot {
   return {
     AI_AGENT_ENABLE: Boolean(SystemSettings.value.Basic.AI_AGENT_ENABLE),
@@ -540,10 +546,12 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
   }
 }
 
+/** 生成配置快照的稳定标识，用于识别过期的测试结果。 */
 function buildLlmSnapshotKey(snapshot: LlmSettingsSnapshot) {
   return JSON.stringify(snapshot)
 }
 
+/** 将表单快照转换为服务商连接测试参数。 */
 function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
   return {
     enabled: snapshot.AI_AGENT_ENABLE,
@@ -561,6 +569,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
   }
 }
 
+/** 将历史思考等级别名统一为当前配置值。 */
 function normalizeThinkingLevelValue(value?: unknown) {
   const normalized = String(value ?? '')
     .trim()
@@ -580,6 +589,7 @@ function normalizeThinkingLevelValue(value?: unknown) {
   return aliasMap[normalized] || normalized
 }
 
+/** 优先读取当前思考等级，兼容旧版推理强度与禁用开关。 */
 function resolveThinkingLevelValue(data?: Record<string, unknown>) {
   const explicit = normalizeThinkingLevelValue(data?.LLM_THINKING_LEVEL)
   if (explicit) return explicit
@@ -590,6 +600,7 @@ function resolveThinkingLevelValue(data?: Record<string, unknown>) {
   return legacyEffort || 'off'
 }
 
+/** 优先展示服务端失败原因，空消息使用通用提示。 */
 function showLlmTestFailedToast(message?: string) {
   const normalizedMessage = String(message ?? '').trim()
   if (normalizedMessage) {
@@ -599,6 +610,7 @@ function showLlmTestFailedToast(message?: string) {
   $toast.error(t('setting.system.llmTestFailedToast'))
 }
 
+/** 中断未完成的连接测试，并使在途结果失效。 */
 function invalidateLlmTestState() {
   llmTestRequestId += 1
   if (llmTestAbortController) {
@@ -740,10 +752,12 @@ const dbBackupPath = computed({
   },
 })
 
+/** 检查备份周期是否使用后端支持的五段 Cron 格式。 */
 function hasValidCronFieldCount(value: string) {
   return value.trim().split(/\s+/).length === 5
 }
 
+/** 校验备份保留天数与份数，拒绝留空和非整数值。 */
 function isNonNegativeInteger(value: unknown) {
   if (value === '' || value === null || value === undefined) return false
   const numberValue = Number(value)
@@ -778,6 +792,7 @@ async function refreshLlmModels(forceRefresh = true) {
   }
 }
 
+/** 切换服务商后同步默认配置，并按能力刷新模型目录。 */
 async function handleLlmProviderChanged() {
   handleProviderSelection(true)
   if (canRefreshModels.value) {
@@ -785,10 +800,12 @@ async function handleLlmProviderChanged() {
   }
 }
 
+/** 切换模型后应用其能力与默认参数。 */
 function handleLlmModelChanged() {
   applyModelMetadata()
 }
 
+/** 启动选定的服务商授权方式，并提示启动失败原因。 */
 async function startProviderAuth(methodId: string) {
   try {
     await startLlmProviderAuth(methodId)
@@ -797,6 +814,7 @@ async function startProviderAuth(methodId: string) {
   }
 }
 
+/** 断开服务商授权，并反馈操作结果。 */
 async function disconnectProviderAuth() {
   try {
     await disconnectLlmProviderAuth()
@@ -909,6 +927,7 @@ async function loadSystemSettings(refresh = false) {
   invalidateLlmTestState()
   try {
     const result = await getSharedConfiguration<Record<string, unknown>>('system/env', refresh)
+    knowledgeSettingAvailable.value = typeof result.AI_AGENT_KNOWLEDGE_ENABLE === 'boolean'
     const defaultSyncInterval = Number(result.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
     legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
     // 将API返回的值赋值给SystemSettings
@@ -1001,6 +1020,7 @@ function handleModuleToggle(item: ModuleSettingInfo, enabled: boolean) {
   })
 }
 
+/** 加载 Agent 的 MCP 服务配置，并维护加载状态。 */
 async function loadAgentMcpServers() {
   loadingAgentMcpServers.value = true
   try {
@@ -1013,6 +1033,7 @@ async function loadAgentMcpServers() {
   }
 }
 
+/** 将 MCP 弹窗保存后的服务列表同步回设置页。 */
 function handleAgentMcpSaved(servers: AgentMcpServer[]) {
   agentMcpServers.value = servers
 }
@@ -1033,7 +1054,7 @@ async function saveBasicSettings() {
   savingBasic.value = true
   try {
     SystemSettings.value.Basic.LLM_TEMPERATURE = normalizeLlmTemperature(SystemSettings.value.Basic.LLM_TEMPERATURE)
-    const basicSettings = { ...SystemSettings.value.Basic }
+    const basicSettings: Record<string, unknown> = { ...SystemSettings.value.Basic }
     // Token 已由专用接口托管，基础设置保存不能把脱敏占位值写回服务端。
     delete basicSettings.GITHUB_TOKEN
     if (await saveSystemSetting(basicSettings)) {
@@ -1048,6 +1069,7 @@ async function saveBasicSettings() {
   }
 }
 
+/** 测试当前 LLM 配置，仅采纳尚未过期的请求结果。 */
 async function testLlmConnection() {
   if (!canTestLlm.value) return
 
@@ -1105,7 +1127,9 @@ async function saveAdvancedSettings() {
   }
 
   // 同时保存高级设置和刮削开关设置
-  const advancedResult = await saveSystemSetting(SystemSettings.value.Advanced)
+  const advancedSettings: Record<string, unknown> = { ...SystemSettings.value.Advanced }
+  if (!knowledgeSettingAvailable.value) delete advancedSettings.AI_AGENT_KNOWLEDGE_ENABLE
+  const advancedResult = await saveSystemSetting(advancedSettings)
   const scrapingResult = await saveScrapingSwitchs()
 
   if (advancedResult) {
@@ -1334,6 +1358,7 @@ const musicReleaseScriptItems = computed(() => [
   { title: t('setting.system.musicScriptKorean'), value: 'Kore' },
 ])
 
+/** 在多选顺序与逗号分隔配置间转换，最多保存三个偏好。 */
 function preferenceSelection(setting: 'MUSIC_RELEASE_REGION_PRIORITY' | 'MUSIC_RELEASE_SCRIPT_PRIORITY') {
   return computed({
     get: () =>
@@ -1530,7 +1555,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 />
               </VCol>
 
-              <VCol v-if="allowsWallpaper" cols="12" md="6">
+              <VCol cols="12" md="6">
                 <VSelect
                   v-model="SystemSettings.Basic.WALLPAPER"
                   :label="t('setting.system.wallpaper')"
@@ -1541,7 +1566,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 />
               </VCol>
 
-              <VCol v-if="allowsWallpaper && SystemSettings.Basic.WALLPAPER === 'customize'" cols="12" md="6">
+              <VCol v-if="SystemSettings.Basic.WALLPAPER === 'customize'" cols="12" md="6">
                 <VTextField
                   v-model="SystemSettings.Basic.CUSTOMIZE_WALLPAPER_API_URL"
                   :label="t('setting.system.customizeWallpaperApi')"
@@ -1553,7 +1578,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 />
               </VCol>
 
-              <VCol v-if="allowsWallpaper && SystemSettings.Basic.WALLPAPER === 'static'" cols="12" md="6">
+              <VCol v-if="SystemSettings.Basic.WALLPAPER === 'static'" cols="12" md="6">
                 <VTextField
                   v-model="SystemSettings.Basic.WALLPAPER_IMAGE_URL"
                   :label="t('setting.system.wallpaperImageUrl')"
@@ -1565,7 +1590,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 />
               </VCol>
 
-              <VCol v-if="allowsWallpaper && !['static', ''].includes(SystemSettings.Basic.WALLPAPER)" cols="12" md="6">
+              <VCol v-if="!['static', ''].includes(SystemSettings.Basic.WALLPAPER)" cols="12" md="6">
                 <VSelect
                   v-model="SystemSettings.Basic.WALLPAPER_ROTATION_INTERVAL"
                   :label="t('setting.system.wallpaperRotationInterval')"
@@ -1930,7 +1955,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                           >
                             {{ server.name }}
                           </VChip>
-                          <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal">
+                          <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal" class="num">
                             +{{ agentMcpServers.length - 3 }}
                           </VChip>
                         </div>
@@ -3426,22 +3451,6 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     prepend-inner-icon="mdi-refresh-alert"
                   />
                 </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.TRANSFER_FAILURE_NOTIFICATION_AGGREGATION"
-                    :label="t('setting.system.transferFailureNotificationAggregation')"
-                    :hint="t('setting.system.transferFailureNotificationAggregationHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION"
-                    :label="t('setting.system.transferSuccessNotificationAggregation')"
-                    :hint="t('setting.system.transferSuccessNotificationAggregationHint')"
-                    persistent-hint
-                  />
-                </VCol>
                 <VCol v-if="SystemSettings.Advanced.FS_PROXY_ENABLED" cols="12" md="6">
                   <VTextField
                     v-model.number="SystemSettings.Advanced.FS_PROXY_TIMEOUT"
@@ -3466,6 +3475,22 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 </VCol>
               </VRow>
               <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.TRANSFER_FAILURE_NOTIFICATION_AGGREGATION"
+                    :label="t('setting.system.transferFailureNotificationAggregation')"
+                    :hint="t('setting.system.transferFailureNotificationAggregationHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.TRANSFER_SUCCESS_NOTIFICATION_AGGREGATION"
+                    :label="t('setting.system.transferSuccessNotificationAggregation')"
+                    :hint="t('setting.system.transferSuccessNotificationAggregationHint')"
+                    persistent-hint
+                  />
+                </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"
@@ -3524,6 +3549,14 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     persistent-hint
                   />
                 </VCol>
+                <VCol v-if="knowledgeSettingAvailable" cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.AI_AGENT_KNOWLEDGE_ENABLE"
+                    :label="t('setting.system.aiAgentKnowledgeEnable')"
+                    :hint="t('setting.system.aiAgentKnowledgeEnableHint')"
+                    persistent-hint
+                  />
+                </VCol>
               </VRow>
             </div>
           </VWindowItem>
@@ -3555,14 +3588,15 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .media-settings-section + .media-settings-section {
   margin-block-start: 1.75rem;
   padding-block-start: 1.5rem;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 1px solid var(--mp-border);
 }
 
 .setting-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
 }
 
 .setting-actions__secondary {

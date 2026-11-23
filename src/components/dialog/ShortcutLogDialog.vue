@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
@@ -10,6 +11,17 @@ const { t } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
+
+const globalSettingsStore = useGlobalSettingsStore()
+const userStore = useUserStore()
+
+/** 仅在智能助手入口已启用且当前为系统管理员（read_log 仅管理员可用）时显示诊断按钮。 */
+const canDiagnose = computed(
+  () =>
+    globalSettingsStore.get('AI_AGENT_ENABLE') === true &&
+    globalSettingsStore.get('AI_AGENT_HIDE_ENTRY') !== true &&
+    userStore.superUser === true,
+)
 
 // 输入参数
 const props = defineProps({
@@ -48,6 +60,7 @@ function openLogging(download: boolean) {
 
 /** 呼叫智能助手按提示词约束分析主程序日志；关闭日志弹窗，避免遮挡助手面板。 */
 function diagnoseLogging() {
+  if (!canDiagnose.value) return
   requestAgentAssistantDiagnostic(t('agentAssistant.diagnosticPrompt', { logfile: 'moviepilot.log' }))
   visible.value = false
 }
@@ -93,6 +106,7 @@ function diagnoseLogging() {
               </VChip>
             </button>
             <button
+              v-if="canDiagnose"
               type="button"
               class="d-inline-flex align-center"
               data-native-sheet-action="mdi-robot-happy-outline"

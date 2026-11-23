@@ -169,6 +169,21 @@ describe('TorrentCard approved regressions', () => {
     expect(props.title).toBe('晴天')
   })
 
+  it('explains why a rejected music candidate needs manual review', async () => {
+    const context = createContext({
+      media: { type: '音乐', title: '2026 原音精选' },
+      meta: { type: '音乐', title: 'The Perfect Sound 原音精选', name: 'The Perfect Sound' },
+      torrent: { title: 'VA-2026 The Perfect Sound 原音精选 SACD', category: '音乐' },
+    })
+    context.match_status = 'candidate'
+    context.match_reason = 'title_mismatch'
+
+    await renderCard(context)
+
+    expect(screen.getByTestId('music-match-status')).toHaveAttribute('aria-label', '作品名称与目标不符')
+    expect(screen.getByTestId('music-match-status')).toHaveTextContent('作品名称与目标不符')
+  })
+
   it('does not open a blank detail page or trigger download when the URL is missing', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     const context = createContext({ torrent: { page_url: undefined } })
@@ -189,6 +204,27 @@ describe('TorrentCard display and interactions', () => {
     )
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it.each([
+    [null, null],
+    [undefined, undefined],
+    [0, null],
+    [null, 2],
+  ] as const)('does not display an unknown promotion as free with factors %s / %s', async (download, upload) => {
+    const { container } = await renderCard(
+      createContext({
+        torrent: {
+          downloadvolumefactor: download,
+          uploadvolumefactor: upload,
+          volume_factor: '未知',
+          labels: ['国语'],
+        },
+      }),
+    )
+    expect(container.querySelector('.discount-banner')).not.toBeInTheDocument()
+    expect(screen.queryByText('未知')).not.toBeInTheDocument()
+    expect(screen.getByText('国语')).toBeInTheDocument()
   })
 
   it('renders the current title, release metadata, tracker state, labels, size, and time', async () => {
@@ -241,7 +277,7 @@ describe('TorrentCard display and interactions', () => {
     ]) {
       expect(screen.getByText(text)).toBeInTheDocument()
     }
-    expect(container.querySelector('.discount-banner')).toHaveClass('bg-success')
+    expect(container.querySelector('.discount-banner')).toHaveClass('torrent-promo--free')
     await waitFor(() => expect(container.querySelector<HTMLImageElement>('img')?.src).toContain('site-101.png'))
   })
 
@@ -261,8 +297,8 @@ describe('TorrentCard display and interactions', () => {
   })
 
   it.each([
-    ['discount', 0.5, 1, 'bg-orange'],
-    ['upload bonus', 1, 2, 'bg-purple'],
+    ['discount', 0.5, 1, 'torrent-promo--discount'],
+    ['upload bonus', 1, 2, 'torrent-promo--bonus'],
     ['unclassified promotion', 2, 1, null],
   ] as const)('projects the %s promotion style', async (_case, downloadFactor, uploadFactor, expectedClass) => {
     const { container } = await renderCard(
@@ -278,7 +314,7 @@ describe('TorrentCard display and interactions', () => {
 
     expect(banner).toBeInTheDocument()
     if (expectedClass) expect(banner).toHaveClass(expectedClass)
-    else expect(banner).not.toHaveClass('bg-success', 'bg-orange', 'bg-purple')
+    else expect(banner).not.toHaveClass('torrent-promo--free', 'torrent-promo--discount', 'torrent-promo--bonus')
   })
 
   it('opens the download dialog with the current Context and shares successful download state across cards', async () => {

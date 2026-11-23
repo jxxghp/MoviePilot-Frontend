@@ -190,7 +190,7 @@ onActivated(() => {
           tabindex="0"
         >
           <template #default="{ item }">
-            <PlayingBackdropCard :media="item" height="10.875rem" />
+            <PlayingBackdropCard :media="item" :server="item.dashboardServer" height="10.875rem" />
           </template>
         </ProgressiveCardGrid>
       </div>

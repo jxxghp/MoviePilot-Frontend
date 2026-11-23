@@ -9,7 +9,7 @@ const preloadWatchEnd = appSource.indexOf('let backgroundRetryTimer', preloadWat
 const preloadWatch = appSource.slice(preloadWatchStart, preloadWatchEnd)
 
 describe('App 玻璃光学模块预载', () => {
-  it('只在非 CSS 玻璃档位的 guard 内并行预载组件和 Three', () => {
+  it('在非 CSS 玻璃档位的 guard 内并行预载组件和 Three（含深浅色）', () => {
     expect(preloadWatchStart).toBeGreaterThanOrEqual(0)
     expect(preloadWatchEnd).toBeGreaterThan(preloadWatchStart)
     expect(preloadWatch).toContain('if (!enabled) return')
@@ -18,7 +18,7 @@ describe('App 玻璃光学模块预载', () => {
     expect(appSource.match(/import\('three'\)/gu)).toHaveLength(1)
   })
 
-  it('提前挂载以准备光学资源，但保留首路由呈现门和 loader 退场时序', () => {
+  it('深浅色非 CSS 玻璃均挂载光学层并透传明暗标记，保留首路由呈现门和 loader 退场时序', () => {
     expect(appSource).toContain(
       "const loadGlassOpticalLayer = () => import('@/components/theme/GlassOpticalLayer.vue')",
     )
@@ -27,10 +27,14 @@ describe('App 玻璃光学模块预载', () => {
       appSource.indexOf('const shouldRenderGlassOpticalLayer = computed('),
       appSource.indexOf('const loadGlassOpticalLayer ='),
     )
+    expect(mountGate).toContain('isGlassTheme.value')
     expect(mountGate).toContain("opticalQuality.value !== 'css'")
     expect(mountGate).toContain('Boolean(activeBackgroundImage.value)')
+    expect(mountGate).not.toContain('globalTheme.current.value.dark')
     expect(mountGate).not.toContain('isInitialRouteReady')
+    expect(appSource).not.toContain("html[data-glass-color-scheme='light'] .glass-optical-canvas")
     expect(appSource).toContain('v-if="shouldRenderGlassOpticalLayer"')
+    expect(appSource).toContain(':light-scheme="!globalTheme.current.value.dark"')
     expect(appSource).toContain(':presentation-ready="isInitialRouteReady"')
     expect(appSource).toContain('const LAUNCH_EXIT_DURATION_MS = 180')
     expect(appSource).toContain("removeEl('#loading-bg')")

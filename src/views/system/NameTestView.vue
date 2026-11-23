@@ -725,7 +725,7 @@ async function saveCustomWords() {
 }
 
 .media-id-link {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }

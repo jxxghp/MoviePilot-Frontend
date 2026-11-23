@@ -244,6 +244,11 @@ onBeforeUnmount(() => {
       <div v-bind="hover.props" class="library-card-hover-area">
         <VCard
           :style="cardStyle"
+          :data-glass-optical-mode="
+            Boolean(props.media?.image_list?.length || props.media?.image) && imageLoaded && !imageError
+              ? 'excluded'
+              : undefined
+          "
           class="app-hover-lift-card"
           :class="{
             'app-hover-lift-card--hovering': hover.isHovering,
@@ -254,7 +259,7 @@ onBeforeUnmount(() => {
             <canvas ref="canvasRef" width="640" height="360" class="w-full h-full hidden" />
             <VImg
               :src="imgUrl"
-              aspect-ratio="2/3"
+              :aspect-ratio="3 / 2"
               class="library-card-image"
               :class="{ 'library-card-image--loaded': imageLoaded }"
               cover
@@ -269,7 +274,7 @@ onBeforeUnmount(() => {
               <template #default>
                 <div class="library-card-shade" aria-hidden="true" />
                 <div v-if="showCountCorner" class="library-card-count-corner">
-                  <span>{{ countLabel }}</span>
+                  <span class="num">{{ countLabel }}</span>
                 </div>
                 <div class="library-card-label">
                   <span>{{ props.media?.name }}</span>
@@ -310,20 +315,20 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(6, 10, 17, 58%);
+  background: rgba(11, 19, 34, 0.64);
   block-size: 1.75rem;
-  border-block-start: 1px solid rgba(255, 255, 255, 12%);
+  border-block-start: 1px solid rgba(248, 250, 252, 0.14);
   border-end-end-radius: var(--app-surface-radius);
   border-end-start-radius: var(--app-surface-radius);
-  color: #fff;
+  color: var(--mp-on-media);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
   inset-block-end: 0;
   inset-inline: 0;
   line-height: 1;
   padding-inline: 0.75rem;
   text-align: center;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 48%);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.48);
 }
 
 .library-card-label span {
@@ -335,7 +340,7 @@ onBeforeUnmount(() => {
 .library-card-count-corner {
   position: absolute;
   block-size: 3.35rem;
-  color: #fff;
+  color: var(--mp-on-media);
   inline-size: 3.35rem;
   inset-block-start: 0;
   inset-inline-end: 0;
@@ -368,8 +373,8 @@ onBeforeUnmount(() => {
   position: absolute;
   inset-block-start: 0.63rem;
   inset-inline-end: 0.18rem;
-  font-size: 0.625rem;
-  font-weight: 800;
+  font-size: 0.6875rem;
+  font-weight: 600;
   line-height: 1;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 44%);
   transform: rotate(45deg);

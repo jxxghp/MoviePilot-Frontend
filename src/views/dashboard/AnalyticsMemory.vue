@@ -177,7 +177,7 @@ async function loadMemoryData() {
 const { loading, refresh } = useDataRefresh(
   'analytics-memory',
   loadMemoryData,
-  3000, // 3秒间隔
+  10000, // 内存概况每十秒更新，首次加载仍立即执行。
   true, // 立即执行
 )
 

@@ -562,4 +562,94 @@ describe('PluginVersionHistoryDialog', () => {
     expect(emitted()['update:modelValue']).toContainEqual([false])
     expect(emitted().close).toHaveLength(1)
   })
+
+  it('renders passed-in history immediately while refreshing and overwrites on success', async () => {
+    let resolveHistory!: (value: Plugin) => void
+    const pendingHistory = new Promise<Plugin>(resolve => {
+      resolveHistory = resolve
+    })
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') return pendingHistory
+      if (url === 'plugin/source/DemoPlugin/options') return Promise.resolve(sourceOptions)
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve({ ...releases, items: [] })
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: {
+        ...installedPlugin,
+        history: { 'v1.0.0': '缓存中的旧更新说明' },
+      },
+      actionMode: 'update',
+    })
+
+    // 强制刷新尚未返回时，应直接展示传入的历史快照而非阻塞转圈。
+    expect(await screen.findByText('缓存中的旧更新说明')).toBeInTheDocument()
+    expect(document.querySelector('.plugin-version-history-dialog__loading')).toBeNull()
+    expect(mocks.apiGet).toHaveBeenCalledWith('plugin/history/DemoPlugin', {
+      params: { force: true },
+    })
+
+    resolveHistory({
+      ...installedPlugin,
+      history: {
+        'v1.1.0': '最新强制刷新说明',
+        'v1.0.0': '缓存中的旧更新说明',
+      },
+    })
+
+    expect(await screen.findByText('最新强制刷新说明')).toBeInTheDocument()
+    expect(
+      Array.from(document.querySelectorAll('.version-history__version')).map(element => element.textContent),
+    ).toEqual(['v1.1.0', 'v1.0.0'])
+  })
+
+  it('preserves passed-in history and shows a non-blocking warning when refresh fails', async () => {
+    mocks.apiGet.mockRejectedValueOnce(new Error('history timeout'))
+
+    await renderDialog({
+      modelValue: true,
+      plugin: {
+        ...installedPlugin,
+        history: { 'v1.0.0': '保留的本地快照说明' },
+      },
+      actionMode: 'update',
+    })
+
+    expect(await screen.findByText('读取更新说明失败，请稍后重试')).toBeInTheDocument()
+    expect(screen.getByText('保留的本地快照说明')).toBeInTheDocument()
+    expect(screen.queryByText('暂未获取到更新说明')).not.toBeInTheDocument()
+  })
+
+  it('shows refreshed history immediately without waiting for slow release or source queries', async () => {
+    let resolveSourceOptions!: (value: PluginSourceOptions) => void
+    const pendingSourceOptions = new Promise<PluginSourceOptions>(resolve => {
+      resolveSourceOptions = resolve
+    })
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'plugin/history/DemoPlugin') {
+        return Promise.resolve({
+          ...installedPlugin,
+          history: { 'v1.2.0': '历史接口已先返回的说明' },
+        })
+      }
+      if (url === 'plugin/source/DemoPlugin/options') return pendingSourceOptions
+      if (url === 'plugin/releases/DemoPlugin') return Promise.resolve(releases)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    await renderDialog({
+      modelValue: true,
+      plugin: installedPlugin,
+      actionMode: 'update',
+    })
+
+    // 即使来源候选接口仍在排队，也应立即展示 history 返回的更新说明。
+    expect(await screen.findByText('历史接口已先返回的说明')).toBeInTheDocument()
+    expect(document.querySelector('.plugin-version-history-dialog__loading')).toBeNull()
+
+    resolveSourceOptions(sourceOptions)
+    expect(await screen.findByText('v2.0.0')).toBeInTheDocument()
+  })
 })

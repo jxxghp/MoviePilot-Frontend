@@ -14,7 +14,8 @@ const props = defineProps({
   width: String,
 })
 
-// 艺术家图片加载失败后回退到占位图标
+// 艺术家图片加载状态与失败回退
+const isImageLoaded = ref(false)
 const imageLoadError = ref(false)
 
 const rawImageUrl = computed(() => props.artist?.image_url || props.artist?.poster_path || '')
@@ -45,14 +46,28 @@ function goArtistDetail() {
             <div style="padding-block-end: 150%">
               <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">
                 <div class="relative mt-2 mb-4 flex h-1/2 w-full justify-center">
-                  <VAvatar size="100" class="music-artist-card-avatar">
-                    <VImg v-if="showImage" :src="imageUrl" cover @error="imageLoadError = true" />
+                  <VAvatar
+                    size="100"
+                    class="music-artist-card-avatar"
+                    :class="{ 'music-artist-card-avatar--loaded': showImage && isImageLoaded }"
+                  >
+                    <VImg
+                      v-if="showImage"
+                      :src="imageUrl"
+                      cover
+                      @load="isImageLoaded = true"
+                      @error="imageLoadError = true"
+                    />
                     <VIcon v-else icon="mdi-account-music" size="48" color="medium-emphasis" />
                   </VAvatar>
                 </div>
-                <div class="music-artist-card-kind text-caption text-medium-emphasis">{{ t('person.artist') }}</div>
-                <div class="w-full truncate text-center font-bold">{{ props.artist?.name }}</div>
-                <div class="overflow-hidden whitespace-normal text-center text-sm text-ellipsis line-clamp-2">
+                <div class="music-artist-card-kind text-caption">{{ t('person.artist') }}</div>
+                <div class="music-artist-card-name w-full truncate text-center font-semibold">
+                  {{ props.artist?.name }}
+                </div>
+                <div
+                  class="music-artist-card-subtitle overflow-hidden whitespace-normal text-center text-sm text-ellipsis line-clamp-2"
+                >
                   {{ subtitle }}
                 </div>
               </div>
@@ -69,11 +84,31 @@ function goArtistDetail() {
   inline-size: 100%;
 }
 
-.music-artist-card-avatar {
-  background: rgba(var(--v-theme-on-surface), 0.08);
+.music-artist-card {
+  transition: background-color 0.2s ease;
 }
 
-.music-artist-card {
-  background-image: linear-gradient(45deg, rgba(var(--v-theme-background), 0.3), rgba(var(--v-theme-surface), 0.3) 60%);
+.music-artist-card:hover {
+  background-color: var(--mp-muted);
+}
+
+.music-artist-card-avatar {
+  background: var(--mp-muted);
+}
+
+.music-artist-card-avatar--loaded {
+  border: 1px solid var(--mp-border);
+}
+
+.music-artist-card-kind {
+  color: var(--mp-faint);
+}
+
+.music-artist-card-name {
+  color: var(--mp-fg);
+}
+
+.music-artist-card-subtitle {
+  color: var(--mp-muted-fg);
 }
 </style>

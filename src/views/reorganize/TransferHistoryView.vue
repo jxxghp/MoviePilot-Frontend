@@ -6,6 +6,7 @@ import { useToast } from 'vue-toastification'
 import api, { getApiBusinessErrorMessage, isApiBusinessFailure } from '@/api'
 import { listStorageOptions } from '@/api/storage'
 import type {
+  FileItem,
   StorageOption,
   TransferHistory,
   TransferHistoryDeleteResult,
@@ -27,12 +28,15 @@ import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useRangeSelection } from '@/composables/useRangeSelection'
+import type { PropType } from 'vue'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { getNameTail } from '@/components/filebrowser/tailEllipsis'
 import { formatMusicAudioSpecs } from '@/utils/music'
 import { useNativePageHeader } from '@/native/page'
 import { nativeChromeActive } from '@/native/layout'
+import { canUseNativeMediaPlayback, isLocalPlayableMediaFile, playLocalMediaFile } from '@/utils/mediaPlayback'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -55,6 +59,9 @@ const { useProgressSSE } = useBackground()
 // 按视口和框架留白限定桌面页高度，保证标题与分页留在可视区域。
 const { availableHeight, viewportHeight } = useAvailableHeight(135, 300)
 const desktopToolbarRef = ref<HTMLElement | null>(null)
+// 桌面记录在虚拟表格内部滚动，翻页时只重置当前列表的滚动容器。
+const desktopHistoryRef = ref<HTMLElement | null>(null)
+let displayedDesktopQueryKey: string | undefined
 const { top: desktopToolbarTop } = useElementBounding(desktopToolbarRef)
 // 框架预留 Dock 与页面内边距，真实起点负责兼容工具栏上方的布局高度。
 // 桌面页自身不滚动，标题、批量操作与分页占固定空间，剩余高度交给虚拟记录区。
@@ -700,6 +707,7 @@ function hasMusicAlbumGroup(items: TransferHistoryDisplayItem[]) {
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
   if (!historyViewActive) return
   const requestSeed = ++fetchDataRequestSeed
+  const queryKey = JSON.stringify([page, count, search.value ?? '', statusFilter.value])
   const shouldShowLoading = !options.silent
   if (shouldShowLoading) {
     loading.value = true
@@ -735,6 +743,13 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
       group.value = true
     }
 
+    // 等新数据和虚拟列表更新后再归零；同页刷新及 KeepAlive 返回保留阅读位置。
+    await nextTick()
+    if (historyViewActive && isDesktop.value && requestSeed === fetchDataRequestSeed) {
+      if (displayedDesktopQueryKey !== queryKey) resetDesktopHistoryScroll()
+      displayedDesktopQueryKey = queryKey
+    }
+
     return {
       list,
       total: totalItems.value,
@@ -747,6 +762,14 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
       loading.value = false
     }
   }
+}
+
+/** 重置虚拟表格自身的滚动位置，让新一页从首条记录开始显示。 */
+function resetDesktopHistoryScroll() {
+  const viewport = desktopHistoryRef.value?.querySelector<HTMLElement>(
+    '.transfer-history-desktop-virtual > .v-table__wrapper',
+  )
+  if (viewport) viewport.scrollTop = 0
 }
 
 const completedDeleteStatuses: TransferHistoryDeleteStepStatus[] = ['deleted', 'already_missing']
@@ -1430,6 +1453,19 @@ function getDropdownItems(item: TransferHistory) {
       },
     },
   ]
+  const playbackFile = getHistoryPlaybackFile(item)
+  if (playbackFile && canUseNativeMediaPlayback()) {
+    items.unshift({
+      title: t('transferHistory.actions.play'),
+      value: 4,
+      props: {
+        prependIcon: 'mdi-play',
+        click: () => {
+          void playHistoryFile(item, playbackFile)
+        },
+      },
+    })
+  }
   if (item.cleanup_status === 'failed') {
     items.splice(2, 0, {
       title: t('transferHistory.actions.cleanupResolved'),
@@ -1444,6 +1480,31 @@ function getDropdownItems(item: TransferHistory) {
     })
   }
   return items
+}
+
+/** 成功记录只选择目标文件；失败记录只选择源文件，不播放目录或整季条目。 */
+function getHistoryPlaybackFile(item: TransferHistory): FileItem | undefined {
+  const storedFile = item.status ? item.dest_fileitem : item.src_fileitem
+  const path = storedFile?.path || (item.status ? item.dest : item.src)
+  if (!path) return undefined
+  const file: FileItem = {
+    ...storedFile,
+    storage: storedFile?.storage || (item.status ? item.dest_storage : item.src_storage) || 'local',
+    type: storedFile?.type || 'file',
+    name: storedFile?.name || path.split(/[\\/]/).at(-1) || path,
+    path,
+  }
+  return isLocalPlayableMediaFile(file) ? file : undefined
+}
+
+/** 为历史菜单中选中的唯一文件签发票据，并将失败反馈留在原页面。 */
+async function playHistoryFile(item: TransferHistory, file: FileItem) {
+  try {
+    await playLocalMediaFile(file, getHistoryDisplayTitle(item), item.type === '音乐' ? 'audio' : undefined)
+  } catch (error) {
+    console.error(error)
+    $toast.error(getApiBusinessErrorMessage(error) || t('transferHistory.playbackFailed'))
+  }
 }
 
 // 生成历史记录页地址，确保刷新入口和分页入口使用一致的查询参数。
@@ -1699,16 +1760,38 @@ function getHistoryFailureHint(item: TransferHistory) {
   return lines.join('\n')
 }
 
-// 一次共享时钟更新所有桌面相对时间，避免为大量记录创建独立计时器。
+/**
+ * 解析展示用日期时间：无时区整理记录按浏览器本地时间解释，ISO 时区偏移与毫秒保持不变。
+ * 空值或无法解析的文本返回 null，由调用方保留原始文本。
+ */
+function parseDisplayDate(value?: string): Date | null {
+  if (!value) return null
+
+  const date = new Date(value.replace(/^(\d{4}-\d{2}-\d{2}) /, '$1T'))
+  return Number.isFinite(date.getTime()) ? date : null
+}
+
+/**
+ * 将有效日期的浏览器本地年月日编码为连续自然日序号，不受夏令时的 23/25 小时影响。
+ * Date.UTC 仅编码本地日历字段，不代表按 UTC 日期分组或计算本地零点的经过时长。
+ */
+function getLocalCalendarDay(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000
+}
+
+// 一次共享时钟更新桌面与移动端时间，避免为大量记录创建独立计时器。
 const desktopTimeNow = useNow({ interval: 60000 })
 const desktopRelativeTimeFormatter = computed(() => new Intl.RelativeTimeFormat(locale.value, { numeric: 'auto' }))
 
 /** 桌面时间按最大适用单位显示相对值；缺失或无法解析时保留原文本。 */
 function getDesktopRelativeTime(date?: string) {
   if (!date) return ''
-  const timestamp = new Date(date.replace(' ', 'T')).getTime()
-  if (!Number.isFinite(timestamp)) return date
-  const seconds = (timestamp - desktopTimeNow.value.getTime()) / 1000
+  const recordDate = parseDisplayDate(date)
+  if (!recordDate) return date
+  const now = desktopTimeNow.value
+  const seconds = (recordDate.getTime() - now.getTime()) / 1000
+  const yearDiff = recordDate.getFullYear() - now.getFullYear()
+  const monthDiff = yearDiff * 12 + recordDate.getMonth() - now.getMonth()
   const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
     ['year', 31536000],
     ['month', 2592000],
@@ -1717,26 +1800,41 @@ function getDesktopRelativeTime(date?: string) {
     ['minute', 60],
     ['second', 1],
   ]
-  const [unit, duration] = units.find(([, length]) => Math.abs(seconds) >= length) || units.at(-1)!
-  return desktopRelativeTimeFormatter.value.format(Math.trunc(seconds / duration), unit)
+  const [unit, duration] =
+    units.find(
+      ([candidate, length]) =>
+        Math.abs(seconds) >= length &&
+        (candidate !== 'year' || yearDiff !== 0) &&
+        (candidate !== 'month' || monthDiff !== 0),
+    ) || units.at(-1)!
+  // 年、月、日文案使用自然周期差，单位门槛和更小单位仍沿用经过时长规则。
+  const value =
+    unit === 'year'
+      ? yearDiff
+      : unit === 'month'
+        ? monthDiff
+        : unit === 'day'
+          ? getLocalCalendarDay(recordDate) - getLocalCalendarDay(now)
+          : Math.trunc(seconds / duration)
+  return desktopRelativeTimeFormatter.value.format(value, unit)
 }
 
-// 将历史记录时间压缩成移动端卡片展示文本。
+// 按浏览器本地自然日压缩移动端时间，无法解析时保留原文本。
 function getHistoryDateText(date?: string) {
   if (!date) return ''
 
-  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
-  if (!match) return date
+  const recordDate = parseDisplayDate(date)
+  if (!recordDate) return date
 
-  const [, year, month, day, hour, minute] = match
-  const recordDate = new Date(Number(year), Number(month) - 1, Number(day))
-  const today = new Date()
-  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const diffDays = Math.round((todayDate.getTime() - recordDate.getTime()) / 86400000)
+  const diffDays = getLocalCalendarDay(recordDate) - getLocalCalendarDay(desktopTimeNow.value)
+  const month = String(recordDate.getMonth() + 1).padStart(2, '0')
+  const day = String(recordDate.getDate()).padStart(2, '0')
+  const hour = String(recordDate.getHours()).padStart(2, '0')
+  const minute = String(recordDate.getMinutes()).padStart(2, '0')
   const time = `${hour}:${minute}`
 
   if (diffDays === 0) return `今天 ${time}`
-  if (diffDays === 1) return `昨天 ${time}`
+  if (diffDays === -1) return `昨天 ${time}`
 
   return `${month}-${day} ${time}`
 }
@@ -1784,6 +1882,44 @@ function updateHistorySelection(items: readonly TransferHistory[], checked: bool
 function toggleHistorySelection(item: TransferHistory, checked: boolean | null) {
   updateHistorySelection([item], checked)
 }
+
+// 桌面表格经排序、分组并去掉折叠分组后的显示顺序。Vuetify 3.7 只在表格插槽参数中提供这份顺序，由探针组件同步。
+const desktopDisplayedHistory = shallowRef<readonly TransferHistory[]>([])
+
+/** 表格插槽 groupedItems 的条目：分组标题或记录行，只包含展开分组内的记录。 */
+type DesktopGroupedEntry = { type: 'group' } | { type: 'item'; raw: TransferHistory }
+
+// 渲染在表格主体插槽中的无界面探针，把插槽参数里的显示顺序同步给连选使用。
+// 插槽的 items 会包含折叠分组内的记录，因此改用 groupedItems 并去掉分组标题。
+const DesktopDisplayOrderProbe = defineComponent({
+  props: {
+    groupedItems: { type: Array as PropType<readonly DesktopGroupedEntry[]>, required: true },
+  },
+  setup(probeProps) {
+    watchEffect(() => {
+      desktopDisplayedHistory.value = probeProps.groupedItems.flatMap(entry =>
+        entry.type === 'item' ? [entry.raw] : [],
+      )
+    })
+    return () => null
+  },
+})
+
+// 桌面表格按住 Shift 连选，范围只覆盖当前可见的记录，不会选中折叠分组内的记录。
+const historyRangeSelection = useRangeSelection<TransferHistory>({
+  items: () => desktopDisplayedHistory.value,
+  getKey: item => item.id,
+  isSelected: isHistorySelected,
+  setSelected: updateHistorySelection,
+})
+
+// 选择被清空后（如批量操作完成）不再沿用旧起点。
+watch(
+  () => selected.value.length === 0,
+  empty => {
+    if (empty) historyRangeSelection.reset()
+  },
+)
 
 // 切换移动端批量选择模式，退出时清空移动端选择状态。
 function toggleMobileBatchMode() {
@@ -2164,7 +2300,13 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
 </script>
 
 <template>
-  <section v-if="isDesktop" class="transfer-history-desktop-page" :style="{ blockSize: `${desktopPageHeight}px` }">
+  <section
+    v-if="isDesktop"
+    ref="desktopHistoryRef"
+    class="transfer-history-desktop-page"
+    data-glass-optical-mode="static-material"
+    :style="{ blockSize: `${desktopPageHeight}px` }"
+  >
     <header ref="desktopToolbarRef" class="transfer-history-desktop-toolbar">
       <VPageContentTitle :title="t('navItems.mediaOrganize')" class="my-0" style="margin-block: 0" />
       <div class="transfer-history-desktop-tools">
@@ -2294,7 +2436,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
         hide-details
         @update:model-value="selectDesktopPage"
       />
-      <span class="transfer-history-desktop-selection__count">
+      <span class="transfer-history-desktop-selection__count num">
         {{ t('transferHistory.selectedCount', { count: desktopSelectedCount, total: dataList.length }) }}
       </span>
       <template v-if="canManage && desktopSelectedCount > 0">
@@ -2332,7 +2474,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
     </div>
 
     <div v-else-if="!desktopEmpty" class="transfer-history-desktop-summary">
-      {{ t('transferHistory.desktop.summary', { count: totalItems, pages: totalPage }) }}
+      <span class="mp-canvas-pill num">
+        {{ t('transferHistory.desktop.summary', { count: totalItems, pages: totalPage }) }}
+      </span>
     </div>
 
     <!-- 仅替换桌面呈现；保留 Vuetify 的虚拟测高、排序、分组和分页数据契约。 -->
@@ -2352,6 +2496,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
       height="100%"
       :item-height="100"
       class="transfer-history-desktop-virtual"
+      data-glass-optical-surface
       :aria-label="t('transferHistory.desktop.title')"
     >
       <template v-slot:group-header="{ item, columns, toggleGroup, isGroupOpen }">
@@ -2401,7 +2546,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
               <div class="transfer-history-album-summary__identity">
                 <div class="transfer-history-album-summary__title-line">
                   <strong>{{ getHistoryGroupSummary(item.items)?.label }}</strong>
-                  <VChip size="x-small" variant="tonal" color="primary">
+                  <VChip size="x-small" variant="tonal" color="primary" class="num">
                     {{
                       t('transferHistory.desktop.pageTracks', {
                         count: getHistoryGroupSummary(item.items)?.trackCount || 0,
@@ -2428,7 +2573,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 <span>{{ getHistoryGroupSummary(item.items)?.albumPath }}</span>
               </div>
 
-              <div class="transfer-history-album-summary__facts">
+              <div class="transfer-history-album-summary__facts num">
                 <VChip
                   v-if="getHistoryGroupSummary(item.items)?.mode"
                   size="x-small"
@@ -2499,9 +2644,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
               </div>
               <div class="transfer-history-desktop-group-identity">
                 <strong>{{ getHistoryGroupLabel(item.items) }}</strong>
-                <small>{{ t('transferHistory.desktop.pageRecords', { count: item.items.length }) }}</small>
+                <small class="num">{{ t('transferHistory.desktop.pageRecords', { count: item.items.length }) }}</small>
               </div>
-              <div class="transfer-history-desktop-group-counts">
+              <div class="transfer-history-desktop-group-counts num">
                 <VChip color="success" size="x-small" variant="tonal"
                   >{{ t('transferHistory.status.success') }}
                   {{ item.items.filter(entry => entry.value.status).length }}</VChip
@@ -2514,6 +2659,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
             </div>
           </td>
         </tr>
+      </template>
+      <template #body.prepend="{ groupedItems }">
+        <DesktopDisplayOrderProbe :grouped-items="groupedItems" />
       </template>
       <template #item="{ item, columns, itemRef }">
         <tr :ref="itemRef" class="transfer-history-desktop-record-row" :data-history-id="item.id">
@@ -2532,7 +2680,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 density="compact"
                 hide-details
                 :aria-label="t('transferHistory.desktop.selectRecord', { title: getHistoryDisplayTitle(item) })"
-                @update:model-value="checked => toggleHistorySelection(item, checked)"
+                @click="historyRangeSelection.onCheckboxClick"
+                @update:model-value="checked => historyRangeSelection.selectFromCheckbox(item, !!checked)"
+                @input="historyRangeSelection.onCheckboxInput(item, $event)"
               />
               <div class="transfer-history-desktop-media-cell">
                 <div class="transfer-history-desktop-poster-frame rounded-md">
@@ -2628,7 +2778,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     </VMenu>
                   </IconBtn>
                 </div>
-                <div class="transfer-history-desktop-record__metadata">
+                <div class="transfer-history-desktop-record__metadata num">
                   <VChip variant="tonal" size="x-small">{{
                     TransferDict[item.mode ?? ''] || t('common.unknown')
                   }}</VChip>
@@ -2655,7 +2805,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
         class="transfer-history-pagination__size"
         :aria-label="t('transferHistory.pageSize')"
       />
-      <span class="transfer-history-pagination__info">{{
+      <span class="transfer-history-pagination__info num">{{
         t('transferHistory.pageInfo', { ...pageTip, total: totalItems })
       }}</span>
       <VPagination v-model="currentPage" show-first-last-page :length="totalPage" :total-visible="7" />
@@ -2870,7 +3020,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 </VMenu>
               </IconBtn>
 
-              <div class="transfer-history-mobile-record__meta">
+              <div class="transfer-history-mobile-record__meta num">
                 <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
                   {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
                 </VChip>
@@ -3028,13 +3178,37 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
   gap: 4px;
   min-inline-size: 0;
 }
+// 玻璃主题下顶栏右侧裸放图标按钮补充轻量阅读底色，避免高反差壁纸干扰识别。
+html[data-theme='glass'] .transfer-history-desktop-tools > .v-btn.v-btn--icon {
+  border: 1px solid var(--mp-reading-border);
+  background: var(--mp-reading-surface) !important;
+}
 .transfer-history-desktop-search {
   inline-size: clamp(12rem, 24vw, 24rem);
   flex: 0 1 auto;
   margin-inline-end: 8px;
 }
-// 与导航栏全局搜索使用相同的胶囊圆角和轻背景，不呈现描边输入框。
-.transfer-history-desktop-search .v-field,
+// 搜索框独立位于主卡上方，直接复用阅读衬底，避免在玻璃壁纸上失真发灰。
+.transfer-history-desktop-search .v-field {
+  border: 1px solid var(--mp-reading-border) !important;
+  border-radius: var(--app-vuetify-rounded-pill);
+  background: var(--mp-reading-surface) !important;
+  box-shadow: none !important;
+  min-block-size: 42px;
+}
+html[data-theme='glass'] .transfer-history-desktop-tools .transfer-history-desktop-search .v-field {
+  border: 1px solid var(--mp-reading-border) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background-color: var(--mp-reading-surface) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+html[data-theme='glass'] .transfer-history-desktop-tools .transfer-history-desktop-search .v-field__prepend-inner,
+html[data-theme='glass'] .transfer-history-desktop-tools .transfer-history-desktop-search input::placeholder {
+  color: var(--mp-muted-fg) !important;
+  opacity: 1;
+}
 .transfer-history-desktop-pagination .transfer-history-pagination__size .v-field {
   border: 0 !important;
   border-radius: var(--app-vuetify-rounded-pill);
@@ -3051,32 +3225,17 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .transfer-history-desktop-search .v-field__prepend-inner {
   color: rgba(var(--v-theme-on-surface), 0.45);
 }
-// 自定义桌面卡片复用全局表面与阴影 token；主题只替换材质，不改变布局。
-.transfer-history-desktop-page {
-  --history-desktop-surface: var(--app-grouped-list-background);
-  --history-desktop-border: var(--app-surface-border);
-  --history-desktop-backdrop-filter: var(--app-grouped-list-backdrop-filter);
-}
-.transfer-history-desktop-selection,
-.transfer-history-desktop-record,
-.transfer-history-desktop-group-summary,
-.transfer-history-desktop-page .transfer-history-album-summary {
-  border: var(--history-desktop-border);
-  border-radius: var(--app-surface-radius);
-  background: var(--history-desktop-surface);
-  box-shadow: var(--history-desktop-shadow, var(--app-card-rest-shadow));
-  backdrop-filter: var(--history-desktop-backdrop-filter);
-  -webkit-backdrop-filter: var(--history-desktop-backdrop-filter);
-}
-.transfer-history-desktop-record:hover,
-.transfer-history-desktop-group-summary:hover,
-.transfer-history-desktop-page .transfer-history-album-summary:hover {
-  box-shadow: var(--history-desktop-shadow-hover, var(--app-card-hover-shadow));
-}
+// 桌面端整理历史由外层表格容器承接整体大玻璃卡片，内部记录行仅使用透明细分割线与轻量悬停。
 .transfer-history-desktop-selection {
   flex-wrap: wrap;
   padding: 8px 16px;
-  min-block-size: 58px;
+  min-block-size: 54px;
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-field-radius);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-card-rest-shadow);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
 }
 .transfer-history-desktop-selection > .v-input {
   flex: 0 0 auto;
@@ -3096,27 +3255,60 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
   font-size: 0.85rem;
 }
 
-/* 虚拟表格仅提供排序、分组和测高；一行一个跨列卡片，取消表头与表格边框。 */
+/* 虚拟表格承载单一整体大玻璃/平面容器材质；内部记录行透明平铺，不再逐行叠加玻璃效果。 */
 .transfer-history-desktop-virtual.v-table {
   flex: 1 1 0;
   min-block-size: 0;
-  background: transparent;
+  overflow: hidden;
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-card-rest-shadow);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  -webkit-backdrop-filter: var(--app-grouped-list-backdrop-filter);
+}
+html[data-theme='glass'] .transfer-history-desktop-page {
+  .transfer-history-desktop-selection,
+  .transfer-history-desktop-virtual.v-table {
+    border: 1px solid var(--glass-border) !important;
+    background: var(--glass-v3-card-background) !important;
+    box-shadow: var(--glass-v3-surface-edge, inset 0 1px 0 var(--glass-highlight)), var(--glass-v3-shadow) !important;
+    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+  }
 }
 .transfer-history-desktop-virtual > .v-table__wrapper {
-  padding-inline: 1px;
-  // 队列悬浮按钮压在列表右下角，末尾留白让最后一条记录能滚到按钮上方。
-  padding-block-end: var(--app-fab-clearance);
-  // 滚动裁切边与卡片同圆角，滚出视口的卡片不再被直角切断；圆角裁切不影响子级玻璃采样。
-  border-radius: var(--app-surface-radius);
+  padding-inline: 0;
+  // 队列悬浮按钮压在列表右下角，末尾留白让最后一条记录能滚到按钮上方（原生套壳下自动归零）。
+  padding-block-end: var(--mp-bottom-clearance);
+  border-radius: inherit;
 }
 .transfer-history-desktop-virtual table {
   table-layout: fixed;
 }
 .transfer-history-desktop-virtual .transfer-history-desktop-record-row > td,
 .transfer-history-desktop-virtual .transfer-history-desktop-group-row > td {
-  padding: 0 0 8px !important;
+  padding: 0 !important;
   border: 0 !important;
   block-size: auto !important;
+  background: transparent !important;
+}
+.transfer-history-desktop-virtual > .v-table__wrapper > table > tbody > tr:hover > td {
+  background: transparent !important;
+}
+.transfer-history-desktop-record,
+.transfer-history-desktop-group-summary,
+.transfer-history-desktop-page .transfer-history-album-summary {
+  border: 0;
+  border-block-end: 1px solid var(--mp-list-row-divider);
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.transfer-history-desktop-group-summary,
+.transfer-history-desktop-page .transfer-history-album-summary {
+  background: var(--mp-list-group-bg);
 }
 .transfer-history-desktop-record {
   display: grid;
@@ -3124,56 +3316,26 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
   grid-template-columns: 36px minmax(9.5rem, 12.5rem) minmax(0, 1fr) minmax(12rem, 14rem);
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 10px 16px;
+  background: transparent;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+    background-color 150ms ease,
+    box-shadow 150ms ease;
 }
-// 子项卡片缩进一级，保留右侧对齐和虚拟列表原有的测高方式。
+// 子项记录缩进一级，保持整行悬停底色与底部分割线连续。
 .transfer-history-desktop-record--child {
-  margin-inline-start: 24px;
+  padding-inline-start: 40px;
 }
-.transfer-history-desktop-record:hover {
-  border-color: rgba(var(--v-theme-primary), 0.35);
+.transfer-history-desktop-record:hover,
+.transfer-history-desktop-group-summary:hover,
+.transfer-history-desktop-page .transfer-history-album-summary:hover {
+  background: var(--mp-list-row-hover);
+  box-shadow: none;
 }
-.transfer-history-desktop-record--selected {
-  border: 1px solid rgba(var(--v-theme-primary), 0.55);
-  background:
-    linear-gradient(var(--app-grouped-list-active-background), var(--app-grouped-list-active-background)),
-    var(--history-desktop-surface);
-}
-// 虚拟表格只承载滚动；玻璃材质由可见卡片采样，避免外层与深色底叠加。
-html[data-theme='glass'] .transfer-history-desktop-page {
-  --history-desktop-surface: var(--glass-v3-card-background);
-  --history-desktop-border: 1px solid var(--glass-border);
-  --history-desktop-backdrop-filter: var(--glass-native-surface-backdrop-filter);
-  // 密集列表行只保留玻璃边缘高光，外投影会渗进卡片间距，叠成一层发灰的列表背景。
-  --history-desktop-shadow: var(--glass-dashboard-shadow);
-  --history-desktop-shadow-hover: var(--glass-dashboard-shadow-hover);
-  .transfer-history-desktop-virtual.v-table {
-    background: transparent !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  .transfer-history-desktop-record:hover {
-    border-color: var(--glass-border-hover);
-  }
-
-  // 保留选择状态的主色提示，同时透出同一套玻璃材料。
-  .transfer-history-desktop-record--selected,
-  .transfer-history-desktop-record--selected:hover {
-    border-color: rgba(var(--v-theme-primary), 0.55);
-    background:
-      linear-gradient(var(--app-grouped-list-active-background), var(--app-grouped-list-active-background)),
-      var(--history-desktop-surface);
-  }
-
-  .transfer-history-desktop-virtual > .v-table__wrapper > table > tbody > tr:hover > td {
-    background: transparent;
-  }
+.transfer-history-desktop-record--selected,
+.transfer-history-desktop-record--selected:hover {
+  background: rgba(var(--v-theme-primary), 0.1);
+  box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
 }
 .transfer-history-desktop-record .v-selection-control {
   min-block-size: 36px;
@@ -3261,8 +3423,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   padding-block: 0.1rem;
   padding-inline: 0.4rem;
   border-radius: 4px;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  background: var(--mp-muted);
+  color: var(--mp-muted-fg);
   font-size: 0.72rem;
   line-height: 1.5;
   margin-block-start: 0.1rem;
@@ -3287,6 +3449,12 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-path-filename {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   font-weight: 500;
+}
+// 状态与整理元信息分成两行，菜单隐藏时也保留稳定的垂直间距。
+.transfer-history-desktop-record__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .transfer-history-desktop-record__status {
   display: flex;
@@ -3344,6 +3512,21 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-desktop-pagination {
   flex-wrap: wrap;
   padding-block: 0;
+}
+
+// 玻璃主题下底部分页条直接浮在壁纸上，补充静态可读底色确保深色海面与亮空背景下的页码辨识度。
+html[data-theme='glass'] .transfer-history-desktop-pagination {
+  padding-block: 0.375rem;
+  padding-inline: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--app-theme-surface-radius);
+  background: rgba(15, 23, 42, 0.56);
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'] .transfer-history-desktop-pagination {
+  border-color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 // 仅移除桌面分页按钮的垂直外边距，保留横向间距和原有点击面积。
 .transfer-history-desktop-pagination .v-pagination__item,
@@ -3537,18 +3720,17 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-page {
-  --transfer-history-mobile-surface-opacity: 0.92;
-  --transfer-history-mobile-search-bg: rgba(var(--v-theme-on-surface), 0.045);
-  --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
-  --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.1);
-  --transfer-history-mobile-surface-blur: none;
+  --transfer-history-mobile-search-bg: var(--mp-muted);
+  --transfer-history-mobile-muted-bg: var(--mp-muted);
+  --transfer-history-mobile-border: var(--mp-border);
+  --transfer-history-mobile-surface-blur: var(--app-grouped-list-backdrop-filter);
 
   display: flex;
   flex-direction: column;
   gap: 1rem;
   min-block-size: 100%;
-  // 列表末尾预留悬浮按钮高度：本页按钮距底 4.5rem，比默认位置高 3.5rem，扣除外层布局 1.5rem 内边距后补 2rem。
-  padding-block: 0.25rem calc(var(--app-fab-clearance) + 2rem);
+  // 列表末尾预留悬浮按钮高度：网页端在原生底部避让基础上补足队列栈抬高距离，原生套壳下随 --mp-bottom-clearance 归零。
+  padding-block: 0.25rem calc(var(--mp-bottom-clearance) + 2rem);
   padding-inline: 0.35rem;
 }
 
@@ -3620,9 +3802,10 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 
 .transfer-history-mobile-record {
   overflow: hidden;
+  border: var(--app-grouped-list-border);
   border-radius: var(--app-surface-radius);
   backdrop-filter: var(--transfer-history-mobile-surface-blur);
-  background: rgba(var(--v-theme-surface), var(--transfer-history-mobile-surface-opacity));
+  background: var(--app-grouped-list-background);
   box-shadow: var(--app-card-rest-shadow);
 }
 
@@ -3643,6 +3826,12 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   grid-template-rows: auto auto;
   padding-block: 0.85rem 0.75rem;
   padding-inline: 1rem 0.85rem;
+}
+
+// 原生菜单隐藏按钮后收起菜单列；批量选择仍为复选框保留位置。
+.transfer-history-mobile-record[data-native-card-menu-ready]:not(.transfer-history-mobile-record--batch)
+  .transfer-history-mobile-record__header {
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
 }
 
 .transfer-history-mobile-record__poster-wrapper {
@@ -3687,8 +3876,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   position: absolute;
   padding: 2px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 55%);
-  color: rgb(255, 255, 255);
+  background: rgba(15, 23, 42, 0.64);
+  color: var(--mp-on-media);
   inset-block-end: 4px;
   inset-inline-start: 4px;
   opacity: 0.92;
@@ -3763,7 +3952,7 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-mobile-record__mode {
   border-color: rgb(var(--v-theme-primary)) !important;
   border-radius: 999px !important;
-  color: rgb(var(--v-theme-primary)) !important;
+  color: var(--mp-primary-fg) !important;
   font-weight: 650;
 }
 
@@ -3775,7 +3964,7 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   display: grid;
   border: 0;
   background: transparent;
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-block-start: 1px solid var(--mp-list-row-divider);
   color: inherit;
   cursor: pointer;
   column-gap: 0.625rem;
@@ -3858,12 +4047,12 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-mobile-record__error {
   display: flex;
   align-items: center;
-  border: 1px solid rgba(var(--v-theme-error), 0.2);
+  border: 1px solid var(--mp-destructive-border);
   border-radius: 8px;
-  background: rgba(var(--v-theme-error), 0.08);
-  color: rgb(var(--v-theme-error));
+  background: var(--mp-destructive-soft);
+  color: var(--mp-destructive-fg);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 600;
   gap: 0.5rem;
   line-height: 1.45;
   margin-block: 0 1rem;

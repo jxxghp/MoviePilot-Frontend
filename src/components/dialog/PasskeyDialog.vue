@@ -375,12 +375,12 @@ onUnmounted(() => {
   min-width: 45px;
   padding: 0;
   background-color: rgba(var(--v-theme-error), 0.1);
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
   transition: all 0.2s ease;
 }
 
 .v-btn.delete-btn:hover {
   background-color: rgba(var(--v-theme-error), 0.2);
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 </style>

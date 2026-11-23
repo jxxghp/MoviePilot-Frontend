@@ -17,6 +17,17 @@ export enum MediaSource {
 
 export type MediaDataSource = `${MediaSource}` | (string & {})
 
+/** 非 TMDB 来源对应的共享 TMDB 身份；原详情的媒体主身份保持不变。 */
+export interface MediaMapping {
+  media_source: MediaDataSource
+  media_id: string
+  type: 'movie' | 'tv'
+  season: number | null
+  tmdb_id: number
+  tmdb_type: 'movie' | 'tv'
+  tmdb_season: number | null
+}
+
 /** 后端返回的媒体来源注册描述，供各类来源选择器共享。 */
 export interface MediaSourceInfo {
   name: string
@@ -51,6 +62,8 @@ export interface SubscriptionExecutionStatus {
   next_run_at?: string
   error?: string
   can_cancel: boolean
+  /** 本次任务已添加的下载数量，用于区分已添加下载与暂无资源 */
+  submitted_count?: number
 }
 
 /** 用户主动发起订阅搜索后的安排结果。 */
@@ -360,10 +373,10 @@ export interface WorkflowShare {
   trigger_type?: string
   // 事件类型（当trigger_type为event时使用）
   event_type?: string
-  // 动作列表
-  actions?: any[]
-  // 动作流
-  flows?: any[]
+  // 动作列表（接口以JSON字符串返回，兼容数组形式）
+  actions?: any[] | string
+  // 动作流（接口以JSON字符串返回，兼容数组形式）
+  flows?: any[] | string
   // 上下文
   context?: string
   // 时间
@@ -444,6 +457,8 @@ export interface TransferHistory {
   bitrate?: number
   // 源文件项
   src_fileitem?: FileItem
+  // 目标文件项
+  dest_fileitem?: FileItem
 }
 
 /** 整理历史删除的单个文件步骤状态。 */
@@ -1677,7 +1692,7 @@ export interface SearchDiagnostics {
     media_type: string | null
     categories: string[]
   }>
-  warnings: Array<{ code: string; rule_group?: string | null }>
+  warnings: Array<{ code: string; rule_group?: string | null; rule_ids?: string[] }>
 }
 
 // 种子信息
@@ -1720,10 +1735,10 @@ export interface TorrentInfo {
   pubdate?: string
   // 已过时间
   date_elapsed?: string
-  // 上传因子
-  uploadvolumefactor: number
-  // 下载因子
-  downloadvolumefactor: number
+  // 上传因子，null 表示接口未提供
+  uploadvolumefactor: number | null
+  // 下载因子，null 表示接口未提供，不能视为免费
+  downloadvolumefactor: number | null
   // HR
   hit_and_run: boolean
   // 种子标签
@@ -2184,12 +2199,16 @@ export interface MediaServerPlayItem {
   id?: string | number
   // 媒体服务器项目ID
   item_id?: string | number
+  // MoviePilot 媒体服务器配置名
+  server?: string
   // 媒体服务器ID
   server_id?: string
   // 标题
   title: string
   // 副标题
   subtitle?: string
+  // 发行年份
+  year?: string | number
   // 类型
   type?: string
   // 海报
@@ -2559,6 +2578,10 @@ export interface TransferForm {
   music_release_scripts?: string[] | null
   // 本次是否识别 CUE；未传时继承系统设置
   music_cue_enable?: boolean | null
+  // 本次手选专辑的对齐方式；默认严格校验，顺序模式按源路径自然排序。
+  music_track_match?: 'strict' | 'ignore_duration' | 'sequential'
+  // 本次音乐最终目录；留空沿用目录模板，填写时仅应用文件名模板。
+  music_target_path?: string | null
   // 季号
   season?: number
   // 类型

@@ -14,6 +14,12 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 const OTPAuthDialog = defineAsyncComponent(() => import('@/components/dialog/OTPAuthDialog.vue'))
 const PasskeyDialog = defineAsyncComponent(() => import('@/components/dialog/PasskeyDialog.vue'))
 const VerifyPasswordDialog = defineAsyncComponent(() => import('@/components/dialog/VerifyPasswordDialog.vue'))
+const ChannelBindingDialog = defineAsyncComponent(() => import('@/components/dialog/ChannelBindingDialog.vue'))
+
+/** 当前登录用户通过一次性码验证已有账号与渠道双方身份。 */
+function openChannelBinding() {
+  openSharedDialog(ChannelBindingDialog)
+}
 
 // 国际化
 const { t } = useI18n()
@@ -519,6 +525,13 @@ const nativeSecurityMenu = computed<NativeStandaloneMenuBinding>(() => ({
               <VDivider class="my-10">
                 <span>{{ t('profile.accountBinding') }}</span>
               </VDivider>
+
+              <div class="d-flex flex-wrap justify-space-between align-center ga-3 mb-4">
+                <span class="text-caption text-medium-emphasis">{{ t('channelAuthorization.deliveryHint') }}</span>
+                <VBtn variant="tonal" prepend-icon="mdi-link-variant" @click="openChannelBinding">{{
+                  t('channelAuthorization.bindingTitle')
+                }}</VBtn>
+              </div>
 
               <VRow>
                 <VCol cols="12" md="6">

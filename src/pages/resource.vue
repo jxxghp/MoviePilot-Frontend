@@ -2,7 +2,7 @@
 import type { LocationQuery } from 'vue-router'
 import ResourceSearchEmptyState from '@/components/states/ResourceSearchEmptyState.vue'
 import SearchDiagnosticsPanel from '@/components/states/SearchDiagnosticsPanel.vue'
-import { normalizeSearchDiagnostics } from '@/utils/searchDiagnostics'
+import { hasRuleConfigurationError, normalizeSearchDiagnostics } from '@/utils/searchDiagnostics'
 import api from '@/api'
 import type { Context, MediaDataSource, SearchDiagnostics, SearchSourcePage, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
@@ -12,6 +12,7 @@ import SubtitleItem from '@/components/cards/SubtitleItem.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
 import { useSearchPagination, type SearchSourceProgress } from '@/composables/useSearchPagination'
@@ -26,9 +27,12 @@ import { getCurrentLocale } from '@/plugins/i18n'
 import { isMediaDataSource, isValidMediaSourceId } from '@/utils/mediaId'
 import { requiresMusicConfirmation } from '@/utils/music'
 import { useNativePageHeader } from '@/native/page'
+import { nativeChromeActive } from '@/native/layout'
 
 // 国际化
 const { t } = useI18n()
+const display = useDisplay()
+const isDesktopLayout = computed(() => display.mdAndUp.value)
 
 const { appMode } = usePWA()
 const userStore = useUserStore()
@@ -265,12 +269,6 @@ const keyword = computed(() => activeSearchParams.value.keyword)
 // 精确媒体身份对用户无意义，进度卡片中仅展示标题即可。
 const isMediaIdKeyword = computed(() => hasValidMediaIdentity(activeSearchParams.value))
 
-// 查询类型
-const type = computed(() => activeSearchParams.value.type)
-
-// 搜索字段
-const area = computed(() => activeSearchParams.value.area)
-
 // 搜索标题
 const title = computed(() => activeSearchParams.value.title)
 
@@ -280,17 +278,15 @@ const year = computed(() => activeSearchParams.value.year)
 // 搜索季
 const season = computed(() => activeSearchParams.value.season)
 
-// 搜索站点，以,分离多个
-const sites = computed(() => activeSearchParams.value.sites)
-
 // 搜索结果类型
 const resultType = computed(() => (activeSearchParams.value.result_type === 'subtitle' ? 'subtitle' : 'torrent'))
 
 // 是否为字幕搜索
 const isSubtitleSearch = computed(() => resultType.value === 'subtitle')
 
-// 视图类型，从localStorage中读取
-const viewType = ref<TorrentViewType>(normalizeTorrentViewType(localStorage.getItem('MPTorrentsViewType')))
+// 原生 App 固定使用卡片；网页的持久化视图偏好保留，退出原生接管后继续恢复。
+const preferredViewType = ref<TorrentViewType>(normalizeTorrentViewType(localStorage.getItem('MPTorrentsViewType')))
+const viewType = computed<TorrentViewType>(() => (nativeChromeActive.value ? 'card' : preferredViewType.value))
 
 // 排序条件与方向，从localStorage中读取，让上次的选择在下次进入结果页时继续生效
 const torrentSortFieldStorageKey = 'MPTorrentsSortField'
@@ -347,6 +343,7 @@ interface SearchTorrent extends Context {
 const filteredCardDataList = ref<Array<SearchTorrent>>([])
 const musicResultMode = ref<'all' | 'exact' | 'candidate'>('all')
 const hasMusicCandidates = computed(() => rawDataList.value.some(requiresMusicConfirmation))
+const musicCandidateCount = computed(() => Math.max(streamCandidateCount, rawDataList.value.length))
 watch(hasMusicCandidates, available => {
   if (!available) musicResultMode.value = 'all'
 })
@@ -370,7 +367,7 @@ const isRefreshed = ref(false)
 
 const viewToggleIcon = computed(() => (viewType.value === 'card' ? 'mdi-view-list-outline' : 'mdi-view-grid-outline'))
 
-// 搜索结果视图切换收纳到页面动态按钮中，和仪表盘的设置按钮保持一致。
+/** 网页和 PWA 的视图切换复用原筛选结果；原生 App 不提供此动作。 */
 function toggleViewType() {
   changeViewType(viewType.value === 'card' ? 'row' : 'card')
 }
@@ -379,7 +376,7 @@ useDynamicButton({
   icon: viewToggleIcon,
   onClick: toggleViewType,
   permission: 'search',
-  show: computed(() => appMode.value && isRefreshed.value),
+  show: computed(() => appMode.value && !nativeChromeActive.value && isRefreshed.value),
 })
 
 // 是否正在重新搜索
@@ -459,6 +456,7 @@ const showResultHeader = computed(() => isRefreshed.value && !progressActive.val
 
 // 记录过滤前的候选资源数，用于过滤后无结果时给出友好提示
 let streamCandidateCount = 0
+let streamHasFilterRejections = false
 
 let pendingStreamItems: Array<Context> = []
 let pendingSubtitleStreamItems: Array<SubtitleInfo> = []
@@ -496,6 +494,9 @@ watch(
   },
   { deep: true },
 )
+
+// 原生接管可能晚于缓存结果恢复；显示模式改变时重建对应分组，避免卡片列表为空。
+watch(nativeChromeActive, () => applyFilter())
 
 // 记住排序选择
 watch([() => torrentFilter.sortField.value, () => torrentFilter.sortType.value], ([field, type]) => {
@@ -739,6 +740,7 @@ function resetSearchResults() {
   isRefreshed.value = false
   errorDescription.value = t('resource.noResourceFound')
   streamCandidateCount = 0
+  streamHasFilterRejections = false
   musicResultMode.value = 'all'
   rawDataList.value = []
   rawSubtitleDataList.value = []
@@ -760,8 +762,11 @@ function hasLoadedEmptySearchResult() {
 }
 
 // 更新搜索进度
-function updateSearchProgress(eventData: { [key: string]: any }, flushNow: boolean = false) {
-  const text = eventData.text_i18n || eventData.text
+function updateSearchProgress(eventData: Record<string, unknown>, flushNow: boolean = false) {
+  const text =
+    (typeof eventData.text_i18n === 'string' && eventData.text_i18n) ||
+    (typeof eventData.text === 'string' && eventData.text) ||
+    ''
   if (text) {
     pendingProgressText = text
   }
@@ -828,7 +833,16 @@ function appendSubtitleStreamResults(items: SubtitleInfo[]) {
 }
 
 // 更新候选资源数：优先使用后端显式给出的 candidate_items，否则取搜索阶段事件的 total_items
-function updateStreamCandidateCount(eventData: { candidate_items?: unknown; stage?: unknown; total_items?: unknown }) {
+function updateStreamCandidateCount(eventData: {
+  candidate_items?: unknown
+  match_counts?: unknown
+  stage?: unknown
+  total_items?: unknown
+}) {
+  if (eventData.match_counts && typeof eventData.match_counts === 'object') {
+    const counts = eventData.match_counts as Record<string, unknown>
+    streamHasFilterRejections = Number(counts.filter_rules || 0) + Number(counts.filter_params || 0) > 0
+  }
   if (typeof eventData.candidate_items === 'number') {
     streamCandidateCount = Math.max(streamCandidateCount, eventData.candidate_items)
   } else if (eventData.stage === 'searching' && typeof eventData.total_items === 'number') {
@@ -836,10 +850,15 @@ function updateStreamCandidateCount(eventData: { candidate_items?: unknown; stag
   }
 }
 
-// 过滤后无结果但存在候选资源时，用友好提示替代默认的“未搜索到任何资源”
+/** 根据实际搜索类型说明有候选却没有结果，避免把音乐身份匹配误报为过滤规则。 */
 function applyFilteredEmptyResultMessage(resultCount: number) {
   if (resultCount === 0 && streamCandidateCount > 0) {
-    errorDescription.value = t('resource.filteredNoResults', { count: streamCandidateCount })
+    errorDescription.value = t(
+      activeSearchParams.value.type === '音乐' && !streamHasFilterRejections
+        ? 'resource.musicNoExactResults'
+        : 'resource.filteredNoResults',
+      { count: streamCandidateCount },
+    )
   }
 }
 
@@ -889,13 +908,16 @@ function getSubtitleItemKey(item: SubtitleInfo, index: number) {
 }
 
 // 处理搜索流消息
-function handleSearchStreamMessage(eventData: { [key: string]: any }) {
+function handleSearchStreamMessage(eventData: Record<string, unknown>) {
   if (eventData.type === 'heartbeat') return
 
   if (eventData.type === 'error') {
     searchDiagnostics.value = null
     updateSearchProgress(eventData, true)
-    errorDescription.value = eventData.message_i18n || eventData.message || t('resource.noResourceFound')
+    errorDescription.value =
+      (typeof eventData.message_i18n === 'string' && eventData.message_i18n) ||
+      (typeof eventData.message === 'string' && eventData.message) ||
+      t('resource.noResourceFound')
     if (loadingNextPage.value) {
       if (continuingSource) clientPagination.failSource(continuingSource, errorDescription.value)
       toast.error(errorDescription.value)
@@ -925,10 +947,10 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
     if (eventData.type === 'append') {
       updateSearchProgress(eventData)
       appendSubtitleStreamResults(subtitleItems)
-    } else if (eventData.type === 'replace') {
-      updateSearchProgress(eventData, true)
-      applyFinalSubtitleStreamResults(subtitleItems)
-    } else if (eventData.type === 'done' && subtitleItems.length > 0 && !streamFinalResultApplied) {
+    } else if (
+      eventData.type === 'replace' ||
+      (eventData.type === 'done' && subtitleItems.length > 0 && !streamFinalResultApplied)
+    ) {
       updateSearchProgress(eventData, true)
       applyFinalSubtitleStreamResults(subtitleItems)
     } else {
@@ -1144,11 +1166,12 @@ function searchByStream(params: SearchParams, requestToken?: string, continuatio
   })
 }
 
-// 设置视图类型
+/** 仅允许网页切换并保存视图，原生接管期间的旧回调不能改变偏好。 */
 function changeViewType(newType: TorrentViewType) {
+  if (nativeChromeActive.value) return
   if (viewType.value !== newType) {
     // 立即更新视图类型
-    viewType.value = newType
+    preferredViewType.value = newType
     localStorage.setItem('MPTorrentsViewType', newType)
 
     // 切换视图时重新应用筛选
@@ -1338,7 +1361,7 @@ async function startAiRecommend(force: boolean = false) {
 // 发送初始请求以启动智能推荐任务；筛选结果都不在推荐范围内时不启动，返回 false
 async function sendInitialRequest(force: boolean = false): Promise<boolean> {
   try {
-    const requestBody: any = {}
+    const requestBody: { filtered_indices?: number[]; force?: boolean } = {}
 
     // 检查是否有筛选条件
     const hasFilters = torrentFilter.hasActiveFilters()
@@ -1549,13 +1572,18 @@ const hasRefreshableSearch = computed(
     Boolean(lastSearchParams.value && hasSearchKeyword(lastSearchParams.value)),
 )
 
-const searchEmptyTitle = computed(() =>
-  errorDescription.value === t('resource.noResourceFound') ? t('torrent.noResults') : errorDescription.value,
+const ruleConfigurationError = computed(
+  () => !isSubtitleSearch.value && hasRuleConfigurationError(searchDiagnostics.value),
 )
+const searchEmptyTitle = computed(() => {
+  if (ruleConfigurationError.value) return t('resource.ruleConfigurationError')
+  return errorDescription.value === t('resource.noResourceFound') ? t('torrent.noResults') : errorDescription.value
+})
 
-const searchEmptyDescription = computed(() =>
-  hasRefreshableSearch.value ? t('resource.emptySearchHint') : t('resource.emptyStartHint'),
-)
+const searchEmptyDescription = computed(() => {
+  if (ruleConfigurationError.value) return t('resource.ruleConfigurationErrorHint')
+  return hasRefreshableSearch.value ? t('resource.emptySearchHint') : t('resource.emptyStartHint')
+})
 
 const resultEmptyTitle = computed(() =>
   hasActiveTorrentFilters.value ? t('resource.filteredEmptyTitle') : searchEmptyTitle.value,
@@ -1563,6 +1591,18 @@ const resultEmptyTitle = computed(() =>
 
 const resultEmptyDescription = computed(() =>
   hasActiveTorrentFilters.value ? t('resource.filteredEmptyHint') : searchEmptyDescription.value,
+)
+
+/** 精确音乐结果为空时，引导用户查看保留的人工候选及其匹配原因。 */
+const musicResultEmptyTitle = computed(() => {
+  if (musicResultMode.value === 'exact' && hasMusicCandidates.value) {
+    return t('resource.musicNoExactResults', { count: musicCandidateCount.value })
+  }
+  return t('torrent.noResults')
+})
+
+const musicResultEmptyDescription = computed(() =>
+  musicResultMode.value === 'exact' && hasMusicCandidates.value ? t('resource.musicCandidateHint') : '',
 )
 
 // 监听 AI_RECOMMEND_ENABLED 状态和数据加载状态
@@ -1724,7 +1764,7 @@ useNativePageHeader({
                 </VChip>
               </div>
             </div>
-            <div class="progress-percentage">{{ searchProgressLabel }}</div>
+            <div class="progress-percentage num">{{ searchProgressLabel }}</div>
           </div>
           <div class="progress-bar-container">
             <VProgressLinear
@@ -1843,11 +1883,13 @@ useNativePageHeader({
 
     <!-- 搜索结果 -->
     <div v-if="isRefreshed && hasData" class="search-results-container">
-      <VTabs v-if="hasMusicCandidates && !progressActive" v-model="musicResultMode" class="mb-3" density="compact">
-        <VTab value="all">{{ t('torrent.musicMatch.all') }}</VTab>
-        <VTab value="exact">{{ t('torrent.musicMatch.exact') }}</VTab>
-        <VTab value="candidate">{{ t('torrent.musicMatch.candidate') }}</VTab>
-      </VTabs>
+      <div v-if="hasMusicCandidates && !progressActive" class="app-filter-bar app-filter-bar--compact mb-3">
+        <VTabs v-model="musicResultMode" density="compact">
+          <VTab value="all">{{ t('torrent.musicMatch.all') }}</VTab>
+          <VTab value="exact">{{ t('torrent.musicMatch.exact') }}</VTab>
+          <VTab value="candidate">{{ t('torrent.musicMatch.candidate') }}</VTab>
+        </VTabs>
+      </div>
       <!-- 筛选栏 -->
       <TorrentFilterBar
         v-if="!progressActive && !isSubtitleSearch"
@@ -1927,7 +1969,11 @@ useNativePageHeader({
 
           <!-- 列表视图模式 -->
           <div v-else-if="viewType === 'row'">
-            <VCard class="resource-list-container">
+            <VCard
+              class="resource-list-container"
+              :class="{ 'resource-list-container--desktop': isDesktopLayout }"
+              :data-glass-optical-surface="isDesktopLayout ? '' : undefined"
+            >
               <div
                 v-if="isSubtitleSearch && progressActive && streamPreviewSubtitleDataList.length > 0"
                 class="resource-list overflow-visible"
@@ -1935,32 +1981,53 @@ useNativePageHeader({
                 <div
                   v-for="(item, index) in streamPreviewSubtitleDataList"
                   :key="getSubtitleItemKey(item, index)"
-                  class="stream-result-item"
+                  class="stream-result-item resource-list-row"
+                  :class="{
+                    'resource-list-row--divided': index < streamPreviewSubtitleDataList.length - 1,
+                  }"
                 >
                   <SubtitleItem
                     :subtitle="item"
                     :media-source="activeSearchParams.media_source || undefined"
                     :media-id="activeSearchParams.media_id || undefined"
                   />
-                  <VDivider v-if="index < streamPreviewSubtitleDataList.length - 1" class="my-2" />
+                  <VDivider v-if="!isDesktopLayout && index < streamPreviewSubtitleDataList.length - 1" class="my-2" />
                 </div>
               </div>
               <div v-else-if="isSubtitleSearch && rawSubtitleDataList.length > 0" class="resource-list">
                 <ProgressiveCardGrid
                   :items="rawSubtitleDataList"
                   :columns="1"
-                  :gap="8"
+                  :gap="isDesktopLayout ? 0 : 8"
                   :estimated-item-height="190"
                   :overscan-rows="6"
                   :get-item-key="getSubtitleItemKey"
                 >
                   <template #default="{ item, index }">
-                    <SubtitleItem
-                      :subtitle="item"
-                      :media-source="activeSearchParams.media_source || undefined"
-                      :media-id="activeSearchParams.media_id || undefined"
-                    />
-                    <VDivider v-if="index < rawSubtitleDataList.length - 1" class="my-2" />
+                    <div
+                      class="resource-list-row"
+                      :class="{
+                        'resource-list-row--divided':
+                          index !== undefined
+                            ? index < rawSubtitleDataList.length - 1
+                            : item !== rawSubtitleDataList[rawSubtitleDataList.length - 1],
+                      }"
+                    >
+                      <SubtitleItem
+                        :subtitle="item"
+                        :media-source="activeSearchParams.media_source || undefined"
+                        :media-id="activeSearchParams.media_id || undefined"
+                      />
+                      <VDivider
+                        v-if="
+                          !isDesktopLayout &&
+                          (index !== undefined
+                            ? index < rawSubtitleDataList.length - 1
+                            : item !== rawSubtitleDataList[rawSubtitleDataList.length - 1])
+                        "
+                        class="my-2"
+                      />
+                    </div>
                   </template>
                 </ProgressiveCardGrid>
               </div>
@@ -1971,24 +2038,45 @@ useNativePageHeader({
                 <div
                   v-for="(item, index) in streamPreviewDataList"
                   :key="getTorrentItemKey(item, index)"
-                  class="stream-result-item"
+                  class="stream-result-item resource-list-row"
+                  :class="{
+                    'resource-list-row--divided': index < streamPreviewDataList.length - 1,
+                  }"
                 >
                   <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
-                  <VDivider v-if="index < streamPreviewDataList.length - 1" class="my-2" />
+                  <VDivider v-if="!isDesktopLayout && index < streamPreviewDataList.length - 1" class="my-2" />
                 </div>
               </div>
               <div v-else-if="!isSubtitleSearch && visibleRowDataList.length > 0" class="resource-list">
                 <ProgressiveCardGrid
                   :items="visibleRowDataList"
                   :columns="1"
-                  :gap="8"
+                  :gap="isDesktopLayout ? 0 : 8"
                   :estimated-item-height="240"
                   :overscan-rows="6"
                   :get-item-key="getTorrentItemKey"
                 >
                   <template #default="{ item, index }">
-                    <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
-                    <VDivider v-if="index < visibleRowDataList.length - 1" class="my-2" />
+                    <div
+                      class="resource-list-row"
+                      :class="{
+                        'resource-list-row--divided':
+                          index !== undefined
+                            ? index < visibleRowDataList.length - 1
+                            : item !== visibleRowDataList[visibleRowDataList.length - 1],
+                      }"
+                    >
+                      <TorrentItem :torrent="item" :target-music-type="activeSearchParams.music_type" />
+                      <VDivider
+                        v-if="
+                          !isDesktopLayout &&
+                          (index !== undefined
+                            ? index < visibleRowDataList.length - 1
+                            : item !== visibleRowDataList[visibleRowDataList.length - 1])
+                        "
+                        class="my-2"
+                      />
+                    </div>
                   </template>
                 </ProgressiveCardGrid>
               </div>
@@ -1998,8 +2086,8 @@ useNativePageHeader({
       </VFadeTransition>
       <ResourceSearchEmptyState
         v-else
-        :title="t('torrent.noResults')"
-        description=""
+        :title="musicResultEmptyTitle"
+        :description="musicResultEmptyDescription"
         icon="mdi-music-note-search-outline"
       />
     </div>
@@ -2138,9 +2226,9 @@ useNativePageHeader({
 
 .progress-percentage {
   flex: 0 0 auto;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   min-inline-size: 44px;
   text-align: end;
 }
@@ -2154,11 +2242,11 @@ useNativePageHeader({
 .search-skeleton-card,
 .search-skeleton-list {
   overflow: hidden;
-  background: rgb(var(--v-theme-surface));
+  background: var(--mp-card);
 }
 
 .search-skeleton-row + .search-skeleton-row {
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-block-start: 1px solid var(--mp-list-row-divider);
 }
 
 .stream-result-item {
@@ -2204,17 +2292,17 @@ useNativePageHeader({
   display: flex;
   overflow: hidden;
   align-items: center;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
 }
 
 .ai-action-group--active {
-  border-color: rgba(var(--v-theme-primary), 0.24);
-  background-color: rgba(var(--v-theme-primary), 0.08);
+  border-color: var(--mp-primary-border);
+  background-color: var(--mp-primary-soft);
 }
 
 .ai-action-group__primary {
-  border-radius: 8px 0 0 8px !important;
+  border-radius: var(--app-control-radius) 0 0 var(--app-control-radius) !important;
   padding-inline: 14px 12px !important;
 }
 
@@ -2226,12 +2314,13 @@ useNativePageHeader({
 .ai-action-group__more {
   display: flex;
   align-items: center;
-  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-inline-start: 1px solid var(--mp-border);
 }
 
 .search-results-container {
   position: relative;
   min-block-size: 50vh;
+  padding-block-end: var(--mp-bottom-clearance);
 }
 
 /* 卡片网格布局 */
@@ -2242,6 +2331,15 @@ useNativePageHeader({
 /* 列表视图样式 */
 .resource-list-container {
   padding: 8px;
+}
+
+.resource-list-container--desktop {
+  overflow: hidden;
+  padding: 0;
+}
+
+.resource-list-container--desktop .resource-list-row--divided {
+  border-block-end: 1px solid var(--mp-list-row-divider);
 }
 
 .resource-list {

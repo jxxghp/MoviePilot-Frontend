@@ -74,7 +74,7 @@ async function getPersonDetail() {
 
 // 人物图片地址
 function getPersonImage() {
-  let url = ''
+  let url: string | undefined
   if (personProps.source === 'themoviedb') {
     if (!personDetail.value?.profile_path) return personIcon
     url = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w600_and_h900_bestv2${personDetail.value?.profile_path}`
@@ -94,6 +94,7 @@ function getPersonImage() {
   } else {
     return personIcon
   }
+  if (!url) return personIcon
   return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
@@ -140,42 +141,44 @@ onBeforeMount(() => {
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <div v-if="personDetail.id" class="max-w-8xl mx-auto px-4">
-    <div class="relative z-10 mt-4 mb-8 flex flex-col items-center flex-md-row">
-      <VAvatar
-        size="200"
-        :class="{
-          'ring-1 ring-gray-700': isImageLoaded,
-        }"
-      >
-        <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
-      </VAvatar>
-      <div class="ms-3">
-        <h1 class="text-3xl lg:text-4xl text-center text-lg-left" data-native-page-title>
-          {{ personDetail.name }}
-        </h1>
-        <div class="mt-1 mb-2 space-y-1 text-xs sm:text-sm lg:text-base text-center text-lg-left">
-          <div>
-            <span v-if="personDetail.birthday">{{ personDetail.birthday }}</span>
-            <span v-if="personDetail.place_of_birth"> | </span>
-            <span v-if="personDetail.place_of_birth">{{ personDetail.place_of_birth }}</span>
+  <div v-if="personDetail.id" class="person-page max-w-8xl mx-auto px-4">
+    <section class="person-overview-card mt-4 mb-8">
+      <div class="relative z-10 flex flex-col items-center flex-md-row">
+        <VAvatar
+          size="200"
+          :class="{
+            'person-avatar--loaded': isImageLoaded,
+          }"
+        >
+          <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
+        </VAvatar>
+        <div class="ms-3">
+          <h1 class="text-3xl lg:text-4xl text-center text-lg-left" data-native-page-title>
+            {{ personDetail.name }}
+          </h1>
+          <div class="mt-1 mb-2 space-y-1 text-xs sm:text-sm lg:text-base text-center text-lg-left">
+            <div>
+              <span v-if="personDetail.birthday" class="num">{{ personDetail.birthday }}</span>
+              <span v-if="personDetail.place_of_birth"> | </span>
+              <span v-if="personDetail.place_of_birth">{{ personDetail.place_of_birth }}</span>
+            </div>
+            <div v-if="personDetail.also_known_as">{{ getAlsoKnownAs() }}</div>
           </div>
-          <div v-if="personDetail.also_known_as">{{ getAlsoKnownAs() }}</div>
         </div>
       </div>
-    </div>
-    <div class="relative text-left">
-      <div class="group outline-none ring-0" role="button" tabindex="-1">
-        <div
-          v-if="personProps.source === 'anilist'"
-          class="person-biography pt-2 text-sm lg:text-base"
-          v-html="personBiographyHtml"
-        />
-        <p v-else class="pt-2 text-sm lg:text-base" style="overflow-wrap: break-word">
-          {{ personDetail.biography }}
-        </p>
+      <div v-if="personDetail.biography" class="relative text-left mt-4">
+        <div class="group outline-none ring-0" role="button" tabindex="-1">
+          <div
+            v-if="personProps.source === 'anilist'"
+            class="person-biography pt-2 text-sm lg:text-base"
+            v-html="personBiographyHtml"
+          />
+          <p v-else class="pt-2 text-sm lg:text-base" style="overflow-wrap: break-word">
+            {{ personDetail.biography }}
+          </p>
+        </div>
       </div>
-    </div>
+    </section>
     <div class="person-credits-section">
       <div class="slider-header">
         <RouterLink :to="getPersonCreditsPath()" class="slider-title">
@@ -195,6 +198,14 @@ onBeforeMount(() => {
 </template>
 
 <style scoped>
+.person-page {
+  padding-block-end: var(--mp-bottom-clearance);
+}
+
+.person-avatar--loaded {
+  border: 1px solid var(--mp-border);
+}
+
 .person-biography {
   overflow-wrap: break-word;
 }
@@ -212,7 +223,7 @@ onBeforeMount(() => {
 }
 
 .person-biography :deep(a) {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   text-decoration: none;
 }
 
@@ -221,8 +232,8 @@ onBeforeMount(() => {
 }
 
 .person-biography :deep(blockquote) {
-  border-inline-start: 3px solid rgba(var(--v-theme-on-surface), 0.25);
-  color: rgba(var(--v-theme-on-surface), 0.7);
+  border-inline-start: 3px solid var(--mp-border);
+  color: var(--mp-muted-fg);
   padding-inline-start: 0.75rem;
 }
 
@@ -232,5 +243,18 @@ onBeforeMount(() => {
 
 .person-credits-section {
   margin-block-start: 2rem;
+}
+</style>
+
+<style>
+html[data-theme='glass'] .person-overview-card {
+  padding: 1.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--app-surface-radius);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
 }
 </style>

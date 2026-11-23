@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, type App } from 'vue'
 import i18n from '@/plugins/i18n'
 import vuetify from '@/plugins/vuetify'
 import ConfirmDialog from '@/@core/components/ConfirmDialog.vue'
@@ -88,7 +88,7 @@ export function useConfirm() {
 
 // 插件
 export default {
-  install: (app: any) => {
+  install: (app: App) => {
     app.provide('confirm', { createConfirm: createConfirmDialog })
   },
 }

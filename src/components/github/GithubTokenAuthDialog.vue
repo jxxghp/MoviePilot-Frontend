@@ -124,7 +124,7 @@ function closeDialog() {
 }
 
 .github-token-auth-dialog__code code {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0.12em;

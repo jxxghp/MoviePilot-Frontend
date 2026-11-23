@@ -432,47 +432,76 @@ describe('WorkflowTaskCard redesign', () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 
+  it('renders workflow description and topologically ordered pipeline steps with overflow count', async () => {
+    const { container } = await renderCard({
+      actions: [
+        { id: 'notify', name: '发送通知', type: 'SendMessage' },
+        { id: 'scan', name: '扫描目录', type: 'ScanFile' },
+        { id: 'scrape', name: '刮削文件', type: 'ScrapeFile' },
+        { id: 'transfer', name: '整理文件', type: 'TransferFile' },
+      ],
+      description: '定时扫描下载目录并自动刮削整理入库',
+      execution_state: {
+        nodes: {
+          scan: { state: 'success' },
+          scrape: { state: 'running' },
+        },
+        runtime: { finished_actions: 1, progress: 35 },
+      },
+      flows: [
+        { id: 'f1', source: 'scan', target: 'scrape' },
+        { id: 'f2', source: 'scrape', target: 'transfer' },
+        { id: 'f3', source: 'transfer', target: 'notify' },
+      ],
+      state: 'R',
+    })
+
+    expect(screen.getByText('定时扫描下载目录并自动刮削整理入库')).toBeInTheDocument()
+    const steps = [...container.querySelectorAll('.workflow-task-card__step[role="img"]')]
+    const stepLabels = steps.map(node => node.getAttribute('aria-label'))
+    expect(stepLabels).toEqual(['扫描目录', '刮削文件', '整理文件'])
+    expect(container.querySelector('.workflow-task-card__step-label')).toBeNull()
+    expect(container.querySelector('.workflow-task-card__step--done')?.getAttribute('aria-label')).toBe('扫描目录')
+    expect(container.querySelector('.workflow-task-card__step--active')?.getAttribute('aria-label')).toBe('刮削文件')
+    expect(container.querySelector('.workflow-task-card__step-more')).toHaveTextContent('+1')
+  })
+
   it('derives all custom card colors and geometry from global theme tokens', () => {
     const source = readFileSync('src/components/cards/WorkflowTaskCard.vue', 'utf8')
     const glassTheme = readFileSync('src/styles/themes/glass.scss', 'utf8')
+    const glassV3 = readFileSync('src/styles/themes/_glass-v3.scss', 'utf8')
 
     expect(source).toContain('var(--v-theme-primary)')
     expect(source).toContain('var(--v-theme-info)')
     expect(source).toContain('var(--v-theme-success)')
     expect(source).toContain('var(--v-theme-warning)')
     expect(source).toContain('var(--v-theme-error)')
-    expect(source).toContain('--workflow-card-header-content-rgb: 255, 255, 255')
     expect(source).toContain('--workflow-progress-rgb: var(--v-theme-primary)')
     expect(source).toContain('--workflow-card-gradient-start-rgb')
     expect(source).toContain('--workflow-card-gradient-end-rgb')
+    expect(source).toContain('--workflow-banner-start-rgb: var(--workflow-card-gradient-start-rgb)')
     expect(source).toContain(':style="gradientStyle"')
-    expect(source).toContain('var(--app-control-radius)')
-    expect(source).toContain('linear-gradient(')
-    expect(source).toContain('var(--workflow-card-header-background)')
-    expect(source).toContain('--workflow-card-background: var(--workflow-card-header-background)')
-    expect(source).toContain('background: var(--workflow-card-background) !important')
-    expect(source).toContain('background: transparent')
-    expect(source).toContain('color: rgba(var(--workflow-card-header-content-rgb), 0.88)')
+    expect(source).toContain('var(--app-control-radius')
+    expect(source).toContain('var(--mp-fg')
+    expect(source).toContain('var(--mp-muted-fg')
+    expect(source).toContain('var(--mp-card-dock-bg')
+    expect(source).toContain('workflow-task-card__banner')
+    expect(source).toContain('workflow-task-card__pipeline')
+    expect(source).toContain('workflow-task-card__dock')
     expect(source).toContain('workflow-task-card__status-chip')
     expect(source).toContain(':deep(.v-chip__underlay)')
     expect(source).toContain('background-color: rgb(var(--workflow-status-rgb)) !important')
     expect(source).toContain('workflow-task-card__metrics')
     expect(source).toContain('actionCountText')
-    expect(source).toContain('--workflow-card-header-content-rgb: 255, 255, 255')
-    expect(source).toContain('block-size: 3px')
-    expect(source).toContain('background: rgba(var(--workflow-progress-rgb), 0.18)')
-    expect(source).toContain('background: rgb(var(--workflow-progress-rgb))')
-    expect(source).not.toContain('border-block: 1px solid rgba(var(--workflow-card-header-content-rgb), 0.14)')
-    expect(source).not.toContain('border-inline-start: 1px solid rgba(var(--workflow-card-header-content-rgb), 0.14)')
-    expect(source).toMatch(/\.workflow-task-card__header\s*\{[\s\S]*?background: transparent;/u)
-    expect(source).toMatch(/\.workflow-task-card__header\s*\{[\s\S]*?box-shadow: none;/u)
-    expect(source).not.toContain('--workflow-card-header-border')
+    expect(source).not.toContain('--workflow-card-header-content-rgb: 255, 255, 255')
+    expect(source).not.toContain('text-white')
+    expect(source).not.toContain('backdrop-filter')
     expect(source).not.toMatch(/#[\da-f]{3,8}\b/i)
 
     expect(glassTheme).toContain('var(--glass-sheen)')
     expect(glassTheme).toContain('var(--workflow-card-gradient-start-rgb)')
     expect(glassTheme).toContain("&[data-glass-appearance='frosted'] .workflow-task-card")
     expect(glassTheme).toContain("&[data-glass-appearance='tinted'] .workflow-task-card")
-    expect(glassTheme).not.toContain('--workflow-card-header-border')
+    expect(glassV3).toContain('.workflow-task-card')
   })
 })

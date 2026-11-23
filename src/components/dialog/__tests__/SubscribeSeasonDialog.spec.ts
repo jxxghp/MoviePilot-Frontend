@@ -156,6 +156,32 @@ describe('SubscribeSeasonDialog', () => {
     expect(missingPayloads[0]).toMatchObject({ episode_group: '', season: 0, tmdb_id: media.tmdb_id })
   })
 
+  it('explains season existence states and lists missing episodes on hover', async () => {
+    const media = createTvMedia({ season: 0, tmdb_id: 7303 })
+    const seasons = [
+      createMediaSeason({ episode_count: 4, season_number: 1 }),
+      createMediaSeason({ episode_count: 5, season_number: 2 }),
+    ]
+    const states = [
+      createNotExistMediaInfo({ episodes: [1, 3, 4], season: 1, total_episode: 4 }),
+      createNotExistMediaInfo({ episodes: [], season: 2, total_episode: 5 }),
+    ]
+    server.use(
+      mediaSeasonsHandler(seasons),
+      mediaNotExistsHandler(states),
+      mediaEpisodeGroupsHandler(media.tmdb_id!, []),
+    )
+    const user = userEvent.setup()
+    await renderDialog({ media })
+
+    await user.hover(await screen.findByText('部分缺失'))
+    expect(await screen.findByText('媒体库中缺少 E01、E03-E04，共 3 集')).toBeInTheDocument()
+
+    await user.hover(screen.getByText('缺失'))
+    expect(await screen.findByText('在媒体服务器（及已开启的本地文件检查）中未找到本季的 5 集')).toBeInTheDocument()
+    await settleRequests()
+  })
+
   it('preserves source image URLs and hides unavailable season metadata', async () => {
     const media = createTvMedia({
       poster_path: 'https://images.example.com/main-poster.jpg',

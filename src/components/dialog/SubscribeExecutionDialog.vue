@@ -6,10 +6,15 @@ import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasItemPermission, PERMISSION_FEATURE } from '@/utils/permission'
 import { useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import {
+  formatSubscriptionResumeTime,
+  subscriptionExecutionLabel,
+  subscriptionExecutionResumeAt,
+} from '@/utils/subscriptionExecution'
 
-/** 手动搜索的按需详情；预计时间只在本地更新，不触发额外请求。 */
+/** 手动搜索的按需详情；继续时间只在本地更新，不触发额外请求。 */
 const props = defineProps<{
-  execution: Pick<SubscriptionExecutionStatus, 'state' | 'phase' | 'error' | 'next_run_at'> &
+  execution: Pick<SubscriptionExecutionStatus, 'state' | 'phase' | 'error' | 'next_run_at' | 'submitted_count'> &
     Partial<Pick<SubscriptionBatchStatus, 'download_counts' | 'downloads' | 'downloads_omitted'>>
   name?: string
   canViewLogs?: boolean
@@ -23,32 +28,22 @@ const emit = defineEmits<{
 }>()
 const { t, locale } = useI18n()
 const userStore = useUserStore()
-const now = useNow({ interval: 1000 })
-const terminalStates = new Set(['completed', 'failed', 'cancelled', 'skipped'])
-const state = computed(() =>
-  terminalStates.has(props.execution.state) ? props.execution.state : props.execution.phase || props.execution.state,
-)
-const waiting = computed(() => ['waiting_site_budget', 'waiting_subscription'].includes(state.value))
-const failed = computed(() => state.value === 'failed')
+const now = useNow({ interval: 15_000 })
+const label = computed(() => subscriptionExecutionLabel(props.execution, now.value.getTime()))
+const resumeAt = computed(() => subscriptionExecutionResumeAt(props.execution, now.value.getTime()))
+const failed = computed(() => label.value === 'failed')
 const canManageSites = computed(() =>
   hasItemPermission(
     { permission: 'manage', feature: PERMISSION_FEATURE.MANAGE_SITE },
     buildUserPermissionContext(userStore.superUser, userStore.permissions),
   ),
 )
-const resumeHint = computed(() => {
-  if (!waiting.value || !props.execution.next_run_at) return ''
-  const nextRunAt = Date.parse(props.execution.next_run_at)
-  if (!Number.isFinite(nextRunAt)) return ''
-  if (nextRunAt <= now.value.getTime()) return t('subscribe.execution.resumeDue')
-  const time = new Date(nextRunAt).toLocaleString(locale.value, {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  return t('subscribe.execution.resumeAt', { time })
+// 只给能据此行动的说明：排队、没资源、站点要等较久（后端说明哪个站为什么等）。
+const hint = computed(() => {
+  if (label.value === 'queued') return t('subscribe.execution.queuedHint')
+  if (label.value === 'noResult') return t('subscribe.execution.noResultHint')
+  if (label.value === 'waiting') return props.execution.error || ''
+  return ''
 })
 
 /** 跳转到用户有权使用的站点管理页，由现有页面完成检查与配置。 */
@@ -68,7 +63,14 @@ function openSiteManager() {
       </VCardItem>
       <VDivider />
       <VCardText>
-        <div class="text-body-1 font-weight-medium">{{ t(`subscribe.execution.state.${state}`) }}</div>
+        <div v-if="label" class="text-body-1 font-weight-medium">
+          {{
+            t(`subscribe.execution.label.${label}`, {
+              time: resumeAt === null ? '' : formatSubscriptionResumeTime(resumeAt, locale),
+            })
+          }}
+        </div>
+        <p v-if="hint" class="text-body-2 mt-3 mb-0">{{ hint }}</p>
         <p v-if="execution.download_counts" class="text-body-2 mt-3 mb-0">
           {{
             t('subscriptionActivity.downloadSummary', {
@@ -89,12 +91,6 @@ function openSiteManager() {
         <p v-if="execution.downloads_omitted" class="text-caption mt-2">
           {{ t('subscriptionActivity.omitted', { count: execution.downloads_omitted }) }}
         </p>
-        <p v-if="waiting" class="text-body-2 mt-3 mb-0">
-          {{
-            t(state === 'waiting_subscription' ? 'subscribe.execution.taskResume' : 'subscribe.execution.autoResume')
-          }}
-        </p>
-        <p v-if="resumeHint" class="text-body-2 mt-2 mb-0">{{ resumeHint }}</p>
         <p v-if="failed" class="text-body-2 mt-3 mb-0">{{ t('subscribe.execution.failedHint') }}</p>
         <details v-if="failed && execution.error" class="mt-4">
           <summary class="text-body-2 cursor-pointer">{{ t('subscribe.execution.failureDetails') }}</summary>

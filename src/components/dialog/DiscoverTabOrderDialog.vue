@@ -233,7 +233,7 @@ function submitSettings() {
 }
 
 .setting-item:hover .drag-icon {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 @media (width <= 760px) {

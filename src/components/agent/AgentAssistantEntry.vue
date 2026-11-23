@@ -2162,4 +2162,43 @@ defineExpose({
   pointer-events: none;
   transform: translate3d(var(--agent-assistant-bubbles-x), var(--agent-assistant-bubbles-y), 0) scale(0.9);
 }
+
+// 入口尺寸由宿主维护；放在无 scoped 的机器人渲染器中会被桌面规则覆盖，贴边后几乎整张脸移出屏幕。
+@media (width <= 600px) {
+  .agent-assistant-fab {
+    block-size: 6.65rem;
+    inline-size: min(12.4rem, calc(100vw - 1rem));
+  }
+
+  .agent-assistant-fab.is-docked {
+    inline-size: 3.45rem;
+  }
+
+  .agent-assistant-fab__bubbles {
+    inline-size: min(16.5rem, calc(100vw - 5.6rem));
+    max-block-size: min(30rem, calc(100vh - 9.2rem));
+  }
+
+  .agent-assistant-fab__bubble-stack {
+    gap: 0.38rem;
+  }
+
+  .agent-assistant-fab__bubble {
+    padding-block: 0.56rem;
+    padding-inline: 0.72rem 1.62rem;
+  }
+
+  .agent-assistant-fab__bubble-title {
+    font-size: 1.05rem;
+  }
+
+  .agent-assistant-fab__bubble > span {
+    font-size: 1rem;
+  }
+
+  .agent-assistant-fab__trigger {
+    block-size: 4.8rem;
+    inline-size: 5rem;
+  }
+}
 </style>

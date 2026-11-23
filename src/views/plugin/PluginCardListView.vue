@@ -2,6 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { getApiBusinessErrorMessage } from '@/api/client'
+import { getPluginRatings } from '@/api/pluginRating'
 import {
   changePluginSource,
   getPluginSourceOptions,
@@ -39,6 +40,7 @@ import { resolvePluginInstallBlock } from '@/composables/usePluginInstallBlock'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import type { NativePanelSource } from '@/native/registry'
 import { nativePanelId } from '@/native/panel'
+import { nativeChromeActive } from '@/native/layout'
 
 // 国际化
 const { t } = useI18n()
@@ -260,6 +262,11 @@ const installedLoadError = ref(false)
 const isAppMarketLoaded = ref(false)
 
 const marketLoadError = ref(false)
+
+// 只复用当前页面最近五分钟的完整市场清单；手动刷新和配置、安装变更仍重新查询。
+const MARKET_CACHE_TTL = 5 * 60 * 1000
+let marketFetchedAt = Number.NEGATIVE_INFINITY
+let marketInstalledKey = ''
 
 // APP市场窗口
 const PluginAppDialog = ref(false)
@@ -975,7 +982,7 @@ function pluginDialogClose() {
   PluginAppDialog.value = false
 }
 
-/** 安装或更新插件，并在跨页面完成后反馈结果和刷新共享状态。 */
+/** 安装或更新插件；仅首次安装定位新卡片，更新保留用户当前的浏览位置。 */
 async function installPlugin(
   item: Plugin,
   releaseVersion?: string,
@@ -986,6 +993,7 @@ async function installPlugin(
   if (!pluginId || installingPluginIds.value.has(pluginId)) {
     return
   }
+  const isUpdate = Boolean(item.installed)
 
   // 安装/更新前的统一兜底判据：运行时不兼容优先于主程序版本不兼容，与卡片和弹窗保持一致
   const installBlock = resolvePluginInstallBlock(item)
@@ -995,8 +1003,9 @@ async function installPlugin(
   }
 
   installingPluginIds.value = new Set([...installingPluginIds.value, pluginId])
-  if (item.installed) updatingPluginIds.value = new Set([...updatingPluginIds.value, pluginId])
+  if (isUpdate) updatingPluginIds.value = new Set([...updatingPluginIds.value, pluginId])
 
+  /** 释放插件级事务占位，供来源检查退出和请求结束时共用。 */
   const releaseInstallReservation = () => {
     const pending = new Set(installingPluginIds.value)
     pending.delete(pluginId)
@@ -1013,8 +1022,7 @@ async function installPlugin(
     const sourceOptions = inspectedSourceOptions || (await getPluginSourceOptions(pluginId))
     const sourceRequiresExplicitInstall =
       sourceOptions.selection_status === 'conflict' ||
-      (sourceOptions.selection_status === 'incomplete' &&
-        requiresExplicitPluginSourceInstall(sourceOptions, Boolean(item.installed)))
+      (sourceOptions.selection_status === 'incomplete' && requiresExplicitPluginSourceInstall(sourceOptions, isUpdate))
     if (sourceRequiresExplicitInstall && !repoUrl) {
       releaseInstallReservation()
       openPluginMarketDetail(item)
@@ -1056,24 +1064,28 @@ async function installPlugin(
 
   const previousIndex = dataList.value.findIndex(plugin => plugin.id === item.id)
   const previousPlugin = previousIndex >= 0 ? dataList.value[previousIndex] : undefined
-  sortMode.value = false
-  currentFolder.value = ''
-  filterMarketPluginDialog.value = false
-  installedFilter.value = null
-  hasUpdateFilter.value = false
-  enabledFilter.value = false
-  tabScrollPositions.installed = 0
-  installScrollPluginId.value = pluginId
-  dataList.value = [
-    ...dataList.value.filter(plugin => plugin.id !== pluginId),
-    {
-      ...item,
-      installed: true,
-      state: false,
-      runtime_status: undefined,
-    },
-  ]
-  activeTab.value = 'installed'
+  // 已安装插件由独立的 updating 状态展示进度，保留原卡片的顺序和运行状态，
+  // 避免更新期间因重新插入卡片或启用筛选而改变当前列表与滚动位置。
+  if (!isUpdate) {
+    sortMode.value = false
+    currentFolder.value = ''
+    filterMarketPluginDialog.value = false
+    installedFilter.value = null
+    hasUpdateFilter.value = false
+    enabledFilter.value = false
+    tabScrollPositions.installed = 0
+    installScrollPluginId.value = pluginId
+    dataList.value = [
+      ...dataList.value.filter(plugin => plugin.id !== pluginId),
+      {
+        ...item,
+        installed: true,
+        state: false,
+        runtime_status: undefined,
+      },
+    ]
+    activeTab.value = 'installed'
+  }
   pluginDialogClose()
 
   try {
@@ -1102,33 +1114,36 @@ async function installPlugin(
         skipNavigationCancellation: true,
       })
     }
-    const toastKey = item.installed ? 'plugin.updateSuccess' : 'plugin.installSuccess'
-    const restartToastKey = item.installed ? 'plugin.updateRestartRequired' : 'plugin.installRestartRequired'
+    const toastKey = isUpdate ? 'plugin.updateSuccess' : 'plugin.installSuccess'
+    const restartToastKey = isUpdate ? 'plugin.updateRestartRequired' : 'plugin.installRestartRequired'
     const toast = t(outcome?.restart_required ? restartToastKey : toastKey, { name: item?.plugin_name })
     if (outcome?.restart_required) $toast.warning(toast)
     else $toast.success(toast)
     if (userStore.superUser) void pluginRuntimeStore.refreshNow()
     await fetchInstalledPlugins({ silent: true })
     await pluginSidebarNavStore.ensureSidebarNav(true)
-    // 安装期间可能有市场刷新或共享弹窗回调重新写入标签状态，成功后再次收口，
-    // 确保用户看到的是刚安装的插件，而不是市场中的其它本地候选。
-    activeTab.value = 'installed'
-    currentFolder.value = ''
-    installedFilter.value = null
-    hasUpdateFilter.value = false
-    enabledFilter.value = false
-    await nextTick()
-    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
+    // 首次安装成功后定位新插件；更新完成时尊重用户在等待期间选择的新位置。
+    if (!isUpdate) {
+      activeTab.value = 'installed'
+      currentFolder.value = ''
+      installedFilter.value = null
+      hasUpdateFilter.value = false
+      enabledFilter.value = false
+      await nextTick()
+      if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
+    }
   } catch (error) {
     releaseInstallReservation()
-    const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
-    if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
-    dataList.value = nextData
+    if (!isUpdate) {
+      const nextData = dataList.value.filter(plugin => plugin.id !== pluginId)
+      if (previousPlugin) nextData.splice(Math.min(previousIndex, nextData.length), 0, previousPlugin)
+      dataList.value = nextData
+      if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
+    }
     if (wasInMarket) restorePluginToMarket(item)
-    if (installScrollPluginId.value === pluginId) installScrollPluginId.value = null
     console.error(error)
     $toast.error(
-      t(item.installed ? 'plugin.updateFailed' : 'plugin.installFailed', {
+      t(isUpdate ? 'plugin.updateFailed' : 'plugin.installFailed', {
         name: item?.plugin_name,
         message: getApiBusinessErrorMessage(error) || (error instanceof Error ? error.message : ''),
       }),
@@ -1370,6 +1385,7 @@ function restorePluginToMarket(plugin: Plugin) {
   initOptions(plugin)
 }
 
+/** 同一轮市场刷新的下载统计和评分快照，缺失项表示对应请求失败。 */
 interface PluginMarketMetrics {
   statistics?: { [key: string]: number }
   ratings?: { [key: string]: PluginRating }
@@ -1378,7 +1394,11 @@ interface PluginMarketMetrics {
 type CompletePluginMarketMetrics = Required<PluginMarketMetrics>
 
 /** 将市场快照一次性投影到列表和过滤选项，避免请求过程暴露半成品状态。 */
-function applyMarketSnapshot(marketResponse: Plugin[], metrics?: CompletePluginMarketMetrics) {
+function applyMarketSnapshot(
+  marketResponse: Plugin[],
+  metrics?: CompletePluginMarketMetrics,
+  installedKey = getMarketInstalledKey(),
+) {
   if (metrics) {
     PluginStatistics.value = metrics.statistics
     PluginRatings.value = metrics.ratings
@@ -1395,15 +1415,35 @@ function applyMarketSnapshot(marketResponse: Plugin[], metrics?: CompletePluginM
   marketList.value.forEach(initOptions)
   isAppMarketLoaded.value = true
   marketLoadError.value = false
+  marketFetchedAt = Date.now()
+  marketInstalledKey = installedKey
 }
 
-// 获取未安装插件列表数据
+/** 为市场清单的复用记录当前安装身份与版本，避免外部安装、更新后沿用旧清单。 */
+function getMarketInstalledKey(): string {
+  return JSON.stringify(dataList.value.map(plugin => [plugin.id, plugin.plugin_version, plugin.repo_url]).sort())
+}
+
+/** 查询完整市场清单，页面再次激活时复用短期快照，保留全局搜索、排序与过滤选项。 */
 async function fetchUninstalledPlugins(
   force: boolean = false,
   context: KeepAliveRefreshContext = {},
   commit = true,
 ): Promise<Plugin[] | undefined> {
   const generation = ++marketWriterGeneration
+  const installedKey = getMarketInstalledKey()
+  if (
+    !force &&
+    !isMarketRefreshing.value &&
+    context.silent &&
+    context.source === 'activated' &&
+    isAppMarketLoaded.value &&
+    installedKey === marketInstalledKey &&
+    Date.now() - marketFetchedAt < MARKET_CACHE_TTL
+  )
+    return uninstalledList.value
+  // 一旦需要新清单，失败前的旧清单不再算作新鲜结果，便于下一次激活重试。
+  marketFetchedAt = Number.NEGATIVE_INFINITY
   if (!context.silent || !isAppMarketLoaded.value) {
     marketLoadError.value = false
   }
@@ -1417,7 +1457,7 @@ async function fetchUninstalledPlugins(
     })
     if (generation !== marketWriterGeneration) return
 
-    if (commit) applyMarketSnapshot(marketResponse)
+    if (commit) applyMarketSnapshot(marketResponse, undefined, installedKey)
     return marketResponse
   } catch (error) {
     console.error(error)
@@ -1428,7 +1468,7 @@ async function fetchUninstalledPlugins(
   }
 }
 
-// 加载插件统计数据
+/** 加载插件安装统计，丢弃被新一轮刷新替代的结果。 */
 async function fetchPluginStatistics(): Promise<{ [key: string]: number } | undefined> {
   const generation = ++statisticWriterGeneration
   try {
@@ -1440,7 +1480,7 @@ async function fetchPluginStatistics(): Promise<{ [key: string]: number } | unde
   }
 }
 
-/** 批量加载插件评分并合并到已安装和市场插件对象。 */
+/** 不在 URL 中传递 ID 列表，加载完整评分后仅返回当前列表仍可接纳的快照。 */
 async function fetchPluginRatings(
   plugins: Plugin[] = marketList.value,
   marketGeneration = marketWriterGeneration,
@@ -1452,16 +1492,7 @@ async function fetchPluginRatings(
   }
 
   try {
-    const ratings: { [key: string]: PluginRating } = {}
-    for (let start = 0; start < pluginIds.length; start += 100) {
-      const chunk = pluginIds.slice(start, start + 100)
-      const response: { [key: string]: PluginRating } = await api.get('plugin/rating', {
-        params: {
-          plugin_ids: chunk.join(','),
-        },
-      })
-      Object.assign(ratings, response)
-    }
+    const ratings = await getPluginRatings(pluginIds)
 
     const currentPluginIds = Array.from(
       new Set([...dataList.value, ...plugins].map(plugin => plugin.id).filter(Boolean)),
@@ -1535,8 +1566,13 @@ function applyPluginRating(pluginRating: PluginRating) {
 }
 
 // 加载所有数据
-async function refreshData(context: KeepAliveRefreshContext = {}) {
+/**
+ * 依次刷新已安装列表、市场列表、统计与文件夹。
+ * @param onInstalledReady 已安装列表就绪后立即执行的回调；深链打开目标插件只依赖已安装数据，不必等待远程市场请求。
+ */
+async function refreshData(context: KeepAliveRefreshContext = {}, onInstalledReady?: () => Promise<void>) {
   await fetchInstalledPlugins(context)
+  await onInstalledReady?.()
   await fetchUninstalledPlugins(false, context)
   await getPluginMarketMetrics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
@@ -1549,6 +1585,7 @@ async function refreshMarketData(
   context: KeepAliveRefreshContext = {},
   resetScroll = false,
 ): Promise<boolean> {
+  const installedKey = getMarketInstalledKey()
   const marketResponse = await fetchUninstalledPlugins(force, context, false)
   if (!marketResponse) return false
 
@@ -1559,10 +1596,14 @@ async function refreshMarketData(
     return false
   }
 
-  applyMarketSnapshot(marketResponse, {
-    statistics: metrics.statistics,
-    ratings: metrics.ratings,
-  })
+  applyMarketSnapshot(
+    marketResponse,
+    {
+      statistics: metrics.statistics,
+      ratings: metrics.ratings,
+    },
+    installedKey,
+  )
   if (resetScroll) {
     marketVisibleCount.value = marketPageSize
     tabScrollPositions.market = 0
@@ -1736,9 +1777,11 @@ onMounted(async () => {
   isPluginPageActive.value = true
   await loadPluginOrderConfig()
   await loadPluginFolders() // 加载文件夹配置
-  await refreshData()
-  if (userStore.superUser) await pluginRuntimeStore.refresh()
-  await revealRoutePlugin()
+  // 全局入口与原生容器带目标插件进入时，已安装列表和运行时状态就绪即打开，市场列表与统计随后补齐。
+  await refreshData({}, async () => {
+    if (userStore.superUser) await pluginRuntimeStore.refresh()
+    await revealRoutePlugin()
+  })
 })
 
 useKeepAliveRefresh(refreshActiveTabData)
@@ -2320,7 +2363,13 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
 </script>
 
 <template>
-  <div>
+  <div
+    class="plugin-card-list-view"
+    :class="{
+      'plugin-card-list-view--fab-clearance': !nativeChromeActive && !appMode,
+      'plugin-card-list-view--app-shell': !nativeChromeActive && appMode,
+    }"
+  >
     <!-- 已安装插件过滤下拉菜单 -->
     <Teleport to="body" v-if="filterInstalledPluginDialog">
       <VMenu
@@ -2541,8 +2590,8 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 v-else-if="shouldVirtualizeInstalledMainList"
                 :items="mixedSortList"
                 :get-item-key="item => `${item.type}:${item.id}`"
-                :min-item-width="256"
-                :estimated-item-height="180"
+                :min-item-width="264"
+                :estimated-item-height="156"
                 :scroll-to-index="installedScrollToIndex"
               >
                 <template #default="{ item }">
@@ -2614,8 +2663,8 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
                 v-else-if="shouldVirtualizeInstalledFolderList"
                 :items="draggableFolderPlugins"
                 :get-item-key="item => item.id"
-                :min-item-width="256"
-                :estimated-item-height="180"
+                :min-item-width="264"
+                :estimated-item-height="156"
               >
                 <template #default="{ item }">
                   <PluginMixedSortCard
@@ -2689,8 +2738,8 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
               v-if="displayUninstalledList.length > 0"
               :items="displayUninstalledList"
               :get-item-key="item => item.id"
-              :min-item-width="256"
-              :estimated-item-height="260"
+              :min-item-width="264"
+              :estimated-item-height="156"
             >
               <template #default="{ item }">
                 <PluginAppCard
@@ -2750,6 +2799,16 @@ function onDragStartPlugin(evt: { oldIndex?: number; item?: HTMLElement }) {
 
 <style scoped lang="scss">
 /* stylelint-disable selector-pseudo-class-no-unknown */
+
+// 网页端末尾预留悬浮操作按钮避让高度，PWA 壳已由外层容器处理底部导航安全区，仅补轻量呼吸间距。
+.plugin-card-list-view--fab-clearance {
+  padding-block-end: var(--mp-bottom-clearance, var(--app-fab-clearance, 5.5rem));
+}
+
+.plugin-card-list-view--app-shell,
+:global(.layout-wrapper.layout-app-shell) .plugin-card-list-view--fab-clearance {
+  padding-block-end: 1rem;
+}
 
 @media (width < 960px) {
   // 弹出菜单使用紧凑录入行，避免叠加全局移动表单高度与列表项纵向留白。

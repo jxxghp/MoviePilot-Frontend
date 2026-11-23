@@ -1,6 +1,7 @@
 import ThemeCustomizer from '../ThemeCustomizer.vue'
 import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { renderWithProviders } from '@tests/support/render'
+import { clearSharedDialogs, useSharedDialog } from '@/composables/useSharedDialog'
 import {
   persistPartialThemeCustomizerSettings,
   readThemeCustomizerSettings,
@@ -23,9 +24,15 @@ vi.mock('@/utils/themeSettingsPersistence', () => ({
 
 const nativeLayout = new NativeLayoutAdapter(document, window)
 beforeEach(() => {
-  persistPartialThemeCustomizerSettings({ glassEnabled: false })
+  clearSharedDialogs()
+  persistPartialThemeCustomizerSettings({
+    glassAppearance: 'clear',
+    glassEnabled: false,
+    glassQuality: 'css',
+  })
 })
 afterEach(() => {
+  clearSharedDialogs()
   nativeLayout.setActive(false)
   pwa.appMode = false
 })
@@ -130,5 +137,63 @@ describe('主题设置的原生与网页边界', () => {
     await fireEvent.click(toggle)
     await waitFor(() => expect(readThemeCustomizerSettings().glassEnabled).toBe(false))
     expect(toggle).not.toBeChecked()
+  })
+
+  it('开启玻璃特效后联动显示材质外观、渲染画质与高级调节入口，并在关闭或原生接管时隐藏', async () => {
+    const user = userEvent.setup()
+    const { container, getByLabelText, getByRole } = await renderWithProviders(ThemeCustomizer)
+    const toggle = getByLabelText('启用玻璃特效')
+
+    expect(container.querySelector('.theme-customizer-glass-panel')).toBeNull()
+
+    await fireEvent.click(toggle)
+    await waitFor(() => expect(readThemeCustomizerSettings().glassEnabled).toBe(true))
+    expect(container.querySelector('.theme-customizer-glass-panel')).not.toBeNull()
+
+    const clearBtn = container.querySelector<HTMLButtonElement>('[data-glass-appearance="clear"]')!
+    const tintedBtn = container.querySelector<HTMLButtonElement>('[data-glass-appearance="tinted"]')!
+    const frostedBtn = container.querySelector<HTMLButtonElement>('[data-glass-appearance="frosted"]')!
+    expect(clearBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(tintedBtn.getAttribute('aria-pressed')).toBe('false')
+    expect(frostedBtn.getAttribute('aria-pressed')).toBe('false')
+
+    await fireEvent.click(tintedBtn)
+    await waitFor(() => expect(readThemeCustomizerSettings().glassAppearance).toBe('tinted'))
+    expect(tintedBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(clearBtn.getAttribute('aria-pressed')).toBe('false')
+
+    frostedBtn.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(readThemeCustomizerSettings().glassAppearance).toBe('frosted'))
+    expect(frostedBtn.getAttribute('aria-pressed')).toBe('true')
+
+    const cssBtn = container.querySelector<HTMLButtonElement>('[data-glass-quality="css"]')!
+    const balancedBtn = container.querySelector<HTMLButtonElement>('[data-glass-quality="balanced"]')!
+    const highBtn = container.querySelector<HTMLButtonElement>('[data-glass-quality="high"]')!
+    expect(cssBtn.getAttribute('aria-pressed')).toBe('true')
+
+    await fireEvent.click(balancedBtn)
+    await waitFor(() => expect(readThemeCustomizerSettings().glassQuality).toBe('balanced'))
+    expect(balancedBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(cssBtn.getAttribute('aria-pressed')).toBe('false')
+
+    await fireEvent.click(highBtn)
+    await waitFor(() => expect(readThemeCustomizerSettings().glassQuality).toBe('high'))
+    expect(highBtn.getAttribute('aria-pressed')).toBe('true')
+
+    const tuningBtn = getByRole('button', { name: '玻璃设置' })
+    await fireEvent.click(tuningBtn)
+    expect(useSharedDialog().dialogs.value).toHaveLength(1)
+
+    await fireEvent.click(toggle)
+    await waitFor(() => expect(readThemeCustomizerSettings().glassEnabled).toBe(false))
+    expect(container.querySelector('.theme-customizer-glass-panel')).toBeNull()
+
+    await fireEvent.click(toggle)
+    await waitFor(() => expect(container.querySelector('.theme-customizer-glass-panel')).not.toBeNull())
+
+    nativeLayout.setActive(true)
+    await waitFor(() => expect(container.querySelector('.theme-customizer-glass-panel')).toBeNull())
+    expect(container.querySelector('.theme-customizer-glass-toggle')).toBeNull()
   })
 })

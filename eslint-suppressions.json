@@ -75,41 +75,12 @@
     }
   },
   "src/components/cards/DirectoryCard.vue": {
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    },
     "vue/no-mutating-props": {
       "count": 26
     }
   },
-  "src/components/cards/FilterRuleCard.vue": {
-    "vue/no-mutating-props": {
-      "count": 1
-    }
-  },
-  "src/components/cards/FilterRuleGroupCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/components/cards/PersonCard.vue": {
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
   "src/components/cards/PluginMixedSortCard.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
-  "src/components/cards/SubscribeCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "vue/no-v-text-v-html-on-component": {
       "count": 2
     }
   },
@@ -153,11 +124,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/NotificationChannelInfoDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/components/dialog/RcloneConfigDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -166,22 +132,9 @@
       "count": 4
     }
   },
-  "src/components/dialog/ReorganizeDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    }
-  },
   "src/components/dialog/SharedDialogHost.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
-    }
-  },
-  "src/components/dialog/SiteAddEditDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
     }
   },
   "src/components/dialog/SiteCookieUpdateDialog.vue": {
@@ -202,21 +155,11 @@
       "count": 1
     }
   },
-  "src/components/dialog/SubscribeEditDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/components/dialog/SubscribeHistoryDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
     },
     "vue/no-v-text-v-html-on-component": {
-      "count": 1
-    }
-  },
-  "src/components/dialog/SubscribeSeasonDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
       "count": 1
     }
   },
@@ -260,11 +203,6 @@
   },
   "src/components/field/PathField.vue": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/components/filebrowser/FileList.vue": {
-    "@typescript-eslint/no-explicit-any": {
       "count": 1
     }
   },
@@ -312,14 +250,6 @@
   },
   "src/components/slide/SlideViewTitle.vue": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/components/slide/VirtualSlideView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    },
-    "no-useless-assignment": {
       "count": 1
     }
   },
@@ -413,11 +343,6 @@
       "count": 1
     }
   },
-  "src/composables/useConfirm.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "src/composables/useDynamicHeaderTab.ts": {
     "no-useless-assignment": {
       "count": 1
@@ -469,17 +394,6 @@
   },
   "src/pages/discover/credits.vue": {
     "prefer-const": {
-      "count": 1
-    }
-  },
-  "src/pages/resource.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
-    },
-    "sonarjs/no-duplicated-branches": {
       "count": 1
     }
   },
@@ -620,89 +534,9 @@
       "count": 1
     }
   },
-  "src/views/discover/MediaCardSlideView.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/views/discover/PersonCardListView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "src/views/discover/PersonDetailView.vue": {
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "src/views/setting/AccountSettingDirectory.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    }
-  },
-  "src/views/setting/AccountSettingRule.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 8
-    }
-  },
-  "src/views/setting/AccountSettingSearch.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "src/views/setting/AccountSettingSite.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "src/views/setting/AccountSettingSubscribe.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "src/views/setting/AccountSettingSystem.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/subscribe/SubscribeListView.vue": {
-    "prefer-const": {
-      "count": 1
-    }
-  },
-  "src/views/subscribe/SubscribePopularView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
-  "src/views/subscribe/SubscribeShareView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
-  "src/views/system/CacheView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/system/LoggingView.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-control-regex": {
-      "count": 1
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 8
     }
   },
   "src/views/system/ModuleTestView.vue": {
@@ -720,11 +554,6 @@
       "count": 1
     },
     "prefer-const": {
-      "count": 1
-    }
-  },
-  "vite.config.ts": {
-    "@typescript-eslint/ban-ts-comment": {
       "count": 1
     }
   }

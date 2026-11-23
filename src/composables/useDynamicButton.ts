@@ -58,6 +58,7 @@ function createDynamicButtonOwnerId(): DynamicButtonOwnerId {
  * })
  */
 export function useDynamicButton(options: {
+  title?: MaybeRefValue<string>
   icon: MaybeRefValue<string>
   onClick?: () => void
   menuItems?: MaybeRefValue<DynamicButtonMenuItem[] | undefined>
@@ -67,7 +68,7 @@ export function useDynamicButton(options: {
   autoRegister?: boolean // 是否自动注册，默认为true
 }) {
   // 提取配置
-  const { icon, onClick, menuItems, permission, feature, show, autoRegister = true } = options
+  const { title, icon, onClick, menuItems, permission, feature, show, autoRegister = true } = options
 
   const route = useRoute()
   const ownerId = createDynamicButtonOwnerId()
@@ -84,6 +85,7 @@ export function useDynamicButton(options: {
   let globalBridgeRetryTimer: ReturnType<typeof setTimeout> | null = null
   let setupGeneration = 0
 
+  const resolvedTitle = computed(() => resolveMaybeRef(title))
   const resolvedIcon = computed(() => resolveMaybeRef(icon, 'mdi-plus'))
   const resolvedShow = computed(() => resolveMaybeRef(show, true))
   const resolvedMenuItems = computed(() => resolveMaybeRef(menuItems))
@@ -93,6 +95,7 @@ export function useDynamicButton(options: {
     const buttonMenuItems = resolvedMenuItems.value
 
     return {
+      ...(resolvedTitle.value ? { title: resolvedTitle.value } : {}),
       icon: resolvedIcon.value,
       action: onClick || (() => {}),
       permission,
@@ -230,7 +233,7 @@ export function useDynamicButton(options: {
     })
 
     watch(
-      [resolvedIcon, resolvedShow, resolvedMenuItems, () => permission],
+      [resolvedTitle, resolvedIcon, resolvedShow, resolvedMenuItems, () => permission],
       () => {
         if (!componentActive.value) return
 

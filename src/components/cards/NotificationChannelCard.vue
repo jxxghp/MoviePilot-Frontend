@@ -62,7 +62,7 @@ function openNotificationInfoDialog() {
   )
 }
 
-// 根据存储类型选择图标
+// 根据通知渠道类型选择图标，App 私有推送使用 MoviePilot 品牌标志。
 const getIcon = computed(() => {
   switch (props.notification.type) {
     case 'wechat':
@@ -87,6 +87,8 @@ const getIcon = computed(() => {
       return getLogoUrl('dingtalk')
     case 'webpush':
       return getLogoUrl('chrome')
+    case 'apppush':
+      return getLogoUrl('apppush')
     default:
       return getLogoUrl('notification')
   }
@@ -96,32 +98,60 @@ const getIcon = computed(() => {
 function onClose() {
   emit('close')
 }
+
+const sceneCount = computed(() => props.notification.switchs?.length || 0)
 </script>
 
 <template>
   <VCard
-    variant="tonal"
-    class="app-card-shell app-card-colorful"
+    variant="flat"
+    class="app-card-shell app-card-colorful mp-setting-card mp-setting-card--interactive"
+    :class="{ 'mp-setting-card--inactive': !props.notification.enabled }"
     :style="{ '--app-card-accent-rgb': accentRgb }"
     @click="openNotificationInfoDialog"
   >
-    <span class="app-card-top-action absolute top-3 right-12">
-      <IconBtn @click.stop>
-        <VIcon class="cursor-move" icon="mdi-drag" />
-      </IconBtn>
-    </span>
-    <VDialogCloseBtn @click="onClose" />
-    <VCardText class="app-card-summary app-card-summary--double-action app-card-summary--title-subtitle">
-      <div class="app-card-summary__content">
-        <div class="app-card-summary__title-row">
-          <VBadge v-if="props.notification.enabled" dot inline color="success" class="me-1" />
-          <span class="app-card-summary__title text-h6">{{ props.notification.name }}</span>
+    <div class="mp-setting-card__header">
+      <div class="mp-setting-card__icon mp-setting-card__icon--logo" aria-hidden="true">
+        <VImg ref="imageRef" :src="getIcon" contain class="mp-setting-card__logo" @load="updateAccentColor" />
+      </div>
+      <div class="mp-setting-card__heading">
+        <div class="mp-setting-card__title-row">
+          <span class="mp-setting-card__title" :title="props.notification.name">{{ props.notification.name }}</span>
         </div>
-        <div class="app-card-summary__subtitle text-body-1">{{ notificationTypeNames[notification.type] }}</div>
+        <div class="mp-setting-card__subtitle">
+          <span class="mp-setting-card__subtitle-text">
+            {{ notificationTypeNames[notification.type] || notification.type }}
+          </span>
+        </div>
       </div>
-      <div class="app-card-summary__media" aria-hidden="true">
-        <VImg ref="imageRef" :src="getIcon" contain class="app-card-summary__image" @load="updateAccentColor" />
+      <div class="mp-setting-card__actions">
+        <IconBtn class="mp-setting-card__action cursor-move" :aria-label="t('settingCard.dragSort')" @click.stop>
+          <VIcon class="cursor-move" icon="mdi-drag" />
+        </IconBtn>
+        <VDialogCloseBtn inner-class="mp-setting-card__action mp-setting-card__action--danger" @click="onClose" />
       </div>
-    </VCardText>
+    </div>
+
+    <div class="mp-setting-card__dock">
+      <span
+        class="mp-setting-card__status"
+        :class="props.notification.enabled ? 'mp-setting-card__status--active' : 'mp-setting-card__status--inactive'"
+      >
+        <span
+          class="mp-setting-card__status-dot"
+          :class="
+            props.notification.enabled ? 'mp-setting-card__status-dot--active' : 'mp-setting-card__status-dot--inactive'
+          "
+        />
+        {{ props.notification.enabled ? t('settingCard.enabled') : t('settingCard.disabled') }}
+      </span>
+      <div class="flex min-w-0 items-center gap-1.5">
+        <span v-if="sceneCount > 0" class="mp-setting-card__chip">
+          <VIcon icon="mdi-bell-outline" size="12" class="shrink-0" />
+          <span>{{ t('settingCard.notificationScenes', { count: sceneCount }) }}</span>
+        </span>
+        <VIcon class="mp-setting-card__chevron" icon="mdi-chevron-right" size="16" />
+      </div>
+    </div>
   </VCard>
 </template>

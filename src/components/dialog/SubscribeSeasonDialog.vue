@@ -12,19 +12,30 @@ import {
   type SubscribeMode,
 } from '@/composables/useMediaSubscribe'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { formatSeasonEpisode } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 
+/** 季卡片中可选的订阅模式及显示信息。 */
 type SubscribeModeOption = {
   icon: string
   title: string
   value: SubscribeMode
 }
 
+/** 剧集组选择器使用的展示选项。 */
 type EpisodeGroupOption = {
   title: string
   subtitle: string
   value: string
   icon: string
+}
+
+/** 媒体接口提供的剧集组摘要。 */
+interface EpisodeGroupInfo {
+  id: string
+  name: string
+  group_count: number
+  episode_count: number
 }
 
 // 国际化
@@ -71,8 +82,11 @@ let episodeGroupRequestId = 0
 let disposed = false
 const missingStateStatus = ref<'loading' | 'ready' | 'error'>('loading')
 
+// 各季缺失明细，供状态标签悬停提示说明缺了哪些集
+const seasonsMissingInfo = ref<Record<number, NotExistMediaInfo>>({})
+
 // 所有剧集组
-const episodeGroups = ref<{ [key: string]: any }[]>([])
+const episodeGroups = ref<EpisodeGroupInfo[]>([])
 
 // 当前选择剧集组
 const episodeGroup = ref(
@@ -167,9 +181,7 @@ const submitButtonText = computed(() => {
 
 // 剧集组选项
 const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
-  const options = (
-    episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]
-  ).map(item => {
+  const options = episodeGroups.value.map(item => {
     return {
       title: item.name,
       subtitle: `${t('dialog.subscribeSeason.seasonCount', { count: item.group_count })} • ${t(
@@ -259,19 +271,23 @@ async function checkSeasonsNotExists(requestId: number) {
     if (disposed || requestId !== seasonRequestId) return
     if (!Array.isArray(result)) throw new Error(t('common.apiRequestFailed'))
     const states: Record<number, number> = {}
+    const missingInfo: Record<number, NotExistMediaInfo> = {}
     result.forEach(item => {
       // 0-已入库 1-部分缺失 2-全部缺失；完整解析后才提交本代状态。
       let state = 0
       if (item.episodes.length === 0) state = 2
       else if (item.episodes.length < item.total_episode) state = 1
       states[item.season] = state
+      missingInfo[item.season] = item
     })
     seasonsNotExisted.value = states
+    seasonsMissingInfo.value = missingInfo
     missingStateStatus.value = 'ready'
     syncDefaultSeasonModes()
   } catch (error) {
     if (disposed || requestId !== seasonRequestId) return
     seasonsNotExisted.value = {}
+    seasonsMissingInfo.value = {}
     missingStateStatus.value = 'error'
     console.error(error)
   }
@@ -297,6 +313,19 @@ function getExistText(season: number) {
   if (state === 1) return t('dialog.subscribeSeason.status.partial')
   else if (state === 2) return t('dialog.subscribeSeason.status.missing')
   else return t('dialog.subscribeSeason.status.exists')
+}
+
+// 计算存在状态的悬停提示，说明判断依据和缺失的集；状态未就绪时不显示
+function getExistHint(season: number) {
+  if (missingStateStatus.value !== 'ready') return ''
+  const state = seasonsNotExisted.value[season]
+  const info = seasonsMissingInfo.value[season]
+  if (!state || !info) return t('media.status.inLibraryHint')
+  if (state === 2) return t('media.status.missingHint', { count: info.total_episode })
+  return t('media.status.partiallyMissingHint', {
+    episodes: formatSeasonEpisode(null, info.episodes),
+    count: info.episodes.length,
+  })
 }
 
 // 获取季海报地址，数据源未提供季海报时使用主海报。
@@ -664,6 +693,9 @@ onBeforeUnmount(() => {
                   :color="getExistColor(item.season_number ?? 0)"
                 >
                   {{ getExistText(item.season_number ?? 0) }}
+                  <VTooltip v-if="getExistHint(item.season_number ?? 0)" activator="parent" location="top">
+                    {{ getExistHint(item.season_number ?? 0) }}
+                  </VTooltip>
                 </VChip>
                 <VChip v-if="isSeasonSubscribed(item.season_number ?? 0)" class="mt-2 ms-2" size="small" color="error">
                   {{ t('media.status.subscribed') }}
@@ -672,7 +704,10 @@ onBeforeUnmount(() => {
               <template #append>
                 <VListItemAction start class="subscribe-season-actions">
                   <VSwitch
+                    class="subscribe-season-switch"
                     :model-value="isSeasonSelected(item.season_number ?? 0)"
+                    :aria-label="getSeasonTitle(item)"
+                    inset
                     hide-details
                     @click.stop
                     @update:model-value="setSeasonSelected(item.season_number ?? 0, $event)"
@@ -741,6 +776,13 @@ onBeforeUnmount(() => {
   min-inline-size: 18rem;
 }
 
+/* 固定无标签开关的宽度，避免操作区缺少模式按钮时被网格收缩，滑块偏出轨道。 */
+.subscribe-season-switch {
+  inline-size: 52px;
+  min-inline-size: 52px;
+  max-inline-size: 52px;
+}
+
 .subscribe-season-group-selector {
   display: grid;
   gap: 0.5rem;
@@ -802,7 +844,7 @@ onBeforeUnmount(() => {
 .subscribe-season-group-option--active {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.18);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .subscribe-season-group-option--active:hover {
@@ -868,7 +910,7 @@ onBeforeUnmount(() => {
   border-color: rgba(var(--v-theme-primary), 0.45);
   background: rgba(var(--v-theme-surface), 0.96);
   box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.12);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .subscribe-season-group-nav--backward {

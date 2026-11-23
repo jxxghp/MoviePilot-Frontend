@@ -28,6 +28,7 @@ import vocechatLogo from '@/assets/images/logos/vocechat.png'
 import downloaderLogo from '@/assets/images/logos/downloader.png'
 import mediaserverLogo from '@/assets/images/logos/mediaserver.png'
 import notificationLogo from '@/assets/images/logos/notification.png'
+import appPushLogo from '@/assets/images/logo.png'
 import chromeLogo from '@/assets/images/logos/chrome.png'
 import doubanLogo from '@/assets/images/logos/douban.png'
 import githubLogo from '@/assets/images/logos/github.png'
@@ -72,6 +73,7 @@ const logoMap: Record<string, string> = {
   downloader: downloaderLogo,
   mediaserver: mediaserverLogo,
   notification: notificationLogo,
+  apppush: appPushLogo,
   chrome: chromeLogo,
   douban: doubanLogo,
   github: githubLogo,
@@ -198,6 +200,10 @@ export interface ImageProxyOptions {
   proxy?: boolean
   useCache?: boolean
   useCookies?: boolean
+  /** 请求媒体服务器缩略图的最大宽度，单位为像素。 */
+  maxWidth?: number
+  /** 媒体服务器图片编码质量，0 至 100。 */
+  quality?: number
 }
 
 /**
@@ -212,7 +218,9 @@ export function getProxyImageUrl(url: string, options: ImageProxyOptions = {}): 
   const proxy = options.proxy ? 1 : 0
   const cacheParam = options.useCache ? '&cache=true' : ''
   const cookiesParam = options.useCookies ? '&use_cookies=true' : ''
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/${proxy}?imgurl=${encodedUrl}${cacheParam}${cookiesParam}`
+  const sizeParam = options.maxWidth === undefined ? '' : `&maxWidth=${options.maxWidth}`
+  const qualityParam = options.quality === undefined ? '' : `&quality=${options.quality}`
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/${proxy}?imgurl=${encodedUrl}${cacheParam}${cookiesParam}${sizeParam}${qualityParam}`
 }
 
 /**

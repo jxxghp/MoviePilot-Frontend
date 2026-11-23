@@ -6,7 +6,7 @@ import AgentAssistantPanel from '@/components/agent/AgentAssistantPanel.vue'
 const displayState = vi.hoisted(() => ({ mdAndDown: { value: true } }))
 const identityState = vi.hoisted(() => ({
   auth: null as unknown as { token: string | null },
-  user: null as unknown as { getUserName: string; getUserID: number },
+  user: null as unknown as { getUserName: string; getUserID: number; superUser: boolean },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -20,7 +20,7 @@ vi.mock('vuetify', () => ({
 vi.mock('@/stores', async () => {
   const { reactive } = await import('vue')
   identityState.auth = reactive({ token: 'account-a-token' })
-  identityState.user = reactive({ getUserName: 'Tester', getUserID: 42 })
+  identityState.user = reactive({ getUserName: 'Tester', getUserID: 42, superUser: false })
   return {
     useAuthStore: () => identityState.auth,
     useUserStore: () => identityState.user,
@@ -215,6 +215,7 @@ describe('AgentAssistantPanel stream recovery', () => {
     identityState.auth.token = 'account-a-token'
     identityState.user.getUserID = 42
     identityState.user.getUserName = 'Tester'
+    identityState.user.superUser = false
   })
 
   afterEach(() => {
@@ -2869,6 +2870,7 @@ describe('AgentAssistantPanel agent host bridge', () => {
     identityState.auth.token = 'account-a-token'
     identityState.user.getUserID = 42
     identityState.user.getUserName = 'Tester'
+    identityState.user.superUser = false
   })
 
   afterEach(() => {
@@ -3553,6 +3555,43 @@ describe('AgentAssistantPanel agent host bridge', () => {
     stream.emit(legacySseFrame({ type: 'done' }))
     stream.close()
     await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('skips loading admin slash commands for regular users and loads them for superusers', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/message/agent/commands')) {
+        return createAgentResponse([{ command: '/restart', description: '重启系统' }])
+      }
+      return createAgentResponse([])
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    identityState.user.superUser = false
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    const textarea = wrapper.get('textarea')
+    await textarea.setValue('/r')
+    await textarea.trigger('input')
+    await flushPromises()
+
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/message/agent/commands'))).toBe(false)
+    expect(wrapper.find('.agent-assistant-commands').exists()).toBe(false)
+    expect(wrapper.find('.agent-assistant-error').exists()).toBe(false)
+
+    identityState.user.superUser = true
+    await textarea.setValue('/re')
+    await textarea.trigger('input')
+    await flushPromises()
+
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/message/agent/commands'))).toBe(true)
+    expect(wrapper.text()).toContain('/restart')
+
+    identityState.user.superUser = false
+    await flushPromises()
+    expect(wrapper.find('.agent-assistant-commands').exists()).toBe(false)
     wrapper.unmount()
   })
 })

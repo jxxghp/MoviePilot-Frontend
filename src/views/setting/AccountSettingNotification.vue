@@ -5,7 +5,7 @@ import api from '@/api'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
 import { useI18n } from 'vue-i18n'
-import { filterAvailableServiceOptions, notificationSwitchDict } from '@/api/constants'
+import { notificationSwitchDict } from '@/api/constants'
 import { useTheme } from 'vuetify'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -83,9 +83,9 @@ const notifications = ref<NotificationConf[]>([])
 const { moduleOptions, loadModuleCatalog } = useModuleCatalog()
 const notificationModuleOptions = moduleOptions('notification')
 
-// 通知类型全部关闭时从新增菜单移除，已存在的卡片仍保留开关以便恢复。
+// 通知渠道允许多个同类型配置，菜单只按模块目录控制可见性。
 const availableNotificationOptions = computed(() => [
-  ...filterAvailableServiceOptions(notificationModuleOptions.value, notifications.value),
+  ...notificationModuleOptions.value,
   { value: 'custom', title: t('setting.system.custom') },
 ])
 
@@ -525,7 +525,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn
-                mtype="submit"
+                type="submit"
                 :loading="notificationSaveLoading"
                 :disabled="!canSaveNotifications"
                 @click="saveNotificationSetting"
@@ -566,7 +566,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
               v-for="item in templateTypes"
               :key="item.type"
               type="button"
-              class="notification-template-card app-card-shell app-card-colorful"
+              class="notification-template-card app-card-shell app-card-colorful mp-setting-card--interactive"
               :style="getTemplateAccentStyle(item)"
               @click="openEditor(item.type)"
             >
@@ -635,7 +635,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
         </VCardItem>
         <VCardText>
           <VRow>
-            <VCol cols="6">
+            <VCol cols="12" sm="6">
               <VTextField
                 v-model="notificationTime.start"
                 :label="t('setting.notification.startTime')"
@@ -643,7 +643,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 prepend-inner-icon="mdi-clock-start"
               />
             </VCol>
-            <VCol cols="6">
+            <VCol cols="12" sm="6">
               <VTextField
                 v-model="notificationTime.end"
                 :label="t('setting.notification.endTime')"
@@ -691,11 +691,12 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: rgba(var(--app-card-accent-rgb), 0.16);
-  block-size: 2.75rem;
-  color: rgb(var(--app-card-accent-rgb));
-  inline-size: 2.75rem;
+  border: 1px solid rgba(var(--app-card-accent-rgb), 0.22);
+  border-radius: 12px;
+  background: rgba(var(--app-card-accent-rgb), 0.13);
+  block-size: 2.625rem;
+  color: color-mix(in srgb, rgb(var(--app-card-accent-rgb)) 78%, var(--mp-fg));
+  inline-size: 2.625rem;
 }
 
 .template-card-copy {
@@ -707,7 +708,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .template-card-title {
   overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  color: var(--mp-fg);
   font-size: 0.98rem;
   font-weight: 600;
   line-height: 1.35;
@@ -716,7 +717,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
 }
 
 .template-card-subtitle {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.25;
   margin-block-start: 0.25rem;
@@ -724,15 +725,17 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .template-card-arrow {
   flex: 0 0 auto;
-  color: rgba(var(--v-theme-on-surface), 0.42);
+  color: var(--mp-faint);
   transition:
     color 0.2s ease,
     transform 0.2s ease;
 }
 
-.notification-template-card:hover .template-card-arrow {
-  color: rgb(var(--app-card-accent-rgb));
-  transform: translateX(2px);
+@media (hover: hover) {
+  .notification-template-card:hover .template-card-arrow {
+    color: rgb(var(--app-card-accent-rgb));
+    transform: translateX(2px);
+  }
 }
 
 @media (width <= 600px) {

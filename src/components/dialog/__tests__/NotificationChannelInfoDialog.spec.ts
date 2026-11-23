@@ -40,6 +40,34 @@ describe('NotificationChannelInfoDialog', () => {
     })
   })
 
+  it('渠道白名单已移入公共授权，保存旧草稿时保留投递配置并清除授权键', async () => {
+    const onChange = vi.fn()
+    const notification = {
+      id: 'telegram-test',
+      name: '家庭机器人',
+      type: 'telegram',
+      enabled: true,
+      config: {
+        TELEGRAM_USERS: 'member',
+        TELEGRAM_ADMINS: 'admin',
+        TELEGRAM_CHAT_ID: '-100-delivery',
+        TELEGRAM_TOPIC_ID: 7,
+      },
+    }
+    await renderWithProviders(NotificationChannelInfoDialog, {
+      props: { modelValue: true, notification, notifications: [notification], onChange },
+      global: { stubs: { VDialogCloseBtn: true } },
+    })
+    expect(screen.queryByLabelText('管理员')).not.toBeInTheDocument()
+    expect(screen.getByText('用户和管理员权限请在用户管理 → 渠道授权中设置。')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ config: { TELEGRAM_CHAT_ID: '-100-delivery', TELEGRAM_TOPIC_ID: 7 } }),
+      'telegram-test',
+    )
+    expect(notification.config.TELEGRAM_ADMINS).toBe('admin')
+  })
+
   it('空渠道名校验使用已存在的本地化消息', async () => {
     const onChange = vi.fn()
     const notification = { ...webPushNotification, name: '   ' }

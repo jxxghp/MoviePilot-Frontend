@@ -5,13 +5,16 @@ import type { TransferHistory } from '@/api/types'
 import i18n from '@/plugins/i18n'
 import TransferHistoryView from '@/views/reorganize/TransferHistoryView.vue'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { computed, defineComponent, h, KeepAlive, nextTick, ref, unref, type PropType } from 'vue'
 import { RouterView } from 'vue-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { NativeLayoutAdapter } from '@/native/layout'
 
 const transferHistorySource = readFileSync(resolve(cwd(), 'src/views/reorganize/TransferHistoryView.vue'), 'utf8')
+const nativeLayout = new NativeLayoutAdapter(document, window)
 
 const mocks = vi.hoisted(() => ({
   apiDelete: vi.fn(),
@@ -88,6 +91,9 @@ vi.mock('@/composables/useDynamicButton', () => ({
   },
 }))
 
+/** 替身表格的显示顺序；默认与接口顺序一致，用例可改为别的顺序模拟表格排序或分组后的结果。 */
+let stubDisplayOrder: (items: TransferHistory[]) => TransferHistory[] = items => items
+
 /** 桌面列表替身仅提供槽位与选择协议，真实排序和分组另有集成用例。 */
 const HistoryTableStub = defineComponent({
   name: 'VDataTableVirtual',
@@ -150,10 +156,13 @@ const HistoryTableStub = defineComponent({
         )
       })
 
+      const displayedItems = stubDisplayOrder(props.items)
+
       return h('section', { 'aria-label': '整理历史桌面列表', 'data-grouped': Boolean(groupKey) }, [
         h('output', { 'aria-label': '整理历史排序结果' }, JSON.stringify(sortResults)),
+        ...(slots['body.prepend']?.({ groupedItems: displayedItems.map(raw => ({ type: 'item', raw })) }) ?? []),
         ...groupHeaders,
-        ...props.items.map(item =>
+        ...displayedItems.map(item =>
           h(
             'article',
             {
@@ -548,7 +557,13 @@ function getDialogCall(index = 0) {
 }
 
 describe('TransferHistoryView', () => {
+  afterEach(() => {
+    nativeLayout.setActive(false)
+    delete window.MoviePilotNative
+  })
+
   beforeEach(() => {
+    stubDisplayOrder = items => items
     mocks.appMode = true
     mocks.desktop = true
     mocks.dynamicButtonConfig = undefined
@@ -579,6 +594,154 @@ describe('TransferHistoryView', () => {
 
     expect(await screen.findByText('桌面结果')).toBeInTheDocument()
     expect(requests).toEqual([{ count: 50, page: 1, title: '科幻' }])
+  })
+
+  it('成功整理历史播放目标文件并把不含路径的票据交给原生桥', async () => {
+    nativeLayout.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: () => undefined,
+    }
+    const item = createHistory(31, '精确目标', {
+      status: true,
+      src_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '源文件.mkv',
+        path: '/downloads/源文件.mkv',
+      } as TransferHistory['src_fileitem'],
+      dest_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '目标文件.mkv',
+        path: '/library/目标文件.mkv',
+      } as TransferHistory['dest_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    const ticket = `file.${'a'.repeat(240)}`
+    mocks.apiPost.mockResolvedValue({ item_id: ticket })
+    const playbackEvents: CustomEvent[] = []
+    window.addEventListener('moviepilot:playback-open', event => playbackEvents.push(event as CustomEvent), {
+      once: true,
+    })
+
+    await renderHistory('/history')
+    await screen.findByText('精确目标')
+    await fireEvent.click(screen.getByRole('button', { name: '播放此文件' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'mediaserver/stream-ticket',
+        expect.objectContaining({ file: expect.objectContaining({ path: '/library/目标文件.mkv' }) }),
+      ),
+    )
+    expect(playbackEvents[0]?.detail).toEqual({ itemId: ticket, title: '精确目标' })
+  })
+
+  it('失败整理历史只请求源文件票据', async () => {
+    nativeLayout.setActive(true)
+    window.MoviePilotNative = {
+      transportVersion: 1,
+      playbackVersion: 1,
+      postMessage: () => undefined,
+    }
+    const item = createHistory(32, '失败记录', {
+      status: false,
+      src_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '待整理.mkv',
+        path: '/downloads/待整理.mkv',
+      } as TransferHistory['src_fileitem'],
+      dest_fileitem: {
+        storage: 'local',
+        type: 'file',
+        name: '不应播放.mkv',
+        path: '/library/不应播放.mkv',
+      } as TransferHistory['dest_fileitem'],
+    })
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([item])),
+    )
+    mocks.apiPost.mockResolvedValue({ item_id: `file.${'b'.repeat(240)}` })
+
+    await renderHistory('/history')
+    await screen.findByText('失败记录')
+    await fireEvent.click(screen.getByRole('button', { name: '播放此文件' }))
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        'mediaserver/stream-ticket',
+        expect.objectContaining({ file: expect.objectContaining({ path: '/downloads/待整理.mkv' }) }),
+      ),
+    )
+  })
+
+  it('returns the virtual list to the top only after the next page has loaded', async () => {
+    const nextPage = createDeferred<ReturnType<typeof historyResponse>>()
+    let historyCalls = 0
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      historyCalls += 1
+      return historyCalls === 1
+        ? Promise.resolve(historyResponse([createHistory(1, '第一页记录')], 100))
+        : nextPage.promise
+    })
+    const { container, router } = await renderHistory('/history?currentPage=1', true, true)
+    await screen.findByText('第一页记录')
+    const viewport = container.querySelector<HTMLElement>('.v-table__wrapper')!
+    viewport.scrollTop = 400
+
+    await router.push('/history?currentPage=2')
+    await waitFor(() => expect(historyCalls).toBe(2))
+    expect(viewport.scrollTop).toBe(400)
+
+    nextPage.resolve(historyResponse([createHistory(51, '第二页记录')], 100))
+    await screen.findByText('第二页记录')
+    await waitFor(() => expect(viewport.scrollTop).toBe(0))
+  })
+
+  it('preserves the virtual list position when refreshing the same page', async () => {
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse([createHistory(1, '原有记录')])),
+    )
+    const { container } = await renderHistory('/history', true, true)
+    await screen.findByText('原有记录')
+    const viewport = container.querySelector<HTMLElement>('.v-table__wrapper')!
+    viewport.scrollTop = 400
+
+    await fireEvent.click(screen.getByRole('button', { name: '刷新' }))
+    await flushPromises()
+
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === 'history/transfer')).toHaveLength(2)
+    expect(viewport.scrollTop).toBe(400)
+  })
+
+  it('preserves the previous list position when a page request fails', async () => {
+    const nextPage = createDeferred<ReturnType<typeof historyResponse>>()
+    let historyCalls = 0
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      historyCalls += 1
+      return historyCalls === 1
+        ? Promise.resolve(historyResponse([createHistory(1, '保留原页记录')], 100))
+        : nextPage.promise
+    })
+    const { container, router } = await renderHistory('/history?currentPage=1', true, true)
+    await screen.findByText('保留原页记录')
+    const viewport = container.querySelector<HTMLElement>('.v-table__wrapper')!
+    viewport.scrollTop = 400
+
+    await router.push('/history?currentPage=2')
+    await waitFor(() => expect(historyCalls).toBe(2))
+    nextPage.reject(new Error('page unavailable'))
+    await flushPromises()
+
+    expect(screen.getByText('保留原页记录')).toBeInTheDocument()
+    expect(viewport.scrollTop).toBe(400)
   })
 
   it('remembers manual grouping when returning from another route without query parameters', async () => {
@@ -1158,6 +1321,60 @@ describe('TransferHistoryView', () => {
     expect(screen.queryByRole('button', { name: '转移队列' })).not.toBeInTheDocument()
   })
 
+  it.each(['pointer', 'space'] as const)(
+    'keeps Shift %s selection in displayed order and synchronizes native checkboxes',
+    async activation => {
+      const histories = [1, 2, 3, 4].map(id => createHistory(id, `记录${id}`))
+      // 模拟表格倒序，真实复选框应按显示顺序连选，并保留节点与焦点。
+      stubDisplayOrder = items => [...items].reverse()
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+      )
+      await renderHistory('/history?grouped=false')
+      await screen.findByText('记录4')
+      const user = userEvent.setup()
+      const checkbox = (id: number) => screen.getByRole('checkbox', { name: `选择 记录${id}` }) as HTMLInputElement
+      const inputs = histories.map(item => checkbox(item.id))
+      const activate = async (id: number, shift = false) => {
+        const input = checkbox(id)
+        if (activation === 'space') input.focus()
+        if (shift) await user.keyboard('{Shift>}')
+        if (activation === 'pointer') await user.click(input)
+        else await user.keyboard(' ')
+        if (shift) await user.keyboard('{/Shift}')
+        expect(document.activeElement).toBe(input)
+      }
+      const expectSelection = (ids: number[]) => {
+        expect(screen.getByText(`已选择 ${ids.length}/4 项`)).toBeInTheDocument()
+        for (const item of histories) {
+          const input = checkbox(item.id)
+          const selected = ids.includes(item.id)
+          expect(input.checked).toBe(selected)
+          expect(input.closest('.v-selection-control')?.classList.contains('v-selection-control--dirty')).toBe(selected)
+          expect(
+            input
+              .closest('.transfer-history-desktop-record')
+              ?.classList.contains('transfer-history-desktop-record--selected'),
+          ).toBe(selected)
+        }
+      }
+
+      await activate(3)
+      expectSelection([3])
+      await activate(1, true)
+      expectSelection([1, 2, 3])
+      await activate(3, true)
+      expectSelection([1, 2, 3])
+      await activate(2)
+      expectSelection([1, 3])
+      await activate(4, true)
+      expectSelection([1])
+      histories.forEach((item, index) => expect(checkbox(item.id)).toBe(inputs[index]))
+      await fireEvent.click(screen.getByRole('button', { name: '批量重新整理' }))
+      expect(getDialogCall().props).toMatchObject({ logids: [1] })
+    },
+  )
+
   it('keeps desktop record, page, and group selection in sync with batch actions', async () => {
     const histories = [createHistory(1, '多选一'), createHistory(2, '多选二')]
     mocks.apiGet.mockImplementation((path: string) =>
@@ -1176,6 +1393,50 @@ describe('TransferHistoryView', () => {
     await fireEvent.click(screen.getByRole('button', { name: '取消全选' }))
     expect(screen.getByText('共 2 条记录 · 1 页')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: '批量选择' })).not.toBeInTheDocument()
+  })
+
+  it('extends a Shift range across visible rows without selecting a collapsed group', async () => {
+    // jsdom 没有布局测量；只提供视口高度，行高继续由真实虚拟表格按既有估值计算。
+    class ViewportResizeObserver implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      disconnect() {}
+      unobserve() {}
+      observe(target: Element) {
+        if (target.classList.contains('v-table__wrapper')) {
+          this.callback([{ target, contentRect: new DOMRect(0, 0, 1000, 900) } as ResizeObserverEntry], this)
+        }
+      }
+    }
+    vi.stubGlobal('ResizeObserver', ViewportResizeObserver)
+    const histories = ['第一组', '第二组', '第三组'].flatMap((title, group) =>
+      [1, 2].map(episode =>
+        createHistory(group * 2 + episode, title, { type: '电视剧', seasons: 'S01', episodes: `E0${episode}` }),
+      ),
+    )
+    mocks.apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+    )
+    const { container } = await renderHistory('/history?grouped=true', true, true)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '展开' })).toHaveLength(3))
+    await fireEvent.click(screen.getAllByRole('button', { name: '展开' })[0])
+    const remainingGroups = await screen.findAllByRole('button', { name: '展开' })
+    await fireEvent.click(remainingGroups.at(-1)!)
+    const rows = await waitFor(() => {
+      const visible = [...container.querySelectorAll<HTMLElement>('.transfer-history-desktop-record-row')]
+      expect(visible).toHaveLength(4)
+      return visible
+    })
+    const expectedIds = rows.slice(1, 3).map(row => Number(row.dataset.historyId))
+    await fireEvent.click(rows[1].querySelector('input[type="checkbox"]')!)
+    await fireEvent.click(rows[2].querySelector('input[type="checkbox"]')!, { shiftKey: true })
+    expect(screen.getByText('已选择 2/6 项')).toBeInTheDocument()
+    for (const row of rows) {
+      expect(row.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(
+        expectedIds.includes(Number(row.dataset.historyId)),
+      )
+    }
+    await fireEvent.click(screen.getByRole('button', { name: '批量重新整理' }))
+    expect(getDialogCall().props).toMatchObject({ logids: expectedIds })
   })
 
   it('uses real virtual-table grouping to select collapsed records and retain them after expansion', async () => {
@@ -1279,6 +1540,159 @@ describe('TransferHistoryView', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  describe('calendar date displays', () => {
+    let histories: TransferHistory[]
+
+    beforeEach(() => {
+      histories = []
+      mocks.apiGet.mockImplementation((path: string) =>
+        Promise.resolve(path === 'storage/options' ? storageResponse() : historyResponse(histories)),
+      )
+    })
+
+    it('uses natural desktop periods for past and future dates while preserving raw timestamps', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 10, 12, 21, 4))
+      const cases = [
+        ['2026-11-10 21:05:39', '前天'],
+        ['2026-09-30 23:59:00', '2个月前'],
+        ['2024-12-31 23:59:00', '2年前'],
+        ['2026-11-14 00:01:00', '后天'],
+        ['2027-01-01 00:01:00', '2个月后'],
+        ['2028-01-01 00:01:00', '2年后'],
+      ] as const
+      histories = cases.map(([date], index) => createHistory(index + 1, `自然周期记录${index}`, { date }))
+
+      const { container } = await renderHistory('/history?grouped=false')
+      await screen.findByText('自然周期记录5')
+
+      for (const [date, text] of cases) {
+        const time = container.querySelector(`time[datetime="${date}"]`)
+        expect(time?.textContent).toBe(text)
+        expect(time).toHaveAttribute('title', date)
+      }
+      expect(mocks.apiGet.mock.calls.filter(([path]) => path === 'history/transfer')).toHaveLength(1)
+    })
+
+    it.each([
+      ['2026-07-31T12:00:00', '2026-07-01 00:00:00', '30天前'],
+      ['2024-12-31T12:00:00', '2024-01-01 00:00:00', '11个月前'],
+    ] as const)(
+      'falls back from a zero calendar period for reference %s and history %s',
+      async (reference, date, text) => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date(reference))
+        histories = [createHistory(1, '零差回退记录', { date })]
+
+        const { container } = await renderHistory('/history?grouped=false')
+        await screen.findByText('零差回退记录')
+
+        expect(container.querySelector(`time[datetime="${date}"]`)?.textContent).toBe(text)
+      },
+    )
+
+    it('uses the same calendar date in a collapsed album summary', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 10, 12, 21, 4))
+      const date = '2026-11-10 21:05:39'
+      histories = [1, 2].map(id =>
+        createHistory(id, `Track ${id}`, { date, dest: `/media/Artist/Album/${id}.flac`, type: '音乐' }),
+      )
+
+      const { container } = await renderHistory('/history?grouped=true', true, true)
+      await screen.findByText('Album')
+
+      expect(container.querySelectorAll('.transfer-history-desktop-record')).toHaveLength(0)
+      expect(
+        container.querySelector(`.transfer-history-album-summary__fact[title="${date}"]`)?.textContent?.trim(),
+      ).toBe('前天')
+    })
+
+    it.each([true, false])(
+      'preserves empty and unparseable history on desktop=%s without invalid labels',
+      async desktop => {
+        mocks.desktop = desktop
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date(2026, 10, 12, 21, 4))
+        const dates = ['not a date', '2026-11-12 25:00:00', '', undefined]
+        histories = dates.map((date, index) => createHistory(index + 1, `异常时间记录${index}`, { date }))
+
+        const { container } = await renderHistory('/history?grouped=false')
+        if (!desktop) await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+        await screen.findByText('异常时间记录3')
+
+        expect(screen.getByText('not a date')).toBeInTheDocument()
+        expect(screen.getByText('2026-11-12 25:00:00')).toBeInTheDocument()
+        expect(container).not.toHaveTextContent(/Invalid Date|今天|昨天/)
+        if (desktop) {
+          expect([...container.querySelectorAll('time')].map(time => time.textContent)).toEqual(
+            dates.map(date => date || ''),
+          )
+        } else {
+          for (const [index, date] of dates.entries()) {
+            const record = screen.getByText(`异常时间记录${index}`).closest('.transfer-history-mobile-record')
+            const meta = [...(record?.querySelectorAll('.transfer-history-mobile-record__meta > span') || [])].map(
+              item => item.textContent?.trim(),
+            )
+            expect(meta.at(-1)).toBe(date || '·')
+          }
+        }
+      },
+    )
+
+    it('formats local and offset mobile dates across midnight without refetching and releases the shared timer', async () => {
+      mocks.desktop = false
+      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+      vi.setSystemTime(new Date(2026, 10, 12, 23, 59, 30))
+      const timerCount = vi.getTimerCount()
+      const intervals = vi.spyOn(globalThis, 'setInterval')
+      const offset = new Date(2026, 10, 12, 17, 5, 44, 400).toISOString().replace('Z', '+00:00')
+      const cases = [
+        ['2026-11-12 19:10:00', '今天 19:10', '昨天 19:10'],
+        ['2026-11-11T19:10:00', '昨天 19:10', '11-11 19:10'],
+        ['2026-11-10 21:05:39', '11-10 21:05', '11-10 21:05'],
+        [offset, '今天 17:05', '昨天 17:05'],
+      ] as const
+      histories = cases.map(([date], index) => createHistory(index + 1, `移动时间记录${index}`, { date }))
+
+      const { unmount } = await renderHistory('/history?grouped=false')
+      await fireEvent.click(screen.getByRole('button', { name: '加载下一页' }))
+      await screen.findByText('移动时间记录3')
+      const dateTexts = () =>
+        cases.map(
+          (_, index) =>
+            screen
+              .getByText(`移动时间记录${index}`)
+              .closest('.transfer-history-mobile-record')
+              ?.querySelector('.transfer-history-mobile-record__meta > span:last-child')?.textContent,
+        )
+      expect(dateTexts()).toEqual(cases.map(([, text]) => text))
+      const requests = mocks.apiGet.mock.calls.length
+      expect(intervals.mock.calls.filter(([, delay]) => delay === 60000)).toHaveLength(1)
+
+      await vi.advanceTimersByTimeAsync(60000)
+
+      expect(dateTexts()).toEqual(cases.map(([, , text]) => text))
+      expect(mocks.apiGet).toHaveBeenCalledTimes(requests)
+      unmount()
+      expect(vi.getTimerCount()).toBe(timerCount)
+    })
+
+    it.runIf(Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/New_York')(
+      'allows a day-unit value of zero during the autumn DST transition',
+      async () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date(2026, 10, 1, 23, 30))
+        histories = [createHistory(1, '夏令时记录', { date: '2026-11-01 00:00:00' })]
+
+        const { container } = await renderHistory('/history?grouped=false')
+        await screen.findByText('夏令时记录')
+
+        expect(container.querySelector('time[datetime="2026-11-01 00:00:00"]')?.textContent).toBe('今天')
+      },
+    )
   })
 
   it('renders full paths linked from source to destination and keeps status clicks independent from desktop selection', async () => {
@@ -2023,5 +2437,25 @@ describe('TransferHistoryView', () => {
 
     expect(mocks.progressStart).not.toHaveBeenCalled()
     expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+  })
+
+  it('keeps one outer glass container on desktop while flattening individual history rows', async () => {
+    mocks.apiGet.mockImplementation((path: string) => {
+      if (path === 'storage/options') return Promise.resolve(storageResponse())
+      return Promise.resolve(historyResponse([createHistory(1, '桌面无嵌套玻璃记录')]))
+    })
+
+    const { container } = await renderHistory()
+    await screen.findByText('桌面无嵌套玻璃记录')
+
+    expect(container.querySelector('.transfer-history-desktop-page')).toHaveAttribute(
+      'data-glass-optical-mode',
+      'static-material',
+    )
+    expect(transferHistorySource).toContain('var(--mp-list-row-divider)')
+    expect(transferHistorySource).toContain(
+      '.transfer-history-desktop-virtual.v-table {\n    border: 1px solid var(--glass-border)',
+    )
+    expect(transferHistorySource).toContain('.transfer-history-desktop-record {\n  display: grid;')
   })
 })

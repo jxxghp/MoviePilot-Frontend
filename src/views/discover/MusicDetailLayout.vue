@@ -72,7 +72,7 @@ watch(displayCover, () => {
           <div class="music-subtitle">
             <slot name="subtitle" />
           </div>
-          <span v-if="props.attributes.length" class="music-attributes">
+          <span v-if="props.attributes.length" class="music-attributes num">
             <template v-for="(attribute, index) in props.attributes" :key="attribute">
               <span v-if="index > 0" class="mx-1">|</span>
               <span>{{ attribute }}</span>
@@ -131,7 +131,7 @@ watch(displayCover, () => {
   z-index: 1;
   margin-block-start: calc(-4rem - env(safe-area-inset-top));
   margin-inline: -1rem;
-  padding-block-start: calc(4rem + env(safe-area-inset-top));
+  padding-block: calc(4rem + env(safe-area-inset-top)) var(--mp-bottom-clearance);
   padding-inline: 1rem;
 }
 
@@ -142,9 +142,27 @@ watch(displayCover, () => {
   padding-block-start: 1rem;
 }
 
+.music-detail-glass .music-header {
+  padding: 1.25rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--app-surface-radius);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
+}
+
+/* 外层头部已采样玻璃背景，内部无图占位卡不再二次叠加 backdrop-filter。 */
+.music-detail-glass .music-header .music-poster-placeholder {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 .music-poster {
   overflow: hidden;
   flex: 0 0 auto;
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 10%);
   inline-size: 9rem;
@@ -156,7 +174,7 @@ watch(displayCover, () => {
 
 .music-poster-placeholder {
   aspect-ratio: 1;
-  background: rgba(var(--v-theme-on-surface), 0.08);
+  background: var(--mp-muted);
   inline-size: 100%;
 }
 
@@ -171,7 +189,7 @@ watch(displayCover, () => {
 
 .music-title > h1 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 2rem;
   overflow-wrap: break-word;
 }
@@ -186,9 +204,9 @@ watch(displayCover, () => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  color: var(--mp-muted-fg);
   font-size: 0.875rem;
   margin-block-start: 0.35rem;
-  opacity: 0.85;
 }
 
 .music-actions {
@@ -211,17 +229,38 @@ watch(displayCover, () => {
   min-inline-size: 0;
 }
 
+.music-detail-glass .music-overview-left {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--app-surface-radius);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
+}
+
 .music-overview-right {
   inline-size: 100%;
   margin-block-start: 2rem;
 }
 
 .music-facts {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-surface-radius);
+  background-color: var(--mp-surface);
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25rem;
+}
+
+.music-detail-glass .music-facts {
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
 }
 
 @media (width >= 768px) {

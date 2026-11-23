@@ -15,8 +15,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getEventById: vi.fn(),
   openSharedDialog: vi.fn(),
+  previousMonth: vi.fn(),
+  nextMonth: vi.fn(),
   setExtendedProp: vi.fn(),
-  setRange: undefined as ((range: { start: Date; end: Date }) => void) | undefined,
+  setRange: undefined as ((range: { start: Date; end: Date; view?: { title: string } }) => void) | undefined,
 }))
 
 vi.mock('@/composables/useSharedDialog', () => ({
@@ -55,7 +57,7 @@ vi.mock('@fullcalendar/vue3', async () => {
         }
 
         expose({
-          getApi: () => ({ getEventById }),
+          getApi: () => ({ getEventById, prev: mocks.previousMonth, next: mocks.nextMonth }),
         })
 
         return () => {
@@ -245,6 +247,41 @@ describe('FullCalendarView', () => {
     if (expand) await fireEvent.click(expand)
     await waitFor(() => expect(laterGroup.querySelectorAll('.mobile-calendar-event-card')).toHaveLength(51))
     expect(screen.getAllByRole('heading', { name: '重试窗口 0' })).toHaveLength(1)
+  })
+
+  it('reports loaded calendar items instead of unique subscriptions while paging', async () => {
+    setViewport(390)
+    let releaseSecondPage: (() => void) | undefined
+    const secondPageReady = new Promise<void>(resolve => {
+      releaseSecondPage = resolve
+    })
+    const subscribe = movieSubscribe(9750, '日历条目计数')
+    const dateKey = (offset: number) => {
+      const date = new Date(2026, 10, 1)
+      date.setDate(date.getDate() + offset)
+      return date.toISOString().slice(0, 10)
+    }
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({
+      subscribe,
+      date: dateKey(index),
+      episodes: [],
+    }))
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', async ({ request }) => {
+        if (Number(new URL(request.url).searchParams.get('page')) === 1) {
+          return apiJson({ items: firstPage, total: 51 })
+        }
+        await secondPageReady
+        return apiJson({ items: [{ subscribe, date: dateKey(50), episodes: [] }], total: 51 })
+      }),
+    )
+
+    await renderCalendar()
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('已加载 50 条'))
+    expect(screen.getByText('50 项')).toBeInTheDocument()
+    releaseSecondPage?.()
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
   })
 
   it('expands already downloaded mobile dates before requesting a later window', async () => {
@@ -594,6 +631,7 @@ describe('FullCalendarView', () => {
     await screen.findByText(subscribe.name)
     expect(screen.getByText('未入库 (2/4)')).toBeInTheDocument()
     await waitFor(() => expect(filesRequest).toHaveBeenCalledOnce())
+    await waitFor(() => expect(document.querySelector('[role="status"]')).not.toBeInTheDocument())
     resolveFiles?.()
     await waitFor(() => expect(screen.getByText('部分入库 (2/4)')).toBeInTheDocument())
   })
@@ -901,6 +939,27 @@ describe('FullCalendarView', () => {
 
     await waitFor(() => expect(queryMobileCalendarEventCard('恢复后的电影')).toBeInTheDocument())
     expect(onListRequest).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the desktop month title and navigation in the media filter toolbar', async () => {
+    server.use(subscribeListHandler([]))
+    const { container } = await renderCalendar()
+    const start = new Date('2026-07-01T00:00:00+08:00')
+    const end = new Date('2026-08-01T00:00:00+08:00')
+    mocks.setRange?.({ start, end, view: { title: '2026年7月' } })
+
+    const heading = await screen.findByRole('heading', { name: '2026年7月' })
+    const toolbar = container.querySelector('.calendar-desktop-toolbar')
+    expect(toolbar).toContainElement(heading)
+    expect(toolbar).toContainElement(screen.getByRole('group', { name: '媒体类型筛选' }))
+    await fireEvent.click(screen.getByRole('button', { name: '上个月' }))
+    await fireEvent.click(screen.getByRole('button', { name: '下个月' }))
+    expect(mocks.previousMonth).toHaveBeenCalledOnce()
+    expect(mocks.nextMonth).toHaveBeenCalledOnce()
+
+    mocks.setRange?.({ start, end, view: { title: '2026年8月' } })
+    expect(await screen.findByRole('heading', { name: '2026年8月' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '2026年7月' })).not.toBeInTheDocument()
   })
 
   it('filters desktop calendar events by media type', async () => {

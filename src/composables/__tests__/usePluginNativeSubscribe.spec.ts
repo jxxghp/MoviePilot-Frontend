@@ -52,13 +52,17 @@ vi.mock('@/composables/useMediaSubscribe', async importOriginal => {
 })
 
 /** 在完整应用插件环境中创建原生订阅回调，便于验证权限与响应式状态。 */
-async function renderNativeSubscribeHarness(subscribePermission = true) {
+async function renderNativeSubscribeHarness(
+  subscribePermission = true,
+  features: Record<string, boolean> = {},
+  musicOnly = false,
+) {
   let nativeSubscribe: NativeSubscribe | undefined
   const Harness = defineComponent({
     name: 'PluginNativeSubscribeHarness',
     /** 在组件上下文中创建待测的原生订阅方法。 */
     setup() {
-      nativeSubscribe = usePluginNativeSubscribe()
+      nativeSubscribe = usePluginNativeSubscribe(undefined, musicOnly)
       return () => null
     },
   })
@@ -71,6 +75,7 @@ async function renderNativeSubscribeHarness(subscribePermission = true) {
           manage: false,
           search: true,
           subscribe: subscribePermission,
+          features,
         },
         superUser: false,
         userName: 'tester',
@@ -103,6 +108,30 @@ describe('native subscribe media normalization', () => {
       }),
     })
     if (result.success) expect(result.media).not.toHaveProperty('anilist_id')
+  })
+
+  it.each(['album', 'recording'])('音乐%s保留实体类型和专辑曲目数', music_type => {
+    const result = normalizeNativeSubscribeMedia({
+      media_source: 'musicbrainz',
+      media_id: 'music-42',
+      title: '音乐',
+      type: 'music',
+      music_type,
+      total_tracks: 12,
+    })
+    expect(result).toMatchObject({ success: true, media: { type: '音乐', music_type, total_tracks: 12 } })
+  })
+
+  it('艺术家不能作为新增订阅目标', () => {
+    expect(
+      normalizeNativeSubscribeMedia({
+        media_source: 'musicbrainz',
+        media_id: 'artist-42',
+        title: '艺术家',
+        type: '音乐',
+        music_type: 'artist',
+      }),
+    ).toMatchObject({ success: false, reason: 'unsupportedType' })
   })
 
   it('accepts another fixed source identifier', () => {
@@ -209,6 +238,30 @@ describe('plugin native subscribe flow', () => {
     expect(mocks.subscribeOptions?.isSubscribed.value).toBe(true)
     expect(mocks.subscribeOptions?.isExists()).toBe(true)
     expect(mocks.handleSubscribe).toHaveBeenCalledOnce()
+  })
+
+  it('音乐功能权限关闭时，通用新增入口同样拒绝音乐订阅', async () => {
+    const subscribe = await renderNativeSubscribeHarness(true, { 'subscribe.music': false })
+    expect(
+      await subscribe({
+        media_source: 'musicbrainz',
+        media_id: 'album',
+        title: '专辑',
+        type: '音乐',
+        music_type: 'album',
+      }),
+    ).toMatchObject({ success: false, code: 'PERMISSION_DENIED' })
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+    expect(mocks.handleSubscribe).not.toHaveBeenCalled()
+  })
+
+  it('音乐专用入口拒绝影视输入', async () => {
+    const subscribe = await renderNativeSubscribeHarness(true, {}, true)
+    expect(await subscribe({ media_source: 'themoviedb', media_id: '42', title: '电影', type: '电影' })).toMatchObject({
+      success: false,
+      code: 'INVALID_MEDIA',
+    })
+    expect(mocks.handleSubscribe).not.toHaveBeenCalled()
   })
 
   it('returns a structured fallback result for invalid media', async () => {

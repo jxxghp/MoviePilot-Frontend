@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { getSharedConfiguration } from '@/api/configuration'
 import { getMediaStatus, getMediaSubscribedSeasons } from '@/api/mediaStatus'
-import { invalidateSharedData } from '@/utils/sharedDataCache'
+import { getSharedData, invalidateSharedData, invalidateSharedDataKey } from '@/utils/sharedDataCache'
 import { useToast } from 'vue-toastification'
+import { nativeChromeActive } from '@/native/layout'
 import { useNativePageHeader } from '@/native/page'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import MediaCommentView from './MediaCommentView.vue'
 import api from '@/api'
-import { getApiBusinessErrorMessage } from '@/api/client'
+import MediaEpisodePickerDialog from '@/components/dialog/MediaEpisodePickerDialog.vue'
+import type { PlayableEpisode } from '@/types/playback'
+import { ApiRequestError, getApiBusinessErrorMessage, isApiRequestCancellation } from '@/api/client'
 import type {
   MediaDataSource,
   MediaInfo,
+  MediaMapping,
   MediaRelease,
   MediaSeason,
   NotExistMediaInfo,
@@ -20,6 +24,7 @@ import type {
 } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { formatSeasonLabel } from '@/@core/utils/season'
+import { formatSeasonEpisode } from '@/@core/utils/formatters'
 import router from '@/router'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useUserStore } from '@/stores'
@@ -34,6 +39,7 @@ import {
   getMediaSubscribeId,
   getMediaSubscribeIdentity,
   useMediaSubscribe,
+  type MediaSubscribeIdentity,
   type SeasonSubscribeModes,
 } from '@/composables/useMediaSubscribe'
 
@@ -70,8 +76,167 @@ const theme = useTheme()
 // 媒体详情
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 
+// 共享关系只补充外链，避免辅助 TMDB ID 改变原来源的季集、订阅和搜索行为。
+const sharedTmdbMapping = ref<MediaMapping | null>(null)
+let mappingRequestId = 0
+
+/**
+ * 按需查找 TMDB 链接的按钮状态。
+ *
+ * null 表示共享查询尚未完成或不适用；unsupported 表示旧后端没有查找接口，按钮隐藏。
+ */
+type TmdbLookupState = 'idle' | 'searching' | 'not-found' | 'failed' | 'timeout' | 'unsupported'
+const tmdbLookupState = ref<TmdbLookupState | null>(null)
+
+// 后端按需查找可能需要多次 TMDB 请求，超时后后台仍会继续查找，重试会合并到同一次查找。
+const TMDB_LOOKUP_TIMEOUT = 60_000
+
+/** 共享关系查询与按需查找使用同一组参数，保证两者命中同一条共享关系。 */
+interface SharedTmdbMappingQuery {
+  identity: MediaSubscribeIdentity
+  params: { media_source: MediaDataSource; media_id: string; type: 'movie' | 'tv'; season?: number }
+}
+
+/** 仅为非 TMDB 来源的电影和电视剧构造共享关系查询参数。 */
+function getSharedTmdbMappingQuery(): SharedTmdbMappingQuery | null {
+  const identity = getMediaSubscribeIdentity(mediaDetail.value)
+  if (!identity || identity.source === 'themoviedb' || !['电影', '电视剧'].includes(mediaDetail.value.type ?? ''))
+    return null
+  return {
+    identity,
+    params: {
+      media_source: identity.source,
+      media_id: identity.mediaId,
+      type: mediaDetail.value.type === '电影' ? 'movie' : 'tv',
+      season: mediaDetail.value.type === '电视剧' ? (mediaDetail.value.season ?? undefined) : undefined,
+    },
+  }
+}
+
+/** 共享关系快照按查询参数分条缓存，按需查找成功后只失效对应条目。 */
+function getSharedTmdbMappingKey(params: SharedTmdbMappingQuery['params']) {
+  return `media-mapping:${JSON.stringify(params)}`
+}
+
+/** 判断错误是否来自尚未提供该接口的旧后端。 */
+function isMissingEndpoint(error: unknown) {
+  return error instanceof ApiRequestError && (error.status === 404 || error.status === 405)
+}
+
+/**
+ * 独立查询已有关系；中心不可用或旧后端没有接口时继续显示原详情。
+ *
+ * @param retried 是否为读取被共享快照失效作废后的重读
+ */
+async function querySharedTmdbMapping(retried = false) {
+  const requestId = ++mappingRequestId
+  const query = getSharedTmdbMappingQuery()
+  if (!query) return
+  const { identity, params } = query
+  try {
+    const mapping = await getSharedData<MediaMapping | null>(getSharedTmdbMappingKey(params), () =>
+      api.get('media/mapping', { params, timeout: 1500, feedback: 'silent', skipConnectionTracking: true }),
+    )
+    if (requestId !== mappingRequestId) return
+    if (mapping?.media_source === identity.source && mapping.media_id === identity.mediaId)
+      sharedTmdbMapping.value = mapping
+    else tmdbLookupState.value = 'idle'
+  } catch (error) {
+    // 此入口仅补充可选外链；查询失败（超时、网络或 5xx）时仍提供按需查找，后端会先查共享关系，
+    // 不自动触发名称匹配或打断详情页。只有 404/405 表示旧后端，不显示按钮。
+    if (requestId !== mappingRequestId) return
+    if (isApiRequestCancellation(error)) {
+      // 本页仍在等待时读取被作废（例如同一条目的迟到查找结果刚写回关系），重读一次取得新结论；
+      // 再次作废时直接提供查找，后端会先查共享关系，避免本页既无链接也无按钮。
+      if (retried) tmdbLookupState.value = 'idle'
+      else void querySharedTmdbMapping(true)
+      return
+    }
+    tmdbLookupState.value = isMissingEndpoint(error) ? 'unsupported' : 'idle'
+  }
+}
+
+// 共享查询未命中且详情本身没有 TMDB ID 时，在 TheMovieDb 链接的位置提供按需查找。
+const showTmdbLookup = computed(
+  () =>
+    !mediaDetail.value.tmdb_id &&
+    !sharedTmdbMapping.value &&
+    tmdbLookupState.value !== null &&
+    tmdbLookupState.value !== 'unsupported',
+)
+const canLookupTmdb = computed(() => ['idle', 'failed', 'timeout'].includes(tmdbLookupState.value ?? ''))
+const tmdbLookupLabel = computed(() => {
+  switch (tmdbLookupState.value) {
+    case 'searching':
+      return t('media.tmdbLookup.searching')
+    case 'not-found':
+      return t('media.tmdbLookup.notFound')
+    case 'failed':
+      return t('media.tmdbLookup.failed')
+    case 'timeout':
+      return t('media.tmdbLookup.timeout')
+    default:
+      return t('media.tmdbLookup.find')
+  }
+})
+const tmdbLookupIcon = computed(() => {
+  if (tmdbLookupState.value === 'not-found') return 'mdi-link-off'
+  if (tmdbLookupState.value === 'failed' || tmdbLookupState.value === 'timeout') return 'mdi-refresh'
+  return 'mdi-magnify'
+})
+
+/** 把查找失败归类为可重试失败、超时或旧后端不支持。 */
+function resolveTmdbLookupFailure(error: unknown): TmdbLookupState {
+  if (isApiRequestCancellation(error)) return 'idle'
+  if (isMissingEndpoint(error)) return 'unsupported'
+  if (error instanceof ApiRequestError && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'))
+    return 'timeout'
+  return 'failed'
+}
+
+/**
+ * 用户点击后让后端按订阅规则查找 TMDB 关系，结果由后端尽力写回共享表。
+ *
+ * 请求不参与全局连接探测：可选功能的超时或 503 不应把整个应用标记为离线。
+ */
+async function lookupTmdbMapping() {
+  const query = getSharedTmdbMappingQuery()
+  if (!query || !canLookupTmdb.value) return
+  const requestId = mappingRequestId
+  tmdbLookupState.value = 'searching'
+  try {
+    const mapping = await api.post<MediaMapping | null>('media/mapping/match', query.params, {
+      timeout: TMDB_LOOKUP_TIMEOUT,
+      feedback: 'silent',
+      skipConnectionTracking: true,
+    })
+    // 关系已写回共享表，即使用户已离开本页也要让该条目旧的未命中快照失效；其他条目的读取不受影响。
+    if (mapping) invalidateSharedDataKey(getSharedTmdbMappingKey(query.params))
+    if (requestId !== mappingRequestId) return
+    if (!mapping) {
+      tmdbLookupState.value = 'not-found'
+    } else if (mapping.media_source === query.identity.source && mapping.media_id === query.identity.mediaId) {
+      sharedTmdbMapping.value = mapping
+      tmdbLookupState.value = 'idle'
+    } else {
+      tmdbLookupState.value = 'failed'
+    }
+  } catch (error) {
+    if (requestId !== mappingRequestId) return
+    tmdbLookupState.value = resolveTmdbLookupFailure(error)
+  }
+}
+
 // 本地是否存在，存在则包括Item信息
 const existsItemId = ref('')
+const existsServer = ref('')
+
+// 详情与媒体库状态是异步加载的，按当前可用操作数固定辅助按钮列数，避免初始化视口变化导致换行。
+const hasSubscribeAction = computed(
+  () => canSubscribe.value && (mediaDetail.value.type === '电影' || hasMediaIdentity()),
+)
+const hasSearchActions = computed(() => hasMediaIdentity() && canSearch.value)
+const secondaryActionCount = computed(() => (hasSearchActions.value ? 2 : 0) + (existsItemId.value ? 1 : 0))
 
 // 是否已订阅
 const isSubscribed = ref(false)
@@ -88,8 +253,22 @@ const seasonEpisodesInfo = ref({} as { [key: number]: TmdbEpisode[] })
 // 存储存在的季集
 const existsEpisodes = ref({} as { [key: number]: number[] })
 
+// 电视剧播放选择状态
+const playEpisodeDialog = ref(false)
+const playEpisodeSeason = ref<number | null>(null)
+const playEpisodeIds = ref<Record<number, Record<number, string>>>({})
+const playEpisodeIdsLoading = ref(false)
+const playEpisodeIdsFailed = ref(false)
+let playEpisodeIdsRequestId = 0
+
 // 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
+
+// 各季缺失明细，供状态标签悬停提示说明缺了哪些集
+const seasonsMissingInfo = ref<{ [key: number]: NotExistMediaInfo }>({})
+
+// 季入库状态请求完成前不预设为已入库，避免把未知状态误显示成成功。
+const missingStateStatus = ref<'loading' | 'ready' | 'error'>('loading')
 
 // 各季的订阅状态
 const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
@@ -216,6 +395,9 @@ function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season
 
 // 调用API查询详情
 async function getMediaDetail() {
+  mappingRequestId++
+  sharedTmdbMapping.value = null
+  tmdbLookupState.value = null
   if (!mediaProps.mediaSource || !mediaProps.mediaId || !mediaProps.type) {
     mediaDetail.value = {} as MediaInfo
     detailLoadFailed.value = false
@@ -233,6 +415,7 @@ async function getMediaDetail() {
       },
     })
     if (!hasMediaIdentity()) return
+    void querySharedTmdbMapping()
 
     const supportsEpisodeGroups = getMediaSubscribeIdentity(mediaDetail.value)?.source === 'themoviedb'
     selectedEpisodeGroup.value = supportsEpisodeGroups ? mediaDetail.value.episode_group || '' : ''
@@ -301,6 +484,7 @@ async function checkExists() {
     const result = await getMediaStatus(mediaDetail.value)
     if (result.legacyFailures?.exists) throw new Error(result.legacyFailures.exists)
     existsItemId.value = result.item_id || ''
+    existsServer.value = result.server || ''
   } catch (error) {
     console.error(error)
   }
@@ -310,24 +494,35 @@ async function checkExists() {
 async function checkSeasonsNotExists() {
   if (mediaDetail.value.type !== '电视剧') return
   const requestId = ++seasonNotExistsRequestId
+  missingStateStatus.value = 'loading'
   seasonsNotExisted.value = {}
+  seasonsMissingInfo.value = {}
   try {
     const media = {
       ...mediaDetail.value,
       episode_group: selectedEpisodeGroup.value || '',
     }
     const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', media)
-    if (requestId === seasonNotExistsRequestId && result) {
-      result.forEach(item => {
-        // 0-已入库 1-部分缺失 2-全部缺失
-        let state = 0
-        if (item.episodes.length === 0) state = 2
-        else if (item.episodes.length < item.total_episode) state = 1
-        seasonsNotExisted.value[item.season] = state
-      })
+    if (requestId === seasonNotExistsRequestId) {
+      if (result) {
+        result.forEach(item => {
+          // 0-已入库 1-部分缺失 2-全部缺失
+          let state = 0
+          if (item.episodes.length === 0) state = 2
+          else if (item.episodes.length < item.total_episode) state = 1
+          seasonsNotExisted.value[item.season] = state
+          seasonsMissingInfo.value[item.season] = item
+        })
+      }
+      missingStateStatus.value = 'ready'
     }
   } catch (error) {
     console.error(error)
+    if (requestId === seasonNotExistsRequestId) {
+      seasonsNotExisted.value = {}
+      seasonsMissingInfo.value = {}
+      missingStateStatus.value = 'error'
+    }
   }
 }
 
@@ -378,6 +573,45 @@ const getMediaSeasons = computed(() => {
     if (b.season_number === 0) return -1
     return (a.season_number || 0) - (b.season_number || 0)
   })
+})
+
+// 播放选择器只列出媒体服务器报告可播放单集的季。
+const playEpisodeSeasonOptions = computed(() => {
+  return Object.entries(playEpisodeIds.value)
+    .filter(([, episodes]) => Object.keys(episodes).length > 0)
+    .map(([key]) => Number(key))
+    .sort((left, right) => (left === 0 ? 1 : right === 0 ? -1 : left - right))
+    .map(season => ({
+      value: season,
+      title:
+        mediaDetail.value?.season_info?.find(item => item.season_number === season)?.name ||
+        (season === 0 ? t('media.specials') : t('media.seasonNumber', { number: season })),
+    }))
+})
+
+// 按媒体服务器原生集号排序，并保留后端返回的实际单集条目标识。
+const playEpisodeOptions = computed<PlayableEpisode[]>(() => {
+  const season = playEpisodeSeason.value
+  if (season === null) return []
+  return Object.entries(playEpisodeIds.value[season] || {})
+    .map(([episode, itemId]) => ({ episode: Number(episode), itemId }))
+    .filter(item => Boolean(item.itemId))
+    .sort((left, right) => left.episode - right.episode)
+    .map(item => ({
+      ...item,
+      ...(() => {
+        const metadata = selectedEpisodeGroup.value
+          ? undefined
+          : seasonEpisodesInfo.value[season]?.find(episode => episode.episode_number === item.episode)
+        return {
+          name: metadata?.name,
+          stillPath: metadata?.still_path,
+          overview: metadata?.overview,
+          airDate: metadata?.air_date,
+          runtime: metadata?.runtime,
+        }
+      })(),
+    }))
 })
 
 // 查询当前媒体可用的剧集组
@@ -513,8 +747,13 @@ function getGenresName(genres: Array<string | { name: string }>) {
   return genres.map(genre => (typeof genre === 'string' ? genre : genre.name)).join('、')
 }
 
-// 拼装TheMovieDb地址
+/** 拼装原详情或共享关系的 TheMovieDb 链接，保留共享的第零季等精确季号。 */
 function getTheMovieDbLink() {
+  if (sharedTmdbMapping.value) {
+    const mapping = sharedTmdbMapping.value
+    const season = mapping.tmdb_type === 'tv' && mapping.tmdb_season !== null ? `/season/${mapping.tmdb_season}` : ''
+    return `https://www.themoviedb.org/${mapping.tmdb_type}/${mapping.tmdb_id}${season}`
+  }
   const mtype = mediaProps.type === '电影' ? 'movie' : 'tv'
   return `https://www.themoviedb.org/${mtype}/${mediaDetail.value.tmdb_id}`
 }
@@ -609,6 +848,7 @@ const getEarliestPhysicalReleaseDate = computed(() => getEarliestReleaseDateByTy
 
 // 计算存在状态的颜色
 function getExistColor(season: number) {
+  if (missingStateStatus.value !== 'ready') return 'warning'
   const state = seasonsNotExisted.value[season]
   if (!state) return 'success'
 
@@ -619,12 +859,26 @@ function getExistColor(season: number) {
 
 // 计算存在状态的文本
 function getExistText(season: number) {
+  if (missingStateStatus.value !== 'ready') return t('common.unknown')
   const state = seasonsNotExisted.value[season]
   if (!state) return t('media.status.inLibrary')
 
   if (state === 1) return t('media.status.partiallyMissing')
   else if (state === 2) return t('media.status.missing')
   else return t('media.status.inLibrary')
+}
+
+// 计算存在状态的悬停提示，说明判断依据和缺失的集
+function getExistHint(season: number) {
+  if (missingStateStatus.value !== 'ready') return ''
+  const state = seasonsNotExisted.value[season]
+  const info = seasonsMissingInfo.value[season]
+  if (!state || !info) return t('media.status.inLibraryHint')
+  if (state === 2) return t('media.status.missingHint', { count: info.total_episode })
+  return t('media.status.partiallyMissingHint', {
+    episodes: formatSeasonEpisode(null, info.episodes),
+    count: info.episodes.length,
+  })
 }
 
 // 判断指定季集是否已存在于媒体服务器
@@ -691,12 +945,30 @@ function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: M
   })
 }
 
-// 跳转播放页面
-async function handlePlay() {
-  // 获取播放链接地址
+// 将已解析的媒体服务器条目交给原生 App，网页继续使用兼容的媒体服务器入口。
+function requestNativePlayback(itemId: string, title: string, season?: number, episode?: number, server?: string) {
+  const transport = window.MoviePilotNative
+  if (!nativeChromeActive.value || transport?.playbackVersion !== 1) return false
+  window.dispatchEvent(
+    new CustomEvent('moviepilot:playback-open', {
+      detail: {
+        itemId,
+        title,
+        ...(server ? { server } : {}),
+        ...(season !== undefined ? { season } : {}),
+        ...(episode !== undefined ? { episode } : {}),
+      },
+    }),
+  )
+  return true
+}
+
+// 打开电影或单集；只有普通网页回退到媒体服务器自身的播放页面。
+async function playMediaServerItem(itemId: string, title: string, season?: number, episode?: number, server?: string) {
+  if (requestNativePlayback(itemId, title, season, episode, server)) return
   try {
     const result = await api.get<{ item_id: string; server_id: string; server_type: string; url: string }>(
-      `mediaserver/play/${existsItemId.value}`,
+      `mediaserver/play/${encodeURIComponent(itemId)}`,
       { feedback: 'silent' },
     )
     // 使用深度链接工具，优先跳转到APP，失败后跳转到网页
@@ -711,6 +983,84 @@ async function handlePlay() {
     const message = getApiBusinessErrorMessage(error)
     $toast.error(message ? `获取播放链接失败：${message}！` : '获取播放链接失败！')
   }
+}
+
+// 打开电视剧单集选择器，并加载媒体服务器实际可播放的季集条目。
+async function openPlayEpisodePicker() {
+  playEpisodeDialog.value = true
+  if (isNullOrEmptyObject(playEpisodeIds.value)) await loadPlayableEpisodeIds()
+  const seasons = Object.entries(playEpisodeIds.value)
+    .filter(([, episodes]) => Object.keys(episodes).length > 0)
+    .map(([season]) => Number(season))
+    .sort((left, right) => (left === 0 ? 1 : right === 0 ? -1 : left - right))
+  if (!seasons.length) {
+    playEpisodeIdsFailed.value = true
+    return
+  }
+  const preferredSeason = mediaDetail.value.season
+  const season = preferredSeason !== undefined && seasons.includes(preferredSeason) ? preferredSeason : seasons[0]
+  playEpisodeSeason.value = season
+  if (!selectedEpisodeGroup.value) void loadSeasonEpisodes(season)
+}
+
+// 一次读取媒体服务器原生季集号和对应单集 ID，避免剧集组排序造成错配。
+async function loadPlayableEpisodeIds() {
+  if (!existsItemId.value) return
+  const requestId = ++playEpisodeIdsRequestId
+  playEpisodeIdsLoading.value = true
+  playEpisodeIdsFailed.value = false
+  try {
+    const result: Record<number, Record<number, string>> = await api.get('mediaserver/episodes', {
+      feedback: 'silent',
+      params: { itemid: existsItemId.value, ...(existsServer.value ? { server: existsServer.value } : {}) },
+    })
+    if (requestId === playEpisodeIdsRequestId) {
+      playEpisodeIds.value = result || {}
+      playEpisodeIdsFailed.value = !Object.keys(result || {}).length
+    }
+  } catch (error) {
+    console.error(error)
+    if (requestId === playEpisodeIdsRequestId) playEpisodeIdsFailed.value = true
+  } finally {
+    if (requestId === playEpisodeIdsRequestId) playEpisodeIdsLoading.value = false
+  }
+}
+
+// 更换选择季时加载该季的 TMDB 集名（仅默认排序能与媒体服务器季号对应）。
+function changePlayEpisodeSeason(season: number | null) {
+  playEpisodeSeason.value = season
+  if (season === null || selectedEpisodeGroup.value) return
+  void loadSeasonEpisodes(season)
+}
+
+// 按所选条目标识开始播放，电视剧播放器标题带上季号和集号。
+async function playSelectedEpisode(item: PlayableEpisode) {
+  const season = playEpisodeSeason.value
+  if (season === null) return
+  playEpisodeDialog.value = false
+  const label = `S${String(season).padStart(2, '0')}E${String(item.episode).padStart(2, '0')}`
+  await playMediaServerItem(
+    item.itemId,
+    `${mediaDetail.value.title} · ${label}${item.name ? ` · ${item.name}` : ''}`,
+    season,
+    item.episode,
+    existsServer.value,
+  )
+}
+
+// 电影直接播放；电视剧必须先明确选择已入库的单集。
+async function handlePlay() {
+  if (mediaDetail.value.type === '电视剧') {
+    await openPlayEpisodePicker()
+    return
+  }
+  await playMediaServerItem(
+    existsItemId.value,
+    mediaDetail.value.title || mediaProps.title || '',
+    undefined,
+    undefined,
+    existsServer.value,
+  )
 }
 
 // 删除订阅处理
@@ -770,52 +1120,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  mappingRequestId++
   window.removeEventListener('resize', updateEpisodeGroupScrollState)
 })
 useNativePageHeader({
   title: () => mediaDetail.value.title || mediaProps.title,
-  actions: computed(() => [
-    {
-      title: `${t('media.actions.searchResource')} · ${t('media.search.byTitle')}`,
-      icon: 'mdi-magnify',
-      permission: 'search',
-      show: hasMediaIdentity(),
-      action: () => {
-        void clickSearch('title')
-      },
-    },
-    {
-      title: `${t('media.actions.searchResource')} · ${t('media.search.byImdb')}`,
-      icon: 'mdi-magnify',
-      permission: 'search',
-      show: hasMediaIdentity(),
-      action: () => {
-        void clickSearch('imdbid')
-      },
-    },
-    {
-      title: t('media.actions.searchSubtitle'),
-      icon: 'mdi-subtitles-outline',
-      permission: 'search',
-      show: hasMediaIdentity(),
-      action: handleSubtitleSearch,
-    },
-    {
-      title: getSubscribeText.value,
-      icon: getSubscribeIcon.value,
-      permission: 'subscribe',
-      show: mediaDetail.value.type === '电影' || hasMediaIdentity(),
-      action: () => {
-        handleSubscribe()
-      },
-    },
-    {
-      title: t('media.actions.playOnline'),
-      icon: 'mdi-play',
-      show: Boolean(existsItemId.value),
-      action: handlePlay,
-    },
-  ]),
 })
 </script>
 
@@ -823,7 +1132,7 @@ useNativePageHeader({
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <div
     v-if="hasMediaIdentity()"
-    class="max-w-8xl mx-auto px-4"
+    class="media-detail-root max-w-8xl mx-auto px-4"
     :class="{
       'media-detail-glass': isGlassTheme,
     }"
@@ -840,7 +1149,7 @@ useNativePageHeader({
           <VImg
             :src="getW500Image(mediaDetail.poster_path)"
             cover
-            class="object-cover aspect-w-2 aspect-h-3 ring-1 ring-gray-500"
+            class="media-poster-img object-cover aspect-w-2 aspect-h-3"
           >
             <template #placeholder>
               <div class="w-full h-full">
@@ -851,12 +1160,8 @@ useNativePageHeader({
         </div>
         <div class="media-title">
           <div v-if="existsItemId" class="media-status">
-            <span
-              class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap transition !no-underline bg-green-500 bg-opacity-80 border border-green-500 !text-green-100 hover:bg-green-500 hover:bg-opacity-100 false overflow-hidden"
-            >
-              <div class="relative z-20 flex items-center false">
-                <span>{{ t('media.status.inLibrary') }}</span>
-              </div>
+            <span class="media-status-badge">
+              <span>{{ t('media.status.inLibrary') }}</span>
             </span>
           </div>
           <h1
@@ -866,12 +1171,12 @@ useNativePageHeader({
             <div class="align-self-center align-self-lg-end">
               {{ mediaDetail.title }}
             </div>
-            <div v-if="mediaDetail.year" class="text-lg align-self-center align-self-lg-end">
+            <div v-if="mediaDetail.year" class="num text-lg align-self-center align-self-lg-end">
               （{{ mediaDetail.year }}）
             </div>
           </h1>
           <span class="media-attributes">
-            <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time[0]"
+            <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time[0]" class="num"
               >{{ mediaDetail.runtime || mediaDetail.episode_run_time[0] }} {{ t('media.minutes') }}</span
             >
             <span v-if="(mediaDetail.runtime || mediaDetail.episode_run_time[0]) && mediaDetail.genres" class="mx-1">
@@ -880,40 +1185,13 @@ useNativePageHeader({
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
-        <div class="media-actions" data-native-page-actions>
-          <VBtn v-if="hasMediaIdentity() && canSearch" variant="tonal" color="primary" class="media-action-button">
-            <template #prepend>
-              <VIcon icon="mdi-magnify" />
-            </template>
-            {{ t('media.actions.searchResource') }}
-            <VMenu activator="parent" close-on-content-click>
-              <VList>
-                <VListItem @click="clickSearch('title')">
-                  <VListItemTitle>{{ t('media.search.byTitle') }}</VListItemTitle>
-                </VListItem>
-                <VListItem @click="clickSearch('imdbid')">
-                  <VListItemTitle>{{ t('media.search.byImdb') }}</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </VBtn>
+        <div v-if="hasSubscribeAction || secondaryActionCount > 0" class="media-actions">
           <VBtn
-            v-if="hasMediaIdentity() && canSearch"
-            variant="tonal"
-            color="info"
-            class="media-action-button"
-            @click="handleSubtitleSearch"
-          >
-            <template #prepend>
-              <VIcon icon="mdi-subtitles-outline" />
-            </template>
-            {{ t('media.actions.searchSubtitle') }}
-          </VBtn>
-          <VBtn
-            v-if="canSubscribe && (mediaDetail.type === '电影' || hasMediaIdentity())"
-            class="media-action-button"
+            v-if="hasSubscribeAction"
+            class="media-action-button media-action-button--primary"
             :color="getSubscribeColor"
-            variant="tonal"
+            variant="flat"
+            rounded="pill"
             @click="handleSubscribe()"
           >
             <template #prepend>
@@ -921,99 +1199,175 @@ useNativePageHeader({
             </template>
             {{ getSubscribeText }}
           </VBtn>
-          <VBtn v-if="existsItemId" class="media-action-button" variant="tonal" @click="handlePlay()" color="success">
-            <template #prepend>
-              <VIcon icon="mdi-play" />
-            </template>
-            {{ t('media.actions.playOnline') }}
-          </VBtn>
+          <div
+            v-if="secondaryActionCount > 0"
+            class="media-action-secondary"
+            :class="`media-action-secondary--${secondaryActionCount}`"
+          >
+            <VBtn v-if="hasSearchActions" variant="tonal" color="primary" class="media-action-button" rounded="pill">
+              <template #prepend>
+                <VIcon icon="mdi-magnify" />
+              </template>
+              {{ t('media.actions.searchResource') }}
+              <VMenu activator="parent" close-on-content-click>
+                <VList>
+                  <VListItem @click="clickSearch('title')">
+                    <VListItemTitle>{{ t('media.search.byTitle') }}</VListItemTitle>
+                  </VListItem>
+                  <VListItem @click="clickSearch('imdbid')">
+                    <VListItemTitle>{{ t('media.search.byImdb') }}</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </VBtn>
+            <VBtn
+              v-if="hasSearchActions"
+              variant="tonal"
+              color="info"
+              class="media-action-button"
+              rounded="pill"
+              @click="handleSubtitleSearch"
+            >
+              <template #prepend>
+                <VIcon icon="mdi-subtitles-outline" />
+              </template>
+              {{ t('media.actions.searchSubtitle') }}
+            </VBtn>
+            <VBtn
+              v-if="existsItemId"
+              class="media-action-button"
+              variant="tonal"
+              color="success"
+              rounded="pill"
+              @click="handlePlay()"
+            >
+              <template #prepend>
+                <VIcon icon="mdi-play" />
+              </template>
+              {{ t('media.actions.playOnline') }}
+            </VBtn>
+          </div>
         </div>
       </div>
       <div class="media-overview">
         <div class="media-overview-left">
-          <div v-if="mediaDetail.tagline" class="tagline">
-            {{ mediaDetail.tagline }}
-          </div>
-          <h2 v-if="mediaDetail.overview">{{ t('media.overview') }}</h2>
-          <p>{{ mediaDetail.overview }}</p>
-          <ul v-if="mediaDetail.tmdb_id" class="media-crew">
-            <li v-for="director in mediaDetail.directors" :key="director.id">
-              <span>{{ director.job }}</span>
-              <RouterLink :to="`/person?source=themoviedb&personid=${director.id}`" class="crew-name" target="_blank">
-                {{ director.name }}
-              </RouterLink>
-            </li>
-          </ul>
-          <ul v-if="!mediaDetail.tmdb_id && mediaDetail.douban_id" class="media-crew">
-            <li v-for="director in mediaDetail.directors" :key="director.id">
-              <span>{{ joinArray(director.roles) }}</span>
-              <a class="crew-name" :href="`${director.url}`" target="_blank">{{ director.name }}</a>
-            </li>
-          </ul>
-          <div class="mt-6">
-            <a
-              v-if="mediaDetail.tmdb_id"
-              class="mb-2 mr-2 inline-flex last:mr-0"
-              :href="getTheMovieDbLink()"
-              target="_blank"
-            >
-              <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
-              >
-                <VIcon icon="mdi-link" />
-                <span class="ms-1">TheMovieDb</span>
-              </div>
-            </a>
-            <div v-if="mediaDetail.douban_id" class="mb-2 mr-2 inline-flex last:mr-0" @click="handleDoubanClick">
-              <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
-              >
-                <VIcon icon="mdi-link" />
-                <span class="ms-1">豆瓣</span>
-              </div>
+          <div class="media-overview-card">
+            <div v-if="mediaDetail.tagline" class="tagline">
+              {{ mediaDetail.tagline }}
             </div>
-            <a v-if="mediaDetail.imdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getImdbLink()" target="_blank">
-              <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+            <h2 v-if="mediaDetail.overview">{{ t('media.overview') }}</h2>
+            <p>{{ mediaDetail.overview }}</p>
+            <ul v-if="mediaDetail.tmdb_id" class="media-crew">
+              <li v-for="director in mediaDetail.directors" :key="director.id">
+                <span>{{ director.job }}</span>
+                <RouterLink :to="`/person?source=themoviedb&personid=${director.id}`" class="crew-name" target="_blank">
+                  {{ director.name }}
+                </RouterLink>
+              </li>
+            </ul>
+            <ul v-if="!mediaDetail.tmdb_id && mediaDetail.douban_id" class="media-crew">
+              <li v-for="director in mediaDetail.directors" :key="director.id">
+                <span>{{ joinArray(director.roles) }}</span>
+                <a class="crew-name" :href="`${director.url}`" target="_blank">{{ director.name }}</a>
+              </li>
+            </ul>
+            <div class="mt-6">
+              <a
+                v-if="mediaDetail.tmdb_id || sharedTmdbMapping"
+                class="mb-2 mr-2 inline-flex last:mr-0"
+                :href="getTheMovieDbLink()"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <VIcon icon="mdi-link" />
-                <span class="ms-1">IMDb</span>
-              </div>
-            </a>
-            <a v-if="mediaDetail.tvdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getTvdbLink()" target="_blank">
-              <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                <div
+                  class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
+                >
+                  <VIcon icon="mdi-link" size="16" />
+                  <span class="ms-1">TheMovieDb</span>
+                </div>
+              </a>
+              <button
+                v-else-if="showTmdbLookup"
+                type="button"
+                class="mb-2 mr-2 inline-flex last:mr-0"
+                :disabled="!canLookupTmdb"
+                :aria-busy="tmdbLookupState === 'searching'"
+                @click="lookupTmdbMapping"
               >
-                <VIcon icon="mdi-link" />
-                <span class="ms-1">TheTvDb</span>
+                <div
+                  class="media-source-link-chip inline-flex items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition"
+                  :class="
+                    canLookupTmdb
+                      ? 'cursor-pointer hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]'
+                      : 'cursor-default opacity-70'
+                  "
+                >
+                  <VProgressCircular v-if="tmdbLookupState === 'searching'" indeterminate size="14" width="2" />
+                  <VIcon v-else :icon="tmdbLookupIcon" size="16" />
+                  <span class="ms-1">{{ tmdbLookupLabel }}</span>
+                </div>
+              </button>
+              <div v-if="mediaDetail.douban_id" class="mb-2 mr-2 inline-flex last:mr-0" @click="handleDoubanClick">
+                <div
+                  class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
+                >
+                  <VIcon icon="mdi-link" size="16" />
+                  <span class="ms-1">豆瓣</span>
+                </div>
               </div>
-            </a>
-            <a
-              v-if="mediaDetail.bangumi_id"
-              class="mb-2 mr-2 inline-flex last:mr-0"
-              :href="getBangumiLink()"
-              target="_blank"
-            >
-              <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+              <a
+                v-if="mediaDetail.imdb_id"
+                class="mb-2 mr-2 inline-flex last:mr-0"
+                :href="getImdbLink()"
+                target="_blank"
               >
-                <VIcon icon="mdi-link" />
-                <span class="ms-1">Bangumi</span>
-              </div>
-            </a>
-            <a
-              v-if="mediaDetail.anilist_id"
-              class="mb-2 mr-2 inline-flex last:mr-0"
-              :href="getAniListLink()"
-              target="_blank"
-            >
-              <div
-                class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+                <div
+                  class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
+                >
+                  <VIcon icon="mdi-link" size="16" />
+                  <span class="ms-1">IMDb</span>
+                </div>
+              </a>
+              <a
+                v-if="mediaDetail.tvdb_id"
+                class="mb-2 mr-2 inline-flex last:mr-0"
+                :href="getTvdbLink()"
+                target="_blank"
               >
-                <VIcon icon="mdi-link" />
-                <span class="ms-1">AniList</span>
-              </div>
-            </a>
+                <div
+                  class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
+                >
+                  <VIcon icon="mdi-link" size="16" />
+                  <span class="ms-1">TheTvDb</span>
+                </div>
+              </a>
+              <a
+                v-if="mediaDetail.bangumi_id"
+                class="mb-2 mr-2 inline-flex last:mr-0"
+                :href="getBangumiLink()"
+                target="_blank"
+              >
+                <div
+                  class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
+                >
+                  <VIcon icon="mdi-link" size="16" />
+                  <span class="ms-1">Bangumi</span>
+                </div>
+              </a>
+              <a
+                v-if="mediaDetail.anilist_id"
+                class="mb-2 mr-2 inline-flex last:mr-0"
+                :href="getAniListLink()"
+                target="_blank"
+              >
+                <div
+                  class="media-source-link-chip inline-flex cursor-pointer items-center rounded-full border border-[var(--mp-border)] bg-[var(--mp-muted)] px-2.5 py-1 text-sm text-[var(--mp-fg)] transition hover:border-[var(--mp-input)] hover:bg-[var(--mp-list-row-hover)]"
+                >
+                  <VIcon icon="mdi-link" size="16" />
+                  <span class="ms-1">AniList</span>
+                </div>
+              </a>
+            </div>
           </div>
           <h2 v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="py-4">{{ t('media.seasons') }}</h2>
           <div v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="flex w-full flex-col space-y-2">
@@ -1048,7 +1402,7 @@ useNativePageHeader({
                       <VIcon :icon="group.icon" size="small" class="episode-group-option__icon" />
                       <span class="episode-group-option__text">
                         <span class="episode-group-option__title">{{ group.name }}</span>
-                        <span class="episode-group-option__meta">
+                        <span class="episode-group-option__meta num">
                           {{
                             t('media.episodeGroups.summary', {
                               seasons: group.group_count,
@@ -1090,12 +1444,12 @@ useNativePageHeader({
                 <VExpansionPanelTitle>
                   <template #default>
                     <div class="flex flex-row items-center justify-between">
-                      <span class="font-weight-bold">{{
+                      <span class="font-weight-semibold">{{
                         season.season_number === 0
                           ? season.name || formatSeasonLabel(0, t('media.specials'))
                           : t('media.seasonNumber', { number: season.season_number })
                       }}</span>
-                      <VChip size="small" class="ms-1">
+                      <VChip size="small" class="num ms-1">
                         {{ t('media.episodeCount', { count: season.episode_count }) }}
                       </VChip>
                       <div class="absolute right-12">
@@ -1105,6 +1459,9 @@ useNativePageHeader({
                           flat
                         >
                           {{ getExistText(season.season_number || 0) }}
+                          <VTooltip v-if="getExistHint(season.season_number || 0)" activator="parent" location="top">
+                            {{ getExistHint(season.season_number || 0) }}
+                          </VTooltip>
                         </VChip>
                         <IconBtn
                           v-if="canSubscribe"
@@ -1124,11 +1481,11 @@ useNativePageHeader({
                 <VExpansionPanelText>
                   <template #default>
                     <LoadingBanner v-if="!seasonEpisodesInfo[season.season_number || 0]" class="mt-3" />
-                    <div class="flex flex-col justify-center divide-y divide-gray-700">
+                    <div class="media-episode-list flex flex-col justify-center">
                       <div
                         v-for="episode in seasonEpisodesInfo[season.season_number || 0]"
                         :key="episode.episode_number"
-                        class="flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4"
+                        class="media-episode-row flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4"
                       >
                         <div class="episode-info flex-1">
                           <VIcon
@@ -1139,10 +1496,10 @@ useNativePageHeader({
                             size="small"
                           />
                           <div class="flex flex-col space-y-2 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-2">
-                            <h3 class="text-lg">{{ episode.episode_number }} - {{ episode.name }}</h3>
-                            <div class="flex items-center space-x-2">
+                            <h3 class="num text-lg">{{ episode.episode_number }} - {{ episode.name }}</h3>
+                            <div v-if="episode.air_date" class="flex items-center space-x-2">
                               <span
-                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap cursor-default bg-gray-700 !text-gray-300"
+                                class="media-episode-date num px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap cursor-default"
                               >
                                 {{ episode.air_date }}
                               </span>
@@ -1172,7 +1529,7 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.tmdb_id" class="media-fact">
               <span>ID</span>
-              <span class="media-fact-value">{{ mediaDetail.tmdb_id }}</span>
+              <span class="media-fact-value num">{{ mediaDetail.tmdb_id }}</span>
             </div>
             <div v-if="mediaDetail.original_title || mediaDetail.original_name" class="media-fact">
               <span>{{ t('media.info.originalTitle') }}</span>
@@ -1184,7 +1541,7 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.release_date || mediaDetail.first_air_date" class="media-fact">
               <span>{{ t('media.info.releaseDate') }}</span>
-              <span class="media-fact-value">
+              <span class="media-fact-value num">
                 <span class="flex items-center justify-end">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1207,10 +1564,10 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.type === '电影' && getEarliestDigitalReleaseDate" class="media-fact">
               <span>{{ t('media.info.digitalRelease') }}</span>
-              <span class="media-fact-value">
+              <span class="media-fact-value num">
                 <span class="flex items-center justify-end">
                   <span
-                    class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none"
+                    class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-semibold text-current border border-current leading-none"
                   >
                     {{ getEarliestDigitalReleaseDate.iso_code }}
                   </span>
@@ -1220,10 +1577,10 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.type === '电影' && getEarliestPhysicalReleaseDate" class="media-fact">
               <span>{{ t('media.info.physicalRelease') }}</span>
-              <span class="media-fact-value">
+              <span class="media-fact-value num">
                 <span class="flex items-center justify-end">
                   <span
-                    class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none"
+                    class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-semibold text-current border border-current leading-none"
                   >
                     {{ getEarliestPhysicalReleaseDate.iso_code }}
                   </span>
@@ -1262,7 +1619,7 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.douban_id" class="media-fact">
               <span>{{ t('media.info.doubanId') }}</span>
-              <span class="media-fact-value">{{ mediaDetail.douban_id }}</span>
+              <span class="media-fact-value num">{{ mediaDetail.douban_id }}</span>
             </div>
             <div v-if="mediaDetail.original_title" class="media-fact">
               <span>{{ t('media.info.originalTitle') }}</span>
@@ -1270,7 +1627,7 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.release_date" class="media-fact">
               <span>{{ t('media.info.releaseDate') }}</span>
-              <span class="media-fact-value">
+              <span class="media-fact-value num">
                 {{ mediaDetail.release_date }}
               </span>
             </div>
@@ -1295,11 +1652,11 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.bangumi_id" class="media-fact">
               <span>ID</span>
-              <span class="media-fact-value">{{ mediaDetail.bangumi_id }}</span>
+              <span class="media-fact-value num">{{ mediaDetail.bangumi_id }}</span>
             </div>
             <div v-if="mediaDetail.anilist_id" class="media-fact">
               <span>ID</span>
-              <span class="media-fact-value">{{ mediaDetail.anilist_id }}</span>
+              <span class="media-fact-value num">{{ mediaDetail.anilist_id }}</span>
             </div>
             <div v-if="mediaDetail.original_title" class="media-fact">
               <span>{{ t('media.info.originalTitle') }}</span>
@@ -1307,7 +1664,7 @@ useNativePageHeader({
             </div>
             <div v-if="mediaDetail.release_date" class="media-fact border-b-0">
               <span>{{ t('media.info.releaseDate') }}</span>
-              <span class="media-fact-value">
+              <span class="media-fact-value num">
                 {{ mediaDetail.release_date }}
               </span>
             </div>
@@ -1410,9 +1767,25 @@ useNativePageHeader({
     :error-title="t('media.error.title')"
     :error-description="t('media.error.noMediaInfo')"
   />
+  <MediaEpisodePickerDialog
+    v-model="playEpisodeDialog"
+    :season="playEpisodeSeason"
+    :seasons="playEpisodeSeasonOptions"
+    :episodes="playEpisodeOptions"
+    :loading="playEpisodeIdsLoading"
+    :failed="playEpisodeIdsFailed"
+    :image-source="getEpisodeImage"
+    @update:season="changePlayEpisodeSeason"
+    @play="playSelectedEpisode"
+  />
 </template>
 
 <style lang="scss" scoped>
+:global(.page-content-container > .main-content-wrapper:has(.media-detail-root)) {
+  inline-size: 100% !important;
+  min-inline-size: 0;
+}
+
 .vue-media-back {
   --media-backdrop-edge-opacity: 1;
 
@@ -1472,7 +1845,7 @@ useNativePageHeader({
   background-size: cover;
   margin-block-start: calc(-4rem - env(safe-area-inset-top));
   margin-inline: -1rem;
-  padding-block-start: calc(4rem + env(safe-area-inset-top));
+  padding-block: calc(4rem + env(safe-area-inset-top)) var(--mp-bottom-clearance);
   padding-inline: 1rem;
 }
 
@@ -1485,8 +1858,20 @@ useNativePageHeader({
 
 @media (width >= 1280px) {
   .media-header {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 24rem);
     align-items: flex-end;
+    column-gap: 1rem;
+  }
+
+  .media-poster {
+    margin-inline-end: 0;
+  }
+
+  .media-title {
+    flex: initial;
+    min-inline-size: 0;
+    margin-inline-end: 0;
   }
 }
 
@@ -1504,13 +1889,13 @@ useNativePageHeader({
 
 .media-poster {
   overflow: hidden;
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.1);
   inline-size: 8rem;
   transition: border-radius 0.2s ease;
-
-  --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, 10%), 0 1px 2px -1px rgba(0, 0, 0, 10%);
-  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
 }
 
 @media (width >= 1280px) {
@@ -1522,12 +1907,23 @@ useNativePageHeader({
 
 @media (width >= 768px) {
   .media-poster {
-    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.24);
     inline-size: 11rem;
-
-    --tw-shadow: 0 25px 50px -12px rgba(0, 0, 0, 25%);
-    --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color);
   }
+}
+
+.media-status-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--mp-success-border);
+  border-radius: 9999px;
+  background: var(--mp-success-soft);
+  color: var(--mp-success-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  padding-inline: 0.625rem;
+  white-space: nowrap;
 }
 
 .media-title {
@@ -1548,7 +1944,7 @@ useNativePageHeader({
 
 .media-title > h1 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 2rem;
 }
 
@@ -1557,6 +1953,35 @@ useNativePageHeader({
     font-size: 2.25rem;
     line-height: 2.5rem;
   }
+}
+
+// 浅色玻璃下媒体标题与次操作按钮可能压在深色壁纸或剧照上，补充贴合字形柔光与亮托底确保对比度。
+:global(html[data-theme='glass'][data-glass-color-scheme='light'] .media-detail-glass .media-title) {
+  text-shadow:
+    0 1px 10px rgba(255, 255, 255, 0.8),
+    0 0 22px rgba(255, 255, 255, 0.56);
+}
+
+:global(
+  html[data-theme='glass'][data-glass-color-scheme='light']
+    .media-detail-glass
+    .media-action-secondary
+    .v-btn.v-btn--variant-tonal:is(.text-primary, .text-info, .text-success)
+) {
+  border: 1px solid rgba(255, 255, 255, 0.86) !important;
+  background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+// 玻璃模式下简介与演职员块与右侧 media-facts 共享同等玻璃材质，避免直接透底导致文字压在深色壁纸上发糊。
+.media-detail-glass .media-overview-card {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--app-surface-radius);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
 }
 
 ul.media-crew {
@@ -1575,7 +2000,7 @@ ul.media-crew {
 ul.media-crew > li {
   display: flex;
   flex-direction: column;
-  font-weight: 700;
+  font-weight: 600;
   grid-column: span 1 / span 1;
 }
 
@@ -1597,6 +2022,16 @@ a.crew-name {
   border-color: var(--glass-border-hover);
   background-color: var(--glass-button-surface-hover);
   box-shadow: var(--glass-control-shadow-hover);
+}
+
+.media-episode-row + .media-episode-row {
+  border-block-start: 1px solid var(--mp-list-row-divider);
+}
+
+.media-episode-date {
+  border: 1px solid var(--mp-border);
+  background-color: var(--mp-muted);
+  color: var(--mp-muted-fg);
 }
 
 .media-status {
@@ -1628,15 +2063,12 @@ a.crew-name {
 }
 
 .media-actions {
-  --media-action-gap: 0.75rem;
+  --media-action-gap: 0.5rem;
 
-  position: relative;
   display: grid;
-  flex-shrink: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--media-action-gap);
-  inline-size: min(100%, 22rem);
-  justify-content: center;
+  inline-size: min(100%, 24rem);
   margin-block-start: 1rem;
 }
 
@@ -1645,31 +2077,25 @@ a.crew-name {
   min-inline-size: 0;
 }
 
-.media-actions > .media-action-button:only-child,
-.media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
-  grid-column: 1 / -1;
-  inline-size: calc((100% - var(--media-action-gap)) / 2);
-  justify-self: center;
+.media-action-secondary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--media-action-gap);
+}
+
+.media-action-secondary--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.media-action-secondary--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (width >= 1280px) {
   .media-actions {
     margin-block-start: 0;
-  }
-}
-
-@media (width >= 640px) {
-  .media-actions {
-    display: flex;
-    gap: 0.5rem;
-    inline-size: auto;
-    justify-content: flex-end;
-  }
-
-  .media-action-button,
-  .media-actions > .media-action-button:only-child,
-  .media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
-    inline-size: auto;
+    inline-size: 100%;
+    max-inline-size: 24rem;
   }
 }
 
@@ -1704,7 +2130,7 @@ a.crew-name {
 }
 
 .episode-group-label {
-  color: rgba(var(--v-theme-on-surface), 0.72);
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1rem;
 }
@@ -1733,10 +2159,10 @@ a.crew-name {
   flex: 0 0 12rem;
   align-items: center;
   backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(6px));
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-surface), 0.82);
-  color: rgb(var(--v-theme-on-surface));
+  background: var(--mp-surface);
+  color: var(--mp-fg);
   gap: 0.625rem;
   min-inline-size: 0;
   padding-block: 0.625rem;
@@ -1750,24 +2176,24 @@ a.crew-name {
 }
 
 .episode-group-option:hover {
-  border-color: rgba(var(--v-theme-primary), 0.5);
-  background: rgba(var(--v-theme-surface), 0.9);
+  border-color: var(--mp-primary-border);
+  background: var(--mp-surface);
   box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .episode-group-option--active {
-  border-color: rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.18);
-  color: rgb(var(--v-theme-primary));
+  border-color: var(--mp-primary-border);
+  background: var(--mp-primary-soft);
+  color: var(--mp-primary-fg);
 }
 
 .episode-group-option--active:hover {
-  background: rgba(var(--v-theme-primary), 0.24);
+  background: var(--mp-primary-soft);
 }
 
 .episode-group-option:focus-visible,
 .episode-group-nav:focus-visible {
-  outline: 2px solid rgba(var(--v-theme-primary), 0.45);
+  outline: 2px solid var(--mp-ring);
   outline-offset: 2px;
 }
 
@@ -1794,13 +2220,13 @@ a.crew-name {
 }
 
 .episode-group-option__meta {
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1rem;
 }
 
 .episode-group-option--active .episode-group-option__meta {
-  color: rgba(var(--v-theme-primary), 0.82);
+  color: var(--mp-primary-fg);
 }
 
 .episode-group-nav {
@@ -1810,11 +2236,11 @@ a.crew-name {
   align-items: center;
   justify-content: center;
   backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(6px));
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border: 1px solid var(--mp-border);
   border-radius: 9999px;
-  background: rgba(var(--v-theme-surface), 0.96);
+  background: var(--mp-surface);
   block-size: 2.5rem;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   inline-size: 2.5rem;
   inset-block-start: 50%;
   transform: translateY(-55%);
@@ -1825,10 +2251,10 @@ a.crew-name {
 }
 
 .episode-group-nav:hover {
-  border-color: rgba(var(--v-theme-primary), 0.45);
-  background: rgba(var(--v-theme-surface), 0.96);
+  border-color: var(--mp-primary-border);
+  background: var(--mp-surface);
   box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.12);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .episode-group-nav--backward {
@@ -1840,7 +2266,7 @@ a.crew-name {
 }
 
 .episode-group-current {
-  color: rgba(var(--v-theme-on-surface), 0.66);
+  color: var(--mp-muted-fg);
   font-size: 0.8125rem;
   line-height: 1.25rem;
 }
@@ -1861,12 +2287,12 @@ a.crew-name {
 }
 
 .media-detail-glass .episode-group-option--active {
-  border-color: rgba(var(--v-theme-primary), 0.7);
-  background-color: rgba(var(--v-theme-primary), 0.22);
+  border-color: var(--mp-primary-border);
+  background-color: var(--mp-primary-soft);
 }
 
 .media-detail-glass .episode-group-option--active:hover {
-  background-color: rgba(var(--v-theme-primary), 0.28);
+  background-color: var(--mp-primary-soft);
 }
 
 @media (width <= 640px) {
@@ -1904,45 +2330,44 @@ a.crew-name {
 }
 
 .media-facts {
-  border-width: 1px;
-  border-color: rgb(55 65 81 / var(--tw-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-surface-radius);
+  background-color: var(--mp-surface);
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25rem;
+}
 
-  --tw-border-opacity: 1;
-  --tw-bg-opacity: 1;
-  --tw-text-opacity: 1;
+.media-detail-glass .media-facts {
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
 }
 
 .media-ratings {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-color: rgb(55 65 81 / var(--tw-border-opacity));
-  border-block-end-width: 1px;
+  border-block-end: 1px solid var(--mp-border);
   font-weight: 500;
   padding-block: 0.5rem;
   padding-inline: 1rem;
-
-  --tw-border-opacity: 1;
 }
 
 .media-fact {
   display: flex;
   justify-content: space-between;
-  border-color: rgb(55 65 81 / var(--tw-border-opacity));
-  border-block-end-width: 1px;
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 0.5rem;
   padding-inline: 1rem;
-
-  --tw-border-opacity: 1;
 }
 
 .media-overview h2 {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.75rem;
 }
 

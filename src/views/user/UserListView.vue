@@ -12,6 +12,9 @@ import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const UserAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/UserAddEditDialog.vue'))
+const ChannelAuthorizationDialog = defineAsyncComponent(
+  () => import('@/components/dialog/ChannelAuthorizationDialog.vue'),
+)
 
 // 国际化
 const { t } = useI18n()
@@ -38,7 +41,7 @@ const loadFailed = ref(false)
 // 所有用户信息
 const allUsers = ref<User[]>([])
 
-// 调用API，查询所有用户
+/** 查询网页登录用户列表，渠道成员由独立授权弹窗管理。 */
 async function loadAllUsers() {
   try {
     loading.value = true
@@ -54,12 +57,12 @@ async function loadAllUsers() {
   }
 }
 
-// 用户新增完成
+/** 用户新增后刷新卡片。 */
 const onUserAdd = () => {
   loadAllUsers()
 }
 
-// 打开添加用户对话框
+/** 打开新增网页登录用户弹窗。 */
 const openAddUserDialog = () => {
   openSharedDialog(
     UserAddEditDialog,
@@ -73,6 +76,11 @@ const openAddUserDialog = () => {
     },
     { closeOn: ['close', 'save'] },
   )
+}
+
+/** 从右下角操作打开公共渠道授权窗口。 */
+function openAuthorizationDialog() {
+  if (canAdmin.value) openSharedDialog(ChannelAuthorizationDialog)
 }
 
 // 加载当前用户数据
@@ -93,6 +101,15 @@ useDynamicButton({
     openAddUserDialog()
   },
   permission: 'admin',
+  menuItems: computed(() => [
+    { titleKey: 'user.addUser', icon: 'mdi-account-plus', permission: 'admin' as const, action: openAddUserDialog },
+    {
+      titleKey: 'channelAuthorization.title',
+      icon: 'mdi-shield-check-outline',
+      permission: 'admin' as const,
+      action: openAuthorizationDialog,
+    },
+  ]),
 })
 </script>
 
@@ -153,10 +170,20 @@ useDynamicButton({
     <Teleport to="body" v-if="route.path === '/user'">
       <div v-if="isRefreshed && !appMode && canAdmin" class="compact-fab-stack">
         <VFab
+          icon="mdi-shield-check-outline"
+          color="info"
+          appear
+          class="compact-fab compact-fab--secondary"
+          :aria-label="t('channelAuthorization.title')"
+          :title="t('channelAuthorization.title')"
+          @click="openAuthorizationDialog"
+        />
+        <VFab
           icon="mdi-account-plus"
           color="primary"
           appear
           class="compact-fab compact-fab--primary"
+          :aria-label="t('user.addUser')"
           @click="openAddUserDialog"
         />
       </div>

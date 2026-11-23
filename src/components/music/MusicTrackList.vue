@@ -1,9 +1,12 @@
 <script lang="ts" setup>
 import type { MediaInfo } from '@/api/types'
 import { buildMusicDetailRoute, formatMusicDuration, getMusicArtistLinks } from '@/utils/music'
+import { canUseNativeMediaPlayback, playMusicTrack } from '@/utils/mediaPlayback'
+import { useToast } from 'vue-toastification'
 
 const { t } = useI18n()
 const router = useRouter()
+const $toast = useToast()
 
 const props = defineProps({
   // 专辑内的音乐列表
@@ -46,6 +49,16 @@ function getTrackArtists(track: MediaInfo) {
     .map(artist => artist.name)
     .join(' / ')
 }
+
+/** 只播放曲目表中的当前单曲，媒体库 ID 由后端按录音身份匹配。 */
+async function playTrack(track: MediaInfo) {
+  try {
+    await playMusicTrack(track, props.tracks)
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('music.playbackFailed'))
+  }
+}
 </script>
 
 <template>
@@ -63,7 +76,7 @@ function getTrackArtists(track: MediaInfo) {
           @click="goTrack(track)"
         >
           <template #prepend>
-            <span class="music-track-number text-caption text-medium-emphasis">
+            <span class="music-track-number num text-caption text-medium-emphasis">
               {{ track.track_number || '-' }}
             </span>
           </template>
@@ -72,7 +85,17 @@ function getTrackArtists(track: MediaInfo) {
             {{ getTrackArtists(track) }}
           </VListItemSubtitle>
           <template #append>
-            <span class="text-caption text-medium-emphasis">{{ formatMusicDuration(track.duration) }}</span>
+            <VBtn
+              v-if="canUseNativeMediaPlayback() && track.music_type !== 'album' && track.music_type !== 'artist'"
+              icon
+              size="small"
+              variant="text"
+              :aria-label="t('music.playTrack', { title: track.title })"
+              @click.stop="playTrack(track)"
+            >
+              <VIcon icon="mdi-play" />
+            </VBtn>
+            <span class="num text-caption text-medium-emphasis">{{ formatMusicDuration(track.duration) }}</span>
           </template>
         </VListItem>
       </VList>
@@ -82,7 +105,7 @@ function getTrackArtists(track: MediaInfo) {
 
 <style scoped>
 .music-track-disc {
-  font-weight: 700;
+  font-weight: 600;
   margin-block-start: 0.75rem;
   text-transform: uppercase;
 }
@@ -93,7 +116,7 @@ function getTrackArtists(track: MediaInfo) {
 }
 
 .music-track-item--active {
-  background: rgba(var(--v-theme-primary), 0.12);
+  background: var(--mp-primary-soft);
 }
 
 .music-track-number {

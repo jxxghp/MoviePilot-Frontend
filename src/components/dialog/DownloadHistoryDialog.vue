@@ -320,7 +320,7 @@ function nativeHistoryMenu(item: DownloadHistory): NativeCardMenuBinding {
 }
 
 .download-history-empty__icon {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .download-history-empty__headline {

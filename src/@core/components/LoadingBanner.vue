@@ -6,7 +6,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <div class="w-full text-center text-gray-500 text-sm flex flex-col items-center my-5">
+  <div class="w-full text-center text-medium-emphasis text-sm flex flex-col items-center my-5">
     <div class="initial-loading-container">
       <div class="initial-loading-content">
         <div class="wave-loader">
@@ -80,9 +80,26 @@ const props = defineProps({
 }
 
 .initial-loading-text {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: 1px;
+}
+</style>
+
+<style>
+/* 独立加载态浮于玻璃壁纸之上时给予轻量静态阅读衬底，避免文案与高反差壁纸融为一体。 */
+html[data-theme='glass'] .initial-loading-content {
+  padding: 1.25rem 2rem;
+  border: 1px solid var(--mp-reading-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--mp-reading-surface);
+}
+
+html[data-theme='glass'] :where(.v-card, .app-surface, .app-surface-static, .v-dialog) .initial-loading-content {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 </style>

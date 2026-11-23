@@ -155,8 +155,7 @@ const codeChars = computed(() => (props.errorCode || '404').split(''))
   border: 1.5px solid rgba(var(--v-theme-on-surface), 0.18);
   border-radius: 4px;
   /* 上下齿孔用重复渐变模拟 */
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0 6px, rgba(var(--v-theme-on-surface), 0.22) 6px 10px);
+  background-image: repeating-linear-gradient(90deg, transparent 0 6px, rgba(var(--v-theme-on-surface), 0.22) 6px 10px);
   background-position: center top 3px;
   background-repeat: repeat-x;
   background-size: 100% 3px;
@@ -229,7 +228,6 @@ const codeChars = computed(() => (props.errorCode || '404').split(''))
 }
 
 @keyframes breathe {
-
   0%,
   100% {
     opacity: 0.7;
@@ -249,7 +247,6 @@ const codeChars = computed(() => (props.errorCode || '404').split(''))
 }
 
 @keyframes drift {
-
   0%,
   100% {
     transform: translateY(0);
@@ -267,5 +264,27 @@ const codeChars = computed(() => (props.errorCode || '404').split(''))
   .film-chip {
     animation: none;
   }
+}
+</style>
+
+<style>
+/* 顶层空状态位于玻璃壁纸画布上时自动提供紧凑静态阅读托底，嵌套在卡片或弹窗内则保持透明不双层套壳。 */
+html[data-theme='glass'] .no-data-container {
+  max-inline-size: min(100%, 34rem);
+  margin-block: 1.5rem;
+  margin-inline: auto;
+  padding: 2rem 1.75rem;
+  border: 1px solid var(--mp-reading-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--mp-reading-surface);
+}
+
+html[data-theme='glass'] :where(.v-card, .app-surface, .app-surface-static, .v-dialog) .no-data-container {
+  max-inline-size: none;
+  margin: 0;
+  padding: 3rem 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 </style>

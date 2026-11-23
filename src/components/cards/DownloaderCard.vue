@@ -15,10 +15,17 @@ const DownloaderInfoDialog = defineAsyncComponent(() => import('@/components/dia
 
 // 获取i18n实例
 const { t } = useI18n()
-const { isRegisteredModuleOption, loadModuleCatalog } = useModuleCatalog()
+const { catalog, isRegisteredModuleOption, loadModuleCatalog } = useModuleCatalog()
 void loadModuleCatalog()
 const { useConditionalDataRefresh } = useBackground()
 const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor()
+
+// 下载器内置类型回退展示名。
+const DOWNLOADER_TYPE_LABELS: Record<string, string> = {
+  qbittorrent: 'qBittorrent',
+  transmission: 'Transmission',
+  rtorrent: 'rTorrent',
+}
 
 // 定义输入
 const props = defineProps({
@@ -51,6 +58,15 @@ const download_rate = ref(0)
 // 下载器是否应该刷新数据的计算属性
 const shouldRefresh = computed(() => props.allowRefresh && props.downloader.enabled)
 const isRegisteredDownloader = computed(() => isRegisteredModuleOption('downloader', props.downloader.type))
+
+// 解析下载器类型展示名，优先读取模块目录的本地化名称。
+const downloaderTypeLabel = computed(() => {
+  if (!isRegisteredDownloader.value) return t('setting.system.custom')
+  const matched = catalog?.value?.find(
+    item => item.type === 'downloader' && item.option_value === props.downloader.type,
+  )
+  return matched?.name_i18n || matched?.name || DOWNLOADER_TYPE_LABELS[props.downloader.type] || props.downloader.type
+})
 
 /** 调用 API 查询下载器实时速率数据。 */
 async function loadDownloaderInfo() {
@@ -127,35 +143,68 @@ onUnmounted(() => {
 <template>
   <VCard
     v-bind="$attrs"
-    variant="tonal"
-    class="app-card-shell app-card-colorful"
+    variant="flat"
+    class="app-card-shell app-card-colorful mp-setting-card mp-setting-card--interactive"
+    :class="{ 'mp-setting-card--inactive': !props.downloader.enabled }"
     :style="{ '--app-card-accent-rgb': accentRgb }"
     @click="openDownloaderInfoDialog"
   >
     <!-- vuedraggable 要求拖拽项映射到单个真实 DOM 元素，避免 Fragment 锚点丢失上下文。 -->
-    <VDialogCloseBtn @click="onClose" />
-    <span class="app-card-top-action absolute top-3 right-12">
-      <IconBtn @click.stop>
-        <VIcon class="cursor-move" icon="mdi-drag" />
-      </IconBtn>
-    </span>
-    <VCardText class="app-card-summary app-card-summary--double-action">
-      <div class="app-card-summary__content">
-        <div class="app-card-summary__title-row">
-          <VBadge v-if="props.downloader.default && props.downloader.enabled" dot inline color="success" class="me-1" />
-          <span class="app-card-summary__title text-h6">{{ downloader.name }}</span>
+    <div class="mp-setting-card__header">
+      <div class="mp-setting-card__icon mp-setting-card__icon--logo" aria-hidden="true">
+        <VImg ref="imageRef" :src="getIcon" contain class="mp-setting-card__logo" @load="updateAccentColor" />
+      </div>
+      <div class="mp-setting-card__heading">
+        <div class="mp-setting-card__title-row">
+          <span class="mp-setting-card__title" :title="downloader.name">{{ downloader.name }}</span>
+          <span
+            v-if="props.downloader.default && props.downloader.enabled"
+            class="mp-setting-card__badge mp-setting-card__badge--primary"
+          >
+            {{ t('common.default') }}
+          </span>
         </div>
-        <div v-if="isRegisteredDownloader && props.downloader.enabled" class="app-card-summary__meta text-sm">
-          <span class="app-card-summary__meta-item">{{ `↑ ${formatFileSize(upload_rate, 1)}/s` }}</span>
-          <span class="app-card-summary__meta-item">{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
-        </div>
-        <div v-else-if="!isRegisteredDownloader" class="app-card-summary__subtitle text-sm">
-          {{ t('setting.system.custom') }}
+        <div class="mp-setting-card__subtitle">
+          <span class="mp-setting-card__subtitle-text">{{ downloaderTypeLabel }}</span>
+          <span
+            class="mp-setting-card__status"
+            :class="props.downloader.enabled ? 'mp-setting-card__status--active' : 'mp-setting-card__status--inactive'"
+          >
+            <span
+              class="mp-setting-card__status-dot"
+              :class="
+                props.downloader.enabled
+                  ? 'mp-setting-card__status-dot--active'
+                  : 'mp-setting-card__status-dot--inactive'
+              "
+            />
+            {{ props.downloader.enabled ? t('settingCard.enabled') : t('settingCard.disabled') }}
+          </span>
         </div>
       </div>
-      <div class="app-card-summary__media" aria-hidden="true">
-        <VImg ref="imageRef" :src="getIcon" contain class="app-card-summary__image" @load="updateAccentColor" />
+      <div class="mp-setting-card__actions">
+        <IconBtn class="mp-setting-card__action cursor-move" :aria-label="t('settingCard.dragSort')" @click.stop>
+          <VIcon class="cursor-move" icon="mdi-drag" />
+        </IconBtn>
+        <VDialogCloseBtn inner-class="mp-setting-card__action mp-setting-card__action--danger" @click="onClose" />
       </div>
-    </VCardText>
+    </div>
+
+    <div class="mp-setting-card__dock">
+      <div v-if="isRegisteredDownloader && props.downloader.enabled" class="mp-setting-card__stats">
+        <span class="mp-setting-card__stat mp-setting-card__stat--up">
+          <VIcon icon="mdi-arrow-up" size="14" class="shrink-0" />
+          <span class="mp-setting-card__stat-value">{{ `${formatFileSize(upload_rate, 1)}/s` }}</span>
+        </span>
+        <span class="mp-setting-card__stat mp-setting-card__stat--down">
+          <VIcon icon="mdi-arrow-down" size="14" class="shrink-0" />
+          <span class="mp-setting-card__stat-value">{{ `${formatFileSize(download_rate, 1)}/s` }}</span>
+        </span>
+      </div>
+      <span v-else class="mp-setting-card__muted">
+        {{ !props.downloader.enabled ? t('settingCard.disabled') : t('setting.system.custom') }}
+      </span>
+      <VIcon class="mp-setting-card__chevron" icon="mdi-chevron-right" size="16" />
+    </div>
   </VCard>
 </template>

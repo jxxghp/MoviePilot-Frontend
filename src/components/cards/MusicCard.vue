@@ -62,26 +62,28 @@ const entityMeta = computed(() => {
 
 // 卡片只展示标准音乐模型中已映射的稳定字段
 const metaItems = computed(() => {
-  const items: { hideOnNarrow?: boolean; icon: string; label: string }[] = []
+  const items: { hideOnNarrow?: boolean; icon: string; label: string; numeric?: boolean }[] = []
   const category = props.music?.metadata_category || props.music?.album_type
   if (category) items.push({ hideOnNarrow: true, icon: 'mdi-label-outline', label: category })
   const releaseDate = props.music?.release_date || props.music?.year?.toString()
-  if (releaseDate) items.push({ icon: 'mdi-calendar-blank-outline', label: releaseDate })
+  if (releaseDate) items.push({ icon: 'mdi-calendar-blank-outline', label: releaseDate, numeric: true })
   const duration = formatMusicDuration(props.music?.duration)
-  if (duration) items.push({ icon: 'mdi-clock-outline', label: duration })
+  if (duration) items.push({ icon: 'mdi-clock-outline', label: duration, numeric: true })
   const audioSpecs = formatMusicAudioSpecs(props.music)
-  if (audioSpecs) items.push({ icon: 'mdi-waveform', label: audioSpecs })
+  if (audioSpecs) items.push({ icon: 'mdi-waveform', label: audioSpecs, numeric: true })
   if (props.music?.track_number)
     items.push({
       hideOnNarrow: true,
       icon: 'mdi-counter',
       label: t('music.trackNumber', { number: props.music.track_number }),
+      numeric: true,
     })
   if (props.music?.listen_count)
     items.push({
       hideOnNarrow: true,
       icon: 'mdi-chart-line',
       label: t('music.listenCountValue', { count: props.music.listen_count.toLocaleString() }),
+      numeric: true,
     })
   return items
 })
@@ -249,7 +251,7 @@ onMounted(checkSubscribeStatus)
                     v-for="item in metaItems"
                     :key="`${item.icon}-${item.label}`"
                     :prepend-icon="item.icon"
-                    :class="{ 'music-card-meta-item--narrow-optional': item.hideOnNarrow }"
+                    :class="{ 'music-card-meta-item--narrow-optional': item.hideOnNarrow, num: item.numeric }"
                     size="x-small"
                     variant="tonal"
                   >
@@ -322,9 +324,9 @@ onMounted(checkSubscribeStatus)
   align-self: start;
   justify-content: center;
   aspect-ratio: 1;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 8px;
+  background: var(--mp-muted);
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius, 8px);
   inline-size: 112px;
 }
 
@@ -341,8 +343,9 @@ onMounted(checkSubscribeStatus)
 .music-card-entity {
   position: absolute;
   z-index: 1;
-  background: rgba(var(--v-theme-surface), 0.88) !important;
-  color: rgb(var(--v-theme-on-surface)) !important;
+  border: 1px solid var(--mp-border);
+  background: rgba(var(--mp-popover-rgb), 0.9) !important;
+  color: var(--mp-fg) !important;
   inset-block-end: 0.5rem;
   inset-inline-start: 0.5rem;
   max-inline-size: calc(100% - 1rem);
@@ -376,7 +379,7 @@ onMounted(checkSubscribeStatus)
 .music-card-title {
   overflow: hidden;
   display: -webkit-box;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 1rem;
   flex: 1 1 auto;
   font-weight: 600;
@@ -426,7 +429,7 @@ onMounted(checkSubscribeStatus)
 }
 
 .music-card-link:hover {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .music-card-footer {

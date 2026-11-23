@@ -298,6 +298,7 @@ describe('DownloadingCard display and pause state', () => {
 
     expect(container.querySelector('.downloading-card__image')).toBeInTheDocument()
     expect(container.querySelector('.downloading-card--no-image')).not.toBeInTheDocument()
+    expect(container.querySelector('.downloading-card__type-badge')).not.toBeInTheDocument()
 
     await rerender({
       downloaderName: 'qb-main',
@@ -306,6 +307,7 @@ describe('DownloadingCard display and pause state', () => {
 
     expect(container.querySelector('.downloading-card__poster')).not.toBeInTheDocument()
     expect(container.querySelector('.downloading-card--no-image')).toBeInTheDocument()
+    expect(container.querySelector('.downloading-card__type-badge')).toBeInTheDocument()
   })
 
   it('uses the global backend cache for recognized poster images', async () => {

@@ -43,7 +43,8 @@ const isLoaded = ref(false)
 const i18nLocale = getCurrentLocale()
 const currentLocale = i18nLocale.split('-')[0]
 
-const loadedSubscriptionCount = ref(0)
+// 标题由 FullCalendar 的当前视图提供，翻月与语言格式保持一致。
+const calendarTitle = ref('')
 const visibleRange = shallowRef<{ start: Date; end: Date }>()
 const mobileVisibleDayCount = ref(30)
 const mobileWindowEnd = shallowRef<Date>()
@@ -110,11 +111,8 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   initialView: 'dayGridMonth',
   weekends: true,
   firstDay: 1,
-  headerToolbar: {
-    left: 'prev',
-    center: 'title',
-    right: 'next',
-  },
+  // 桌面端将月份导航与媒体筛选合并为同一条 Vue 工具栏。
+  headerToolbar: false,
   // 折叠逻辑由组件自行控制，点击展开时可以直接扩展当前日期格子。
   dayMaxEvents: false,
   dayMaxEventRows: false,
@@ -127,7 +125,8 @@ const calendarOptions: Ref<CalendarOptions> = ref({
     },
   },
   events: [],
-  datesSet: ({ start, end }) => {
+  datesSet: ({ start, end, view }) => {
+    calendarTitle.value = view?.title || ''
     const changed =
       visibleRange.value?.start.getTime() !== start.getTime() || visibleRange.value?.end.getTime() !== end.getTime()
     visibleRange.value = { start, end }
@@ -140,6 +139,18 @@ const calendarOptions: Ref<CalendarOptions> = ref({
 const rawCalendarEvents = ref<CalendarEventInfo[]>([])
 const expandedDateKeys = ref(new Set<string>())
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
+
+/** 委托 FullCalendar 翻月，由 datesSet 统一同步标题、可见窗口和数据加载。 */
+function changeCalendarMonth(direction: 'prev' | 'next') {
+  calendarRef.value?.getApi()[direction]()
+}
+
+/** 统计当前日历中已加载的剧集或电影条目，和移动端总数使用同一口径。 */
+function getCalendarItemCount(events: CalendarEventInfo[]) {
+  return events.reduce((total, event) => total + (event.len || 1), 0)
+}
+
+const loadedCalendarItemCount = computed(() => getCalendarItemCount(rawCalendarEvents.value))
 
 // 移动端当前剧集筛选值。
 const mobileSelectedFilterValue = ref(ALL_MOBILE_FILTER_VALUE)
@@ -198,7 +209,7 @@ const mobileSeriesFilterOptions = computed<MobileCalendarFilterOption[]>(() => {
     {
       label: t('common.all'),
       value: ALL_MOBILE_FILTER_VALUE,
-      count: rawCalendarEvents.value.reduce((total, event) => total + (event.len || 1), 0),
+      count: loadedCalendarItemCount.value,
     },
     ...Array.from(optionMap.values()),
   ]
@@ -775,12 +786,21 @@ async function enrichCalendarLibraryEpisodes(subscribes: CalendarSubscription[],
   )
 }
 
+/** 在日历条目加载完成后异步补查媒体库集号，不阻塞首屏加载状态。 */
+function startCalendarLibraryEnrichment(subscribes: CalendarSubscription[], generation: number) {
+  void enrichCalendarLibraryEpisodes(subscribes, generation).catch(error => {
+    if (generation === calendarLoadGeneration) console.error(error)
+  })
+}
+
 /** 兼容旧后端：逐页加载订阅，每页最多四个详情请求并发。 */
 async function loadLegacyCalendar(generation: number) {
+  const allSubscribes: Subscribe[] = []
   for (let page = 1; ; page++) {
     if (generation !== calendarLoadGeneration) return
     const subscribes = await api.get<Subscribe[]>('subscribe/', { params: { page, count: 50 } })
     if (generation !== calendarLoadGeneration) return
+    allSubscribes.push(...subscribes)
     const events: CalendarEventInfo[] = []
     let nextIndex = 0
     /** 单个工作协程依次处理详情，过期批次不再派发请求。 */
@@ -799,13 +819,12 @@ async function loadLegacyCalendar(generation: number) {
     rawCalendarEvents.value = normalizeCalendarEventOrder(
       [...(page === 1 ? [] : rawCalendarEvents.value), ...events].filter(event => event.start),
     )
-    loadedSubscriptionCount.value += subscribes.length
     renderVisibleCalendarEvents()
     isLoaded.value = true
-    await enrichCalendarLibraryEpisodes(subscribes, generation)
     if (subscribes.length < 50) break
   }
   isLoaded.value = true
+  startCalendarLibraryEnrichment(allSubscribes, generation)
 }
 
 /** 获取当前可见日期范围，移动端默认从近三十天到未来六十天。 */
@@ -863,7 +882,6 @@ async function getSubscribes(range = getCalendarLoadRange(), append = false) {
   calendarRequestController = new AbortController()
   const signal = calendarRequestController.signal
   loading.value = true
-  loadedSubscriptionCount.value = 0
   if (!append) mobileVisibleDayCount.value = 30
   try {
     if (legacyCalendarApi) {
@@ -891,13 +909,12 @@ async function getSubscribes(range = getCalendarLoadRange(), append = false) {
       result.items.forEach(item => {
         if (item.subscribe.id) subscribes.set(item.subscribe.id, item.subscribe)
       })
-      loadedSubscriptionCount.value = subscribes.size
       renderVisibleCalendarEvents()
       isLoaded.value = true
       if (page * 50 >= result.total || !result.items.length) break
     }
     if (!display.mdAndUp.value) mobileWindowEnd.value = range.end
-    await enrichCalendarLibraryEpisodes([...subscribes.values()], generation)
+    startCalendarLibraryEnrichment([...subscribes.values()], generation)
   } catch (error) {
     if (generation !== calendarLoadGeneration || signal.aborted) return
     if (isLegacyCalendarEndpoint(error)) {
@@ -962,118 +979,132 @@ onActivated(() => {
 <template>
   <div v-if="loading" role="status" class="mb-2">
     <VProgressLinear indeterminate color="primary" />
-    <span class="text-caption"
-      >{{ t('common.loading') }} · {{ t('common.loadedCount', { count: loadedSubscriptionCount }) }}</span
+    <span class="text-caption mp-canvas-pill num mt-2"
+      >{{ t('common.loading') }} · {{ t('common.loadedCount', { count: loadedCalendarItemCount }) }}</span
     >
   </div>
-  <div
-    v-if="display.mdAndUp.value"
-    class="calendar-media-type-filter"
-    role="group"
-    :aria-label="t('calendar.mediaTypeFilterTitle')"
-  >
-    <button
-      v-for="option in mediaTypeFilterOptions"
-      :key="option.value"
-      type="button"
-      class="calendar-media-type-chip"
-      :class="{ 'calendar-media-type-chip--active': mediaTypeFilter === option.value }"
-      :aria-pressed="mediaTypeFilter === option.value"
-      @click="mediaTypeFilter = option.value"
-    >
-      {{ option.label }}
-    </button>
-  </div>
-
-  <FullCalendar v-if="display.mdAndUp.value" ref="calendarRef" :options="calendarOptions">
-    <template #eventContent="arg">
-      <div v-if="arg.event.extendedProps.isDayGroup" class="calendar-day-events">
-        <div
-          v-for="calendarEvent in arg.event.extendedProps.visibleEvents"
-          :key="`${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
-          class="calendar-event-card"
-          :class="`calendar-event-card--${calendarEvent.libraryState}`"
-          :title="getCalendarEventInfoTooltip(calendarEvent)"
+  <section v-if="display.mdAndUp.value" class="calendar-desktop-surface app-surface">
+    <header class="calendar-desktop-toolbar">
+      <div class="calendar-media-type-filter" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
+        <button
+          v-for="option in mediaTypeFilterOptions"
+          :key="option.value"
+          type="button"
+          class="calendar-media-type-chip"
+          :class="{ 'calendar-media-type-chip--active': mediaTypeFilter === option.value }"
+          :aria-pressed="mediaTypeFilter === option.value"
+          @click="mediaTypeFilter = option.value"
         >
-          <div v-if="display.mdAndUp.value" class="calendar-event-poster">
+          {{ option.label }}
+        </button>
+      </div>
+      <h2 class="calendar-desktop-toolbar__title">{{ calendarTitle }}</h2>
+      <div class="calendar-desktop-toolbar__month-actions">
+        <IconBtn size="small" :aria-label="t('calendar.previousMonth')" @click="changeCalendarMonth('prev')">
+          <VIcon icon="mdi-chevron-left" size="20" />
+          <VTooltip activator="parent" location="top">{{ t('calendar.previousMonth') }}</VTooltip>
+        </IconBtn>
+        <IconBtn size="small" :aria-label="t('calendar.nextMonth')" @click="changeCalendarMonth('next')">
+          <VIcon icon="mdi-chevron-right" size="20" />
+          <VTooltip activator="parent" location="top">{{ t('calendar.nextMonth') }}</VTooltip>
+        </IconBtn>
+      </div>
+    </header>
+
+    <FullCalendar ref="calendarRef" :options="calendarOptions">
+      <template #eventContent="arg">
+        <div v-if="arg.event.extendedProps.isDayGroup" class="calendar-day-events">
+          <div
+            v-for="calendarEvent in arg.event.extendedProps.visibleEvents"
+            :key="`${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
+            class="calendar-event-card"
+            :class="`calendar-event-card--${calendarEvent.libraryState}`"
+            :title="getCalendarEventInfoTooltip(calendarEvent)"
+          >
+            <div v-if="display.mdAndUp.value" class="calendar-event-poster">
+              <VImg
+                height="74"
+                width="50"
+                :src="calendarEvent.posterPath"
+                aspect-ratio="2/3"
+                class="calendar-event-image object-cover"
+                cover
+              >
+                <template #placeholder>
+                  <div class="w-full h-full">
+                    <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                  </div>
+                </template>
+              </VImg>
+              <span v-if="calendarEvent.libraryState === 'complete'" class="calendar-library-check">
+                <VIcon icon="mdi-check" size="12" />
+              </span>
+            </div>
+
             <VImg
-              height="74"
-              width="50"
+              v-else
               :src="calendarEvent.posterPath"
               aspect-ratio="2/3"
-              class="calendar-event-image object-cover"
+              class="calendar-mobile-image object-cover ring-gray-500"
               cover
+              :title="getCalendarEventInfoTooltip(calendarEvent)"
             >
               <template #placeholder>
                 <div class="w-full h-full">
                   <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
                 </div>
               </template>
-            </VImg>
-            <span v-if="calendarEvent.libraryState === 'complete'" class="calendar-library-check">
-              <VIcon icon="mdi-check" size="12" />
-            </span>
-          </div>
-
-          <VImg
-            v-else
-            :src="calendarEvent.posterPath"
-            aspect-ratio="2/3"
-            class="calendar-mobile-image object-cover ring-gray-500"
-            cover
-            :title="getCalendarEventInfoTooltip(calendarEvent)"
-          >
-            <template #placeholder>
-              <div class="w-full h-full">
-                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-              </div>
-            </template>
-            <span
-              v-if="calendarEvent.libraryState === 'complete'"
-              class="calendar-library-check calendar-library-check--mobile"
-            >
-              <VIcon icon="mdi-check" size="11" />
-            </span>
-            <span v-if="calendarEvent.subtitle" class="calendar-mobile-episode">
-              {{ calendarEvent.subtitle }}
-            </span>
-          </VImg>
-
-          <div v-if="display.mdAndUp.value" class="calendar-event-content">
-            <div class="calendar-event-title">
-              {{ calendarEvent.title }}
-            </div>
-            <div v-if="calendarEvent.subtitle" class="calendar-event-episode">
-              <VIcon icon="mdi-calendar-blank-outline" size="13" />
-              {{ t('calendar.episode', { number: calendarEvent.subtitle }) }}
-            </div>
-            <div v-if="calendarEvent.totalEpisode" class="calendar-event-library-row">
-              <span class="calendar-event-status" :class="`calendar-event-status--${calendarEvent.libraryState}`">
-                <VIcon :icon="getLibraryStateIcon(calendarEvent.libraryState)" size="13" />
-                {{ getCompactLibraryProgressText(calendarEvent) }}
+              <span
+                v-if="calendarEvent.libraryState === 'complete'"
+                class="calendar-library-check calendar-library-check--mobile"
+              >
+                <VIcon icon="mdi-check" size="11" />
               </span>
-            </div>
-            <div v-if="calendarEvent.libraryUpdateText" class="calendar-event-time">
-              <VIcon icon="mdi-clock-outline" size="13" />
-              {{ t('calendar.libraryUpdatedAtShort', { time: calendarEvent.libraryUpdateText }) }}
+              <span v-if="calendarEvent.subtitle" class="calendar-mobile-episode">
+                {{ calendarEvent.subtitle }}
+              </span>
+            </VImg>
+
+            <div v-if="display.mdAndUp.value" class="calendar-event-content">
+              <div class="calendar-event-title">
+                {{ calendarEvent.title }}
+              </div>
+              <div v-if="calendarEvent.subtitle" class="calendar-event-episode">
+                <VIcon icon="mdi-calendar-blank-outline" size="13" />
+                <span class="calendar-event-meta-text">{{
+                  t('calendar.episode', { number: calendarEvent.subtitle })
+                }}</span>
+              </div>
+              <div v-if="calendarEvent.totalEpisode" class="calendar-event-library-row">
+                <span class="calendar-event-status" :class="`calendar-event-status--${calendarEvent.libraryState}`">
+                  <VIcon :icon="getLibraryStateIcon(calendarEvent.libraryState)" size="13" />
+                  <span class="calendar-event-meta-text">{{ getCompactLibraryProgressText(calendarEvent) }}</span>
+                </span>
+              </div>
+              <div v-if="calendarEvent.libraryUpdateText" class="calendar-event-time">
+                <VIcon icon="mdi-clock-outline" size="13" />
+                <span class="calendar-event-meta-text">{{
+                  t('calendar.libraryUpdatedAtShort', { time: calendarEvent.libraryUpdateText })
+                }}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          v-if="arg.event.extendedProps.hiddenEventCount"
-          type="button"
-          class="calendar-expand-card"
-          :title="getExpandCalendarEventLabel(arg.event)"
-          :aria-label="getExpandCalendarEventLabel(arg.event)"
-          @click.stop.prevent="expandCalendarDay(arg.event.extendedProps.dateKey)"
-        >
-          <VIcon icon="mdi-unfold-more-horizontal" size="18" />
-          <span class="calendar-expand-count">+{{ arg.event.extendedProps.hiddenEventCount }}</span>
-        </button>
-      </div>
-    </template>
-  </FullCalendar>
+          <button
+            v-if="arg.event.extendedProps.hiddenEventCount"
+            type="button"
+            class="calendar-expand-card"
+            :title="getExpandCalendarEventLabel(arg.event)"
+            :aria-label="getExpandCalendarEventLabel(arg.event)"
+            @click.stop.prevent="expandCalendarDay(arg.event.extendedProps.dateKey)"
+          >
+            <VIcon icon="mdi-unfold-more-horizontal" size="18" />
+            <span class="calendar-expand-count">+{{ arg.event.extendedProps.hiddenEventCount }}</span>
+          </button>
+        </div>
+      </template>
+    </FullCalendar>
+  </section>
 
   <div v-else class="mobile-subscribe-calendar">
     <LoadingBanner v-if="!isLoaded" class="mt-12" />
@@ -1158,7 +1189,9 @@ onActivated(() => {
                 >
                   {{ getMobileDayStatus(group.date) }}
                 </span>
-                <span class="mobile-calendar-day-count">{{ t('calendar.episodeCount', { count: group.count }) }}</span>
+                <span class="mobile-calendar-day-count num">{{
+                  t('calendar.episodeCount', { count: group.count })
+                }}</span>
               </div>
             </header>
 
@@ -1250,12 +1283,22 @@ onActivated(() => {
 </template>
 
 <style lang="scss">
+.calendar-desktop-surface {
+  padding-block: 0.75rem 0.75rem;
+  padding-inline: 0.375rem;
+  border-radius: var(--app-surface-radius);
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'] .v-application .fc .fc-day-other .fc-daygrid-day-top {
+  opacity: 0.62;
+}
+
 .v-application .fc {
   --fc-today-bg-color: rgba(var(--v-theme-primary), 0.12);
   --fc-border-color: rgba(var(--v-border-color), var(--v-border-opacity));
-  --fc-neutral-bg-color: rgb(var(--v-theme-background), 0.3);
+  --fc-neutral-bg-color: var(--mp-muted);
   --fc-list-event-hover-bg-color: rgba(var(--v-theme-on-surface), 0.02);
-  --fc-page-bg-color: rgb(var(--v-theme-background), 0.3);
+  --fc-page-bg-color: transparent;
   --fc-event-border-color: currentcolor;
 }
 
@@ -1362,7 +1405,7 @@ onActivated(() => {
 
   &:hover {
     background-color: transparent;
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
   }
 }
 
@@ -1389,7 +1432,7 @@ onActivated(() => {
 }
 
 .v-application .fc .fc-toolbar-chunk:last-child .fc-button-group .fc-button {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0.0187rem;
@@ -1403,7 +1446,7 @@ onActivated(() => {
 
 .v-application .fc .fc-toolbar-chunk:last-child .fc-button-group .fc-button.fc-button-active {
   background-color: rgba(var(--v-theme-primary), var(--v-activated-opacity));
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .v-application .fc .fc-scrollgrid-section th {
@@ -1525,31 +1568,80 @@ onActivated(() => {
   background-color: transparent !important;
 }
 
+.calendar-desktop-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-block-size: 3.5rem;
+  padding-block: 0.25rem 1rem;
+  padding-inline: 0.625rem;
+}
+
+.calendar-desktop-toolbar__month-actions {
+  display: inline-flex;
+  justify-self: end;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-field-radius);
+  background: var(--mp-muted);
+}
+
+.calendar-desktop-toolbar__title {
+  margin: 0;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .calendar-media-type-filter {
-  display: flex;
-  gap: 0.5rem;
-  margin-block-end: 0.75rem;
+  display: inline-flex;
+  justify-self: start;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-field-radius);
+  background: var(--mp-muted);
 }
 
 .calendar-media-type-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding-block: 0.4rem;
-  padding-inline: 1rem;
+  min-block-size: 2rem;
+  padding-block: 0.375rem;
+  padding-inline: 1.125rem;
   border: 0;
   border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-on-surface), 0.08);
-  color: rgba(var(--v-theme-on-surface), 0.72);
+  background: transparent;
+  color: var(--mp-muted-fg);
   cursor: pointer;
-  font-size: 0.86rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.calendar-media-type-chip:hover {
+  color: var(--mp-fg);
+}
+
+.calendar-media-type-chip:focus-visible {
+  outline: 2px solid var(--mp-ring);
+  outline-offset: 2px;
 }
 
 .calendar-media-type-chip--active {
-  background: rgba(var(--v-theme-primary), 0.14);
-  color: rgb(var(--v-theme-primary));
+  background: var(--mp-surface);
+  color: var(--mp-primary-fg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
 }
 
 .calendar-event-card {
@@ -1577,7 +1669,7 @@ onActivated(() => {
   border: 1px dashed rgba(var(--v-theme-primary), 0.44);
   border-radius: 8px;
   background: rgba(var(--v-theme-primary), 0.08);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 700;
@@ -1688,7 +1780,7 @@ onActivated(() => {
 .calendar-event-status {
   display: inline-flex;
   align-items: center;
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
   column-gap: 0.16rem;
   font-size: 0.72rem;
   font-weight: 700;
@@ -1700,7 +1792,7 @@ onActivated(() => {
 }
 
 .calendar-event-status--partial {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .calendar-event-time {
@@ -1708,9 +1800,23 @@ onActivated(() => {
 }
 
 .calendar-event-status,
+.calendar-event-episode,
 .calendar-event-time {
   overflow: hidden;
   max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: nowrap;
+}
+
+.calendar-event-status .v-icon,
+.calendar-event-episode .v-icon,
+.calendar-event-time .v-icon {
+  flex: 0 0 auto;
+}
+
+.calendar-event-meta-text {
+  overflow: hidden;
+  min-inline-size: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1836,7 +1942,7 @@ onActivated(() => {
 }
 
 .mobile-calendar-expired-toggle--active {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .mobile-calendar-mediatype-list {
@@ -1888,7 +1994,7 @@ onActivated(() => {
 
 .mobile-calendar-filter-chip--active {
   background: rgba(var(--v-theme-primary), 0.18);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .mobile-calendar-timeline {
@@ -1975,7 +2081,7 @@ onActivated(() => {
 
 .mobile-calendar-day-title-wrap h2 {
   overflow: hidden;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 1.08rem;
   font-weight: 900;
   line-height: 1.18;
@@ -1986,7 +2092,7 @@ onActivated(() => {
 
 .mobile-calendar-day-title-wrap span,
 .mobile-calendar-day-count {
-  color: rgba(var(--v-theme-on-background), 0.72);
+  color: var(--mp-muted-fg);
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1.25;
@@ -2002,8 +2108,8 @@ onActivated(() => {
 
 .mobile-calendar-day-status {
   border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-primary), 0.14);
-  color: rgb(var(--v-theme-primary));
+  background: var(--mp-primary-soft);
+  color: var(--mp-primary-fg);
   font-size: 0.74rem;
   font-weight: 800;
   line-height: 1;
@@ -2013,13 +2119,21 @@ onActivated(() => {
 }
 
 .mobile-calendar-day-status--upcoming {
-  background: rgba(var(--v-theme-warning), 0.16);
-  color: rgb(var(--v-theme-warning));
+  background: var(--mp-warning-soft);
+  color: var(--mp-warning-fg);
 }
 
 .mobile-calendar-day-status--expired {
-  background: rgba(var(--v-theme-error), 0.16);
-  color: rgb(var(--v-theme-error));
+  background: var(--mp-destructive-soft);
+  color: var(--mp-destructive-fg);
+}
+
+html[data-theme='glass'] .mobile-calendar-day-head {
+  padding-block: 0.5rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--mp-reading-border);
+  border-radius: var(--app-field-radius);
+  background: var(--mp-reading-surface);
 }
 
 .mobile-calendar-day-count {
@@ -2141,18 +2255,18 @@ onActivated(() => {
 }
 
 .mobile-calendar-event-tag--primary {
-  background: rgba(var(--v-theme-primary), 0.18);
-  color: rgb(var(--v-theme-primary));
+  background: var(--mp-primary-soft);
+  color: var(--mp-primary-fg);
 }
 
 .mobile-calendar-event-tag--library-complete {
-  background: rgba(var(--v-theme-success), 0.16);
-  color: rgb(var(--v-theme-success));
+  background: var(--mp-success-soft);
+  color: var(--mp-success-fg);
 }
 
 .mobile-calendar-event-tag--library-partial {
-  background: rgba(var(--v-theme-warning), 0.16);
-  color: rgb(var(--v-theme-warning));
+  background: var(--mp-warning-soft);
+  color: var(--mp-warning-fg);
 }
 
 .mobile-calendar-event-tag--library-none {
@@ -2165,9 +2279,16 @@ onActivated(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: rgba(var(--v-theme-on-background), 0.66);
+  color: var(--mp-muted-fg);
   min-block-size: 18rem;
   text-align: center;
+}
+
+html[data-theme='glass'] .mobile-calendar-empty {
+  padding: 2rem 1.25rem;
+  border: 1px solid var(--mp-reading-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--mp-reading-surface);
 }
 
 .mobile-calendar-empty h2 {

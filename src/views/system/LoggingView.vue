@@ -56,8 +56,10 @@ const MAX_LOG_LINES = 600
 const FLUSH_DELAY = 80
 const GROUP_GAP_MS = 100
 const SCROLL_BOTTOM_THRESHOLD = 32
-const ANSI_PATTERN = /\u001B\[[0-9;]*m/g
+const ANSI_ESCAPE = String.fromCharCode(0x1b)
+const ANSI_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, 'g')
 const TIMESTAMP_PATTERN = /\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:,\d{3})?)?/
+const STRUCTURED_TIMESTAMP_PREFIX = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?/
 
 const parsedLogs = ref<LogEntry[]>([])
 const logViewportRef = ref<HTMLElement | null>(null)
@@ -134,10 +136,6 @@ const filteredGroups = computed(() => {
     .filter(group => group.items.length > 0)
 })
 
-const visibleLogCount = computed(() => {
-  return filteredGroups.value.reduce((count, group) => count + group.items.length, 0)
-})
-
 const lastVisibleLogId = computed(() => {
   return filteredGroups.value.at(-1)?.items.at(-1)?.id ?? 0
 })
@@ -202,14 +200,130 @@ function getTimeDisplay(timestamp: string) {
   return timestamp.split(' ').at(-1) ?? timestamp
 }
 
+/** 按两侧带空白的 " - " 线性切分文本，避免正则在长空白串上产生回溯。 */
+function splitByDashSeparator(text: string): string[] {
+  const parts: string[] = []
+  let partStart = 0
+  let index = 0
+
+  while (index < text.length) {
+    if (/\s/.test(text[index])) {
+      const wsStart = index
+      while (index < text.length && /\s/.test(text[index])) index++
+      if (index < text.length && text[index] === '-' && index + 1 < text.length && /\s/.test(text[index + 1])) {
+        parts.push(text.slice(partStart, wsStart))
+        index++
+        while (index < text.length && /\s/.test(text[index])) index++
+        partStart = index
+        continue
+      }
+    } else {
+      index++
+    }
+  }
+
+  parts.push(text.slice(partStart))
+  return parts
+}
+
+/** 跳过文本中从指定位置开始的连续空白字符，返回下一个非空白索引。 */
+function skipWhitespace(text: string, startIndex: number): number {
+  let index = startIndex
+  while (index < text.length && /\s/.test(text[index])) index++
+  return index
+}
+
+/** 提取日志正文可选的 `[appName]` 前缀。 */
+function extractLeadingBracketApp(body: string): { appName: string; rest: string } {
+  if (!body.startsWith('[')) {
+    return { appName: '', rest: body }
+  }
+
+  const closeIndex = body.indexOf(']')
+  if (closeIndex <= 1) {
+    return { appName: '', rest: body }
+  }
+
+  const nextIndex = skipWhitespace(body, closeIndex + 1)
+  if (nextIndex === closeIndex + 1) {
+    return { appName: '', rest: body }
+  }
+
+  return {
+    appName: body.slice(1, closeIndex),
+    rest: body.slice(nextIndex),
+  }
+}
+
+/** 线性解析 `source - message` 结构化段。 */
+function parseSourceAndMessage(text: string): { source: string; message: string } | null {
+  let sourceEnd = 0
+  while (sourceEnd < text.length && !/\s/.test(text[sourceEnd])) sourceEnd++
+  if (sourceEnd === 0) return null
+
+  const dashIndex = skipWhitespace(text, sourceEnd)
+  if (dashIndex === sourceEnd || text[dashIndex] !== '-') return null
+
+  const messageStart = skipWhitespace(text, dashIndex + 1)
+  if (messageStart === dashIndex + 1) return null
+
+  return {
+    source: text.slice(0, sourceEnd),
+    message: text.slice(messageStart),
+  }
+}
+
+/** 线性解析带时间戳的 `[appName] timestamp source - message` 日志正文。 */
+function parseTimestampedStructuredBody(
+  body: string,
+): { appName: string; timestamp: string; source: string; message: string } | null {
+  const { appName, rest } = extractLeadingBracketApp(body)
+  const timestampMatch = rest.match(STRUCTURED_TIMESTAMP_PREFIX)
+  if (!timestampMatch) return null
+
+  const timestamp = timestampMatch[0]
+  const sourceStart = skipWhitespace(rest, timestamp.length)
+  if (sourceStart === timestamp.length) return null
+
+  const parsedSource = parseSourceAndMessage(rest.slice(sourceStart))
+  if (!parsedSource) return null
+
+  return {
+    appName,
+    timestamp,
+    source: parsedSource.source,
+    message: parsedSource.message,
+  }
+}
+
+/** 线性解析不含时间戳的 `[appName] source - message` 日志正文。 */
+function parseSourceStructuredBody(body: string): { appName: string; source: string; message: string } | null {
+  const { appName, rest } = extractLeadingBracketApp(body)
+  const parsedSource = parseSourceAndMessage(rest)
+  if (parsedSource) {
+    return {
+      appName,
+      source: parsedSource.source,
+      message: parsedSource.message,
+    }
+  }
+  // 允许 `[source] - message` 无独立 appName 前缀时回退将方括号段作为 source。
+  if (appName) {
+    const fallbackSource = parseSourceAndMessage(body)
+    if (fallbackSource) {
+      return {
+        appName: '',
+        source: fallbackSource.source,
+        message: fallbackSource.message,
+      }
+    }
+  }
+  return null
+}
+
 /** 从结构化日志正文中提取消息内容。 */
 function extractMessage(text: string) {
-  return (
-    text
-      .split(/\s+-\s+/)
-      .slice(1)
-      .join(' - ') || text
-  )
+  return splitByDashSeparator(text).slice(1).join(' - ') || text
 }
 
 /** 根据原始日志和解析结果创建展示条目。 */
@@ -238,106 +352,99 @@ function createLogEntry(raw: string, parsed?: ParsedLog | null): LogEntry {
 
 /** 解析 Python 风格的日志行。 */
 function parsePythonStyleLog(raw: string): ParsedLog | null {
-  const match = raw.match(/^([A-Za-z]+):\s+(.*)$/)
+  const match = raw.match(/^([A-Za-z]+):\s+/)
   if (!match) {
     return null
   }
 
-  const [, rawLevel, remainder] = match
-  const level = normalizeLevel(rawLevel)
+  const level = normalizeLevel(match[1])
   if (!DEFAULT_LEVELS.includes(level)) {
     return null
   }
 
-  const body = remainder.trim()
-  const bodyMatch = body.match(
-    /^(?:\[([^\]]+)\]\s+)?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+([^\s]+)\s+-\s+(.*)$/,
-  )
+  const body = raw.slice(match[0].length).trim()
+  const bodyMatch = parseTimestampedStructuredBody(body)
 
   return {
     level,
-    appName: bodyMatch?.[1] ?? '',
-    timestamp: bodyMatch?.[2] ?? extractTimestamp(body),
-    source: bodyMatch?.[3] ?? '',
-    message: bodyMatch?.[4] ?? extractMessage(body),
+    appName: bodyMatch?.appName ?? '',
+    timestamp: bodyMatch?.timestamp ?? extractTimestamp(body),
+    source: bodyMatch?.source ?? '',
+    message: bodyMatch?.message ?? extractMessage(body),
     structured: Boolean(bodyMatch),
   }
 }
 
 /** 解析中文方括号标记的日志行。 */
 function parseBracketStyleLog(raw: string): ParsedLog | null {
-  const match = raw.match(/^【([^】]+)】\s*(.*)$/)
+  const match = raw.match(/^【([^】]+)】\s*/)
   if (!match) {
     return null
   }
 
-  const [, rawLevel, remainder] = match
-  const level = normalizeLevel(rawLevel)
-  const body = remainder.trim()
-  const bodyMatch = body.match(
-    /^(?:\[([^\]]+)\]\s+)?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+([^\s]+)\s+-\s+(.*)$/,
-  )
+  const level = normalizeLevel(match[1])
+  const body = raw.slice(match[0].length).trim()
+  const bodyMatch = parseTimestampedStructuredBody(body)
 
   return {
     level,
-    appName: bodyMatch?.[1] ?? '',
-    timestamp: bodyMatch?.[2] ?? extractTimestamp(body),
-    source: bodyMatch?.[3] ?? '',
-    message: bodyMatch?.[4] ?? extractMessage(body),
+    appName: bodyMatch?.appName ?? '',
+    timestamp: bodyMatch?.timestamp ?? extractTimestamp(body),
+    source: bodyMatch?.source ?? '',
+    message: bodyMatch?.message ?? extractMessage(body),
     structured: Boolean(bodyMatch),
   }
 }
 
 /** 解析以时间戳开头的日志行。 */
 function parseTimestampFirstLog(raw: string): ParsedLog | null {
-  const match = raw.match(new RegExp(`^(${TIMESTAMP_PATTERN.source})\\s+\\[?([A-Za-z]+)\\]?\\s*(.*)$`))
+  const match = raw.match(new RegExp(`^(${TIMESTAMP_PATTERN.source})\\s+\\[?([A-Za-z]+)\\]?\\s*`))
   if (!match) {
     return null
   }
 
-  const [, timestamp, rawLevel, remainder] = match
+  const [, timestamp, rawLevel] = match
   const level = normalizeLevel(rawLevel)
   if (!DEFAULT_LEVELS.includes(level)) {
     return null
   }
 
-  const body = remainder.trim()
-  const bodyMatch = body.match(/^(?:\[([^\]]+)\]\s+)?([^\s]+)\s+-\s+(.*)$/)
+  const body = raw.slice(match[0].length).trim()
+  const bodyMatch = parseSourceStructuredBody(body)
 
   return {
     level,
-    appName: bodyMatch?.[1] ?? '',
+    appName: bodyMatch?.appName ?? '',
     timestamp,
-    source: bodyMatch?.[2] ?? '',
-    message: bodyMatch?.[3] ?? extractMessage(body),
+    source: bodyMatch?.source ?? '',
+    message: bodyMatch?.message ?? extractMessage(body),
     structured: Boolean(bodyMatch),
   }
 }
 
 /** 解析以内联级别开头的日志行。 */
 function parseInlineLevelLog(raw: string): ParsedLog | null {
-  const match = raw.match(/^\[?([A-Za-z]+)\]?:?\s+(.*)$/)
+  const match = raw.match(/^\[?([A-Za-z]+)\]?:?\s+/)
   if (!match) {
     return null
   }
 
-  const [, rawLevel, remainder] = match
-  const level = normalizeLevel(rawLevel)
+  const level = normalizeLevel(match[1])
   if (!DEFAULT_LEVELS.includes(level)) {
     return null
   }
 
-  const body = remainder.trim()
+  const body = raw.slice(match[0].length).trim()
   const timestamp = extractTimestamp(body)
   const bodyWithoutTimestamp = timestamp ? body.replace(timestamp, '').trim() : body
-  const bodyMatch = bodyWithoutTimestamp.match(/^(?:\[([^\]]+)\]\s+)?([^\s]+)\s+-\s+(.*)$/)
+  const bodyMatch = parseSourceStructuredBody(bodyWithoutTimestamp)
 
   return {
     level,
-    appName: bodyMatch?.[1] ?? '',
+    appName: bodyMatch?.appName ?? '',
     timestamp,
-    source: bodyMatch?.[2] ?? '',
-    message: bodyMatch?.[3] ?? extractMessage(bodyWithoutTimestamp),
+    source: bodyMatch?.source ?? '',
+    message: bodyMatch?.message ?? extractMessage(bodyWithoutTimestamp),
     structured: Boolean(bodyMatch),
   }
 }
@@ -536,8 +643,24 @@ const { manager, isConnected } = useSSE(
 const failureListenerId = `${listenerId}:failure`
 manager.addStatusListener(failureListenerId, status => {
   streamFailed.value = status === 'error'
+  // 服务端在每次建立连接时都会先重发历史尾部，重连后清空已显示内容，避免同一批日志重复出现。
+  // 暂停期间本视图不接收消息，保留现有内容，恢复后继续追加。
+  if (status === 'open' && !isStreamPaused.value) {
+    resetDisplayedLogs()
+  }
 })
 onUnmounted(() => manager.removeStatusListener(failureListenerId))
+
+/** 清空待写入缓冲和已显示日志，供重连后接收服务端重发的历史尾部。 */
+function resetDisplayedLogs() {
+  if (timeoutId) {
+    clearTimeout(timeoutId)
+    timeoutId = null
+  }
+  buffer.length = 0
+  parsedLogs.value = []
+  pendingLogCount.value = 0
+}
 
 /** 暂停实时日志流。 */
 function pauseStream() {
@@ -708,7 +831,7 @@ onUnmounted(() => {
 
       <div v-else class="logging-list">
         <div v-for="(group, index) in filteredGroups" :key="group.id" class="logging-record">
-          <div class="logging-record-time">{{ group.secondDisplay || '...' }}</div>
+          <div class="logging-record-time num">{{ group.secondDisplay || '...' }}</div>
 
           <div class="logging-record-panel" :class="index % 2 === 0 ? 'is-even' : 'is-odd'">
             <div
@@ -725,7 +848,7 @@ onUnmounted(() => {
                 <div v-if="item.appName" class="logging-record-app">[{{ item.appName }}]</div>
 
                 <div class="logging-record-body">
-                  <span v-if="item.timeDisplay" class="logging-record-inline-time">{{ item.timeDisplay }}</span>
+                  <span v-if="item.timeDisplay" class="logging-record-inline-time num">{{ item.timeDisplay }}</span>
                   {{ item.message }}
                 </div>
               </div>
@@ -739,6 +862,7 @@ onUnmounted(() => {
           size="small"
           color="primary"
           variant="elevated"
+          class="num"
           prepend-icon="mdi-arrow-down"
           @click="enableFollow('smooth')"
         >
@@ -753,13 +877,14 @@ onUnmounted(() => {
 /* stylelint-disable selector-pseudo-class-no-unknown */
 .logging-view {
   --logging-shell-backdrop-filter: none;
-  --logging-shell-background: linear-gradient(180deg, var(--logging-shell-bg), rgba(var(--v-theme-surface), 0.9));
-  --logging-shell-bg: rgba(var(--v-theme-surface), 0.96);
-  --logging-record-bg-even: rgba(var(--v-theme-surface-variant), 0.01);
-  --logging-record-bg-odd: rgba(var(--v-theme-surface-variant), 0.005);
-  --logging-text: rgba(var(--v-theme-on-surface), 0.88);
+  --logging-shell-background: var(--mp-card);
+  --logging-record-bg-even: var(--mp-list-group-bg);
+  --logging-record-bg-odd: transparent;
+  --logging-border: var(--mp-border);
+  --logging-shadow: none;
+  --logging-text: var(--mp-fg);
   --logging-toolbar-control-size: 2rem;
-  --logging-muted: rgba(var(--v-theme-on-surface), 0.56);
+  --logging-muted: var(--mp-muted-fg);
 
   display: flex;
   flex-direction: column;
@@ -768,11 +893,20 @@ onUnmounted(() => {
 }
 
 .logging-view.is-dark-theme {
-  --logging-shell-bg: rgba(var(--v-theme-surface), 0.72);
-  --logging-record-bg-even: rgba(var(--v-theme-on-surface), 0.02);
-  --logging-record-bg-odd: rgba(var(--v-theme-on-surface), 0.008);
-  --logging-border: rgba(var(--v-theme-on-surface), 0.12);
-  --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 4%);
+  --logging-shell-background: rgba(var(--v-theme-surface), 0.72);
+  --logging-record-bg-even: var(--mp-list-group-bg);
+  --logging-record-bg-odd: transparent;
+  --logging-border: var(--mp-border);
+  --logging-shadow: none;
+}
+
+/* 玻璃主题下日志视图嵌在弹窗表面内部，透明承接外层玻璃材质，避免二次叠加模糊或实心遮罩。 */
+:global(html[data-theme='glass'] .logging-view),
+:global(html[data-theme='glass'] .logging-view.is-dark-theme) {
+  --logging-shell-backdrop-filter: none;
+  --logging-shell-background: transparent;
+  --logging-border: var(--mp-border);
+  --logging-shadow: none;
 }
 
 .logging-toolbar {
@@ -792,7 +926,7 @@ onUnmounted(() => {
 }
 
 .logging-stream-action.is-live {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .logging-search :deep(.v-field) {
@@ -818,7 +952,7 @@ onUnmounted(() => {
 .logging-level-toggle {
   flex: 0 0 auto;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-control-radius);
   background: transparent;
   block-size: var(--logging-toolbar-control-size);
@@ -826,7 +960,7 @@ onUnmounted(() => {
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button) {
-  border-color: rgba(var(--v-theme-on-surface), 0.1);
+  border-color: var(--mp-border-subtle);
   border-radius: 0;
   block-size: 100%;
   color: var(--logging-muted);
@@ -843,20 +977,20 @@ onUnmounted(() => {
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--info) {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--warning) {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--error) {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--active) {
-  background: rgba(var(--v-theme-primary), 0.16);
-  color: rgb(var(--v-theme-primary));
+  background: var(--mp-primary-soft);
+  color: var(--mp-primary-fg);
 }
 
 .logging-level-select :deep(.v-field) {
@@ -977,7 +1111,7 @@ onUnmounted(() => {
 }
 
 .logging-record-time {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -989,7 +1123,7 @@ onUnmounted(() => {
 .logging-record-panel {
   display: flex;
   align-items: stretch;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.04);
+  border: 1px solid var(--mp-border-subtle);
   border-radius: var(--app-surface-radius);
   gap: 0.75rem;
   min-inline-size: 0;
@@ -1003,10 +1137,6 @@ onUnmounted(() => {
 
 .logging-record-panel.is-odd {
   background: var(--logging-record-bg-odd);
-}
-
-.logging-view.is-dark-theme .logging-record-panel {
-  border-color: rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .logging-record-accent {
@@ -1083,16 +1213,16 @@ onUnmounted(() => {
 }
 
 .logging-record-level.level-info {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .logging-record-level.level-warning {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .logging-record-level.level-error,
 .logging-record-level.level-critical {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .logging-record-level.level-plain {

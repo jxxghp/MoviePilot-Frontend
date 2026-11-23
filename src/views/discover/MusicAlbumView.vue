@@ -199,23 +199,23 @@ useNativePageHeader({
       </div>
       <div v-if="album.release_date" class="music-fact">
         <span>{{ t('music.releaseDate') }}</span>
-        <span class="music-fact-value">{{ album.release_date }}</span>
+        <span class="music-fact-value num">{{ album.release_date }}</span>
       </div>
       <div v-if="album.total_tracks" class="music-fact">
         <span>{{ t('music.trackTotal') }}</span>
-        <span class="music-fact-value">{{ album.total_tracks }}</span>
+        <span class="music-fact-value num">{{ album.total_tracks }}</span>
       </div>
       <div v-if="album.duration" class="music-fact">
         <span>{{ t('music.duration') }}</span>
-        <span class="music-fact-value">{{ formatMusicDuration(album.duration) }}</span>
+        <span class="music-fact-value num">{{ formatMusicDuration(album.duration) }}</span>
       </div>
       <div v-if="album.rating_votes" class="music-fact">
         <span>{{ t('music.ratingVotes') }}</span>
-        <span class="music-fact-value">{{ album.rating_votes }}</span>
+        <span class="music-fact-value num">{{ album.rating_votes }}</span>
       </div>
       <div class="music-fact music-fact--last">
         <span>{{ sourceLabel }} ID</span>
-        <span class="music-fact-value music-fact-id">{{ album.media_id }}</span>
+        <span class="music-fact-value music-fact-id num">{{ album.media_id }}</span>
       </div>
     </template>
 
@@ -291,7 +291,7 @@ useNativePageHeader({
 
 <style scoped>
 .music-link {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   cursor: pointer;
   text-decoration: none;
 }
@@ -304,7 +304,7 @@ useNativePageHeader({
   display: flex;
   align-items: center;
   justify-content: center;
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 0.5rem;
 }
 
@@ -312,7 +312,7 @@ useNativePageHeader({
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 0.5rem;
   padding-inline: 1rem;
 }
@@ -334,8 +334,10 @@ useNativePageHeader({
 .music-external-link {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+  border: 1px solid var(--mp-border);
   border-radius: 9999px;
+  background: var(--mp-muted);
+  color: var(--mp-fg);
   font-size: 0.875rem;
   padding-block: 0.25rem;
   padding-inline: 0.75rem;
@@ -348,7 +350,7 @@ useNativePageHeader({
 
 .music-section-title {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.75rem;
   margin: 0;
   padding-block: 1rem;

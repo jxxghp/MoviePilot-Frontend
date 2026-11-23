@@ -61,6 +61,7 @@ import {
 } from '@/utils/loginPresentation'
 import {
   DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
+  getLightGlassWallpaperExposure,
   loadGlassWallpaperTone,
   type GlassWallpaperToneProfile,
 } from '@/utils/glassWallpaperTone'
@@ -207,7 +208,7 @@ const allowsBackgroundRotation = computed(
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
-const isBackdropTheme = computed(() => isGlassTheme.value && globalTheme.current.value.dark)
+const isBackdropTheme = computed(() => isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const loginVisualProfile = computed(() => (isGlassTheme.value ? 'glass' : 'plain'))
 const loginGlassSettings = computed(() =>
@@ -216,6 +217,7 @@ const loginGlassSettings = computed(() =>
     deformationStrength: effectiveGlassSettings.value.glassDeformationStrength,
     flowStrength: effectiveGlassSettings.value.glassFlowStrength,
     preset: effectiveGlassSettings.value.glassPreset,
+    quality: effectiveGlassSettings.value.glassQuality,
     reflectionStrength: effectiveGlassSettings.value.glassReflectionStrength,
     transmissionStrength: effectiveGlassSettings.value.glassTransmissionStrength,
     translationStrength: effectiveGlassSettings.value.glassTranslationStrength,
@@ -281,7 +283,7 @@ const shouldRenderGlassOpticalLayer = computed(
 const loadGlassOpticalLayer = () => import('@/components/theme/GlassOpticalLayer.vue')
 const GlassOpticalLayer = defineAsyncComponent(loadGlassOpticalLayer)
 
-// 组件与 Three 并行预载；壁纸就绪即可准备资源，实际呈现仍等待首路由，CSS 档不请求光学模块。
+// 组件与 Three 并行预载；非 CSS 玻璃档位在深浅色下均启用光学动态层，保持交互参数完整生效。
 watch(
   () => isGlassTheme.value && opticalQuality.value !== 'css',
   enabled => {
@@ -308,12 +310,15 @@ function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
   const profile = backgroundToneProfiles.value[layer.url] ?? DEFAULT_GLASS_WALLPAPER_TONE_PROFILE
   const appearance = effectiveGlassSettings.value.glassAppearance
   const materialExposure = appearance === 'frosted' ? 0.82 : appearance === 'tinted' ? 0.85 : 0.86
+  const wallpaperBrightness = globalTheme.current.value.dark
+    ? materialExposure * profile.exposure
+    : getLightGlassWallpaperExposure(profile)
   const displayUrl = isGlassTheme.value ? getPreparedBackgroundImage(layer.url) : layer.url
   const usesCorsImageElement = isGlassTheme.value && Object.hasOwn(backgroundDisplayImages.value, layer.url)
 
   return {
     'backgroundImage': !usesCorsImageElement && displayUrl ? `url(${displayUrl})` : undefined,
-    '--glass-wallpaper-brightness': String(materialExposure * profile.exposure),
+    '--glass-wallpaper-brightness': String(wallpaperBrightness),
   }
 }
 
@@ -931,7 +936,7 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
   }
 }
 
-// 明暗变化和已保存的来源/地址共用加载代次；浅色与关闭壁纸立即撤销所有可见层和在途提交。
+// 玻璃材质开关与已保存的壁纸来源共用加载代次，切回平面或关闭壁纸时立即撤销可见层和在途提交
 watch(
   [
     shouldLoadBackgroundImages,
@@ -1046,7 +1051,8 @@ onUnmounted(() => {
     :class="{
       'app-wrapper--background-transition': isBackgroundCrossfading,
       'app-wrapper--decorative-motion-paused': !allowsDecorativeMotion,
-      'app-wrapper--login-glass-high': isLoginWallpaperRoute && loginVisualProfile === 'glass',
+      'app-wrapper--login-glass-high':
+        isLoginWallpaperRoute && loginVisualProfile === 'glass' && opticalQuality !== 'css',
       'app-wrapper--login-wallpaper': isLoginWallpaperRoute,
       'app-wrapper--render-throttled': isRenderThrottled,
     }"
@@ -1090,6 +1096,7 @@ onUnmounted(() => {
         :deformation-strength="opticalDeformationStrength"
         :dynamics-mode="effectiveGlassSettings.glassDynamicsMode"
         :flow-strength="opticalFlowStrength"
+        :light-scheme="!globalTheme.current.value.dark"
         :quality="opticalQuality === 'high' ? 'high' : 'balanced'"
         :reflection-strength="opticalReflectionStrength"
         :transparency-strength="opticalTransparencyStrength"
@@ -1245,6 +1252,34 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
       rgba(var(--glass-wallpaper-shade-rgb, 6, 10, 19), 48%) 100%
     ),
     rgba(var(--glass-material-rgb, 28, 28, 30), 8%);
+}
+
+// 浅色玻璃保持壁纸原貌，材质调色发生在玻璃内部；滤镜挂在图层节点以同时覆盖 CORS 与非 CORS 壁纸
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme {
+  background-color: #eef1f7;
+}
+
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active,
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous {
+  filter: var(--glass-light-wallpaper-filter, saturate(1.05) brightness(var(--glass-wallpaper-brightness, 1.01)));
+  opacity: 1;
+}
+
+html[data-glass-color-scheme='light']
+  .background-container.is-glass-theme
+  :is(.background-image.active, .background-image.previous)
+  .background-image__source {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.active::after,
+html[data-glass-color-scheme='light'] .background-container.is-glass-theme .background-image.previous::after {
+  background: var(
+    --glass-light-wallpaper-veil,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100px, rgba(255, 255, 255, 0) 210px)
+  );
 }
 
 .app-wrapper--decorative-motion-paused {

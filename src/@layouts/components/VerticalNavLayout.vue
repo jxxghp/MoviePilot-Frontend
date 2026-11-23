@@ -75,6 +75,7 @@ export default defineComponent({
 
     const isDialogOpen = ref(false)
     let dialogObserver: MutationObserver | null = null
+    let contentResizeObserver: ResizeObserver | null = null
     const shellScroll = useShellScrollState({ scrollLocked: isDialogOpen })
     const isGlassFloatingAway = ref(false)
     const navbarExpandProgress = computed(() =>
@@ -113,6 +114,13 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
       window.addEventListener('resize', updateFloatingNavbarScale, { passive: true })
+      if (typeof ResizeObserver !== 'undefined' && pageContentRef.value) {
+        // 监听主内容区真实宽度变化，避免从垂直切水平时卡在侧栏收起过渡首帧的旧窄宽度上。
+        contentResizeObserver = new ResizeObserver(() => {
+          updateFloatingNavbarScale()
+        })
+        contentResizeObserver.observe(pageContentRef.value)
+      }
       updateFloatingNavbarScale()
 
       // 初始检查弹窗状态
@@ -129,6 +137,8 @@ export default defineComponent({
     onBeforeUnmount(() => {
       window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
       window.removeEventListener('resize', updateFloatingNavbarScale)
+      contentResizeObserver?.disconnect()
+      contentResizeObserver = null
       dialogObserver?.disconnect()
       dialogObserver = null
     })
@@ -566,6 +576,7 @@ export default defineComponent({
 
     .layout-content-wrapper {
       padding-inline-start: 0;
+      transition: none;
     }
 
     .layout-navbar {

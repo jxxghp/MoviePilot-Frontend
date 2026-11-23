@@ -148,34 +148,83 @@ onMounted(() => {
 function onClose() {
   emit('close')
 }
+
+// 解析存储类型展示名称，未知自定义类型回退为“自定义”。
+const storageTypeLabel = computed(() => {
+  switch (props.storage.type) {
+    case 'local':
+      return t('storage.local')
+    case 'alipan':
+      return t('storage.alipan')
+    case 'u115':
+      return t('storage.u115')
+    case 'rclone':
+      return t('storage.rclone')
+    case 'alist':
+      return t('storage.alist')
+    case 'alistgo':
+      return t('storage.alistgo')
+    case 'smb':
+      return t('storage.smb')
+    default:
+      return t('storage.custom')
+  }
+})
+
+const isUnconfigured = computed(() => props.storage.type !== 'local' && isNullOrEmptyObject(props.storage.config))
+const clampedUsage = computed(() => Math.min(100, Math.max(0, usage.value)))
 </script>
 
 <template>
   <VCard
-    variant="tonal"
-    class="app-card-shell app-card-colorful"
+    variant="flat"
+    class="app-card-shell app-card-colorful mp-setting-card mp-setting-card--interactive"
+    :class="{ 'mp-setting-card--inactive': isUnconfigured }"
     :style="{ '--app-card-accent-rgb': accentRgb }"
     @click="openStorageDialog"
   >
-    <VDialogCloseBtn @click="onClose" />
-    <VCardText class="flex justify-space-between align-center gap-3">
-      <div class="align-self-start flex-1">
-        <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
-        <div class="mb-3 text-sm" v-if="total">{{ formatBytes(used, 1) }} / {{ formatBytes(total, 1) }}</div>
-        <div v-else-if="isNullOrEmptyObject(storage.config)">{{ t('storage.notConfigured') }}</div>
+    <div class="mp-setting-card__header">
+      <div class="mp-setting-card__icon mp-setting-card__icon--logo" aria-hidden="true">
+        <VImg ref="imageRef" :src="getIcon" contain class="mp-setting-card__logo" @load="updateAccentColor" />
       </div>
-      <VImg
-        ref="imageRef"
-        :src="getIcon"
-        cover
-        class="mt-8"
-        max-width="3rem"
-        min-width="3rem"
-        @load="updateAccentColor"
-      />
-    </VCardText>
-    <div class="w-full absolute bottom-0">
-      <VProgressLinear v-if="usage > 0" :model-value="usage" :bg-color="progressColor" :color="progressColor" />
+      <div class="mp-setting-card__heading">
+        <div class="mp-setting-card__title-row">
+          <span class="mp-setting-card__title" :title="storage.name">{{ storage.name }}</span>
+        </div>
+        <div class="mp-setting-card__subtitle">
+          <span v-if="total" class="mp-setting-card__subtitle-text num">
+            {{ `${formatBytes(used, 1)} / ${formatBytes(total, 1)}` }}
+          </span>
+          <span v-else class="mp-setting-card__subtitle-text">{{ storageTypeLabel }}</span>
+        </div>
+      </div>
+      <div class="mp-setting-card__actions">
+        <IconBtn class="mp-setting-card__action cursor-move" :aria-label="t('settingCard.dragSort')" @click.stop>
+          <VIcon class="cursor-move" icon="mdi-drag" />
+        </IconBtn>
+        <VDialogCloseBtn inner-class="mp-setting-card__action mp-setting-card__action--danger" @click="onClose" />
+      </div>
+    </div>
+
+    <div class="mp-setting-card__dock">
+      <div v-if="total > 0" class="mp-setting-card__progress" :title="t('storage.usedPercent', { percent: usage })">
+        <div class="mp-setting-card__progress-track">
+          <span
+            class="mp-setting-card__progress-fill"
+            :class="`mp-setting-card__progress-fill--${progressColor}`"
+            :style="{ inlineSize: `${clampedUsage}%` }"
+          />
+        </div>
+        <span class="mp-setting-card__progress-pct">{{ `${usage}%` }}</span>
+      </div>
+      <span v-else-if="isUnconfigured" class="mp-setting-card__badge mp-setting-card__badge--warning">
+        {{ t('storage.notConfigured') }}
+      </span>
+      <span v-else class="mp-setting-card__status mp-setting-card__status--active">
+        <span class="mp-setting-card__status-dot mp-setting-card__status-dot--active" />
+        {{ t('settingCard.configured') }}
+      </span>
+      <VIcon v-if="storage.type !== 'local'" class="mp-setting-card__chevron" icon="mdi-chevron-right" size="16" />
     </div>
   </VCard>
 </template>

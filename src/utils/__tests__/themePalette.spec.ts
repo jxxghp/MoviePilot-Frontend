@@ -48,6 +48,13 @@ describe('glass appearance preference', () => {
       expect(glass.dark).toBe(expected === 'dark')
       expect(glass.colors.background).toBe(expected === 'dark' ? '#0B1322' : '#F2F2F7')
       expect(glass.colors.surface).toBe(expected === 'dark' ? '#182235' : '#FFFFFF')
+      expect(glass.colors['on-background']).toBe(expected === 'dark' ? '#F2F5FA' : '#18181B')
+      expect(glass.colors['on-surface']).toBe(expected === 'dark' ? '#F2F5FA' : '#18181B')
+      expect(glass.colors['on-surface-variant']).toBe(
+        expected === 'dark' ? 'rgba(242, 245, 250, 0.72)' : 'rgba(82, 82, 91, 0.82)',
+      )
+      expect(glass.colors.warning).toBe(expected === 'dark' ? '#E4B863' : '#D97706')
+      expect(glass.colors['on-warning']).toBe(expected === 'dark' ? '#171106' : '#FFFFFF')
       expect(glass.colors.primary).toBe('#00BCD4')
       expect(glass.colors['on-primary']).toBe('#000000')
       expect(chrome.background).toBe(glass.colors.background)
@@ -73,5 +80,19 @@ describe('glass appearance preference', () => {
     } finally {
       window.removeEventListener('moviepilot-theme-primary-color-change', listener)
     }
+  })
+
+  it('defines explicit on-colors and light-safe variables instead of leaking dark variables into light mode', () => {
+    const darkPalette = getGlassThemePalette('dark')
+    const lightPalette = getGlassThemePalette('light')
+
+    expect(darkPalette.colors['on-info']).toBe('#07101C')
+    expect(darkPalette.colors['on-error']).toBe('#230808')
+    expect(lightPalette.colors['on-info']).toBe('#FFFFFF')
+    expect(lightPalette.colors['on-error']).toBe('#FFFFFF')
+    expect(lightPalette.variables['code-color']).toBe('#B45309')
+    expect(lightPalette.variables['overlay-scrim-opacity']).toBe(0.36)
+    expect(lightPalette.variables['table-header-background']).toBe('rgba(24, 24, 27, 0.04)')
+    expect(lightPalette.variables['custom-background']).toBe('rgba(24, 24, 27, 0.04)')
   })
 })

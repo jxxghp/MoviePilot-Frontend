@@ -253,6 +253,7 @@ describe('glass overlay material styles', () => {
 
   it('renders colored chips as shadowless glass without flattening their variants', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const commonStyles = readFileSync(resolve(cwd(), 'src/styles/common.scss'), 'utf8')
 
     expect(styles).toContain('--glass-chip-backdrop-filter')
     expect(styles).toContain('--glass-chip-sheen')
@@ -263,10 +264,11 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(
       /\.v-chip\[class\*='bg-'\]\s*\{[\s\S]*?--tw-bg-opacity:\s*var\(--glass-chip-tint-opacity\)\s*!important;/,
     )
-    expect(styles).toContain('.v-chip.chip-resolution')
-    expect(styles).toContain(
-      'background-color: rgba(var(--glass-chip-tint), var(--glass-chip-tint-opacity)) !important',
-    )
+    // 种子属性与促销标签已统一迁回 common.scss 由语义柔和令牌驱动，不再在 glass.scss 写死 --glass-chip-tint 私有覆盖。
+    expect(styles).not.toContain('.v-chip.chip-resolution')
+    expect(styles).not.toContain('--glass-chip-tint:')
+    expect(commonStyles).toContain('.v-chip:where(.chip-web-source, .chip-resolution)')
+    expect(commonStyles).toContain('var(--mp-info-soft)')
     expect(styles).not.toContain('.v-chip::after')
     expect(styles).not.toContain(".v-chip:not([class*='border-'])")
     expect(styles).not.toContain('.v-chip--variant-tonal > .v-chip__underlay')
@@ -299,7 +301,8 @@ describe('glass overlay material styles', () => {
       /\.media-detail-glass \.episode-group-option\s*\{(?<declarations>[\s\S]*?)\n\}/u,
     )?.groups?.declarations
 
-    expect(mediaDetail.match(/media-source-link-chip/g)).toHaveLength(8)
+    // 外链 chip 与「查找 TMDB」按钮 chip 共用同一玻璃材质规则。
+    expect(mediaDetail.match(/media-source-link-chip/g)).toHaveLength(9)
     expect(mediaSourceRule).toContain('var(--glass-chip-backdrop-filter)')
     expect(mediaSourceRule).toContain('var(--glass-button-surface)')
     expect(mediaSourceRule).toContain('var(--glass-chip-sheen)')
@@ -310,23 +313,23 @@ describe('glass overlay material styles', () => {
     expect(episodeGroupRule).toContain('var(--glass-control-shadow)')
   })
 
-  it('keeps workflow share gradients as colored glass in every appearance', () => {
+  it('keeps workflow share gradients as colored banner glass in every appearance', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const glassV3 = readFileSync(resolve(cwd(), 'src/styles/themes/_glass-v3.scss'), 'utf8')
     const card = readFileSync(resolve(cwd(), 'src/components/cards/WorkflowShareCard.vue'), 'utf8')
 
     expect(card).toContain('--workflow-share-gradient-start-rgb')
     expect(card).toContain('--workflow-share-gradient-end-rgb')
+    expect(glassV3).toContain('.workflow-share-card')
     const ruleStart = styles.indexOf('.workflow-share-card {')
     const ruleEnd = styles.indexOf('\n  }', ruleStart)
     const workflowShareCardRule = styles.slice(ruleStart, ruleEnd)
     const expectedLayers = [
-      '--workflow-share-glass-background:',
-      'var(--glass-sheen),',
-      'var(--workflow-share-glass-scrim),',
+      '--workflow-banner-scrim:',
+      'var(--glass-material-rgb)',
+      '--workflow-banner-tint:',
       'var(--workflow-share-gradient-start-rgb,',
       'var(--workflow-share-gradient-end-rgb,',
-      '--glass-v3-card-background: var(--workflow-share-glass-background), var(--glass-surface);',
-      'background-image: var(--workflow-share-glass-background) !important;',
     ]
 
     expect(ruleStart).toBeGreaterThanOrEqual(0)
@@ -338,6 +341,9 @@ describe('glass overlay material styles', () => {
       expect(layerIndex).toBeGreaterThan(previousLayerIndex)
       previousLayerIndex = layerIndex
     }
+    expect(styles).toContain(
+      ':is(.plugin-card__banner, .workflow-task-card__banner, .workflow-share-card__banner)::before',
+    )
     expect(styles).toContain("&[data-glass-appearance='frosted'] .workflow-share-card")
     expect(styles).toContain("&[data-glass-appearance='tinted'] .workflow-share-card")
   })
@@ -502,6 +508,16 @@ describe('glass overlay material styles', () => {
     )
   })
 
+  it('keeps tooltip and snackbar text readable on light glass surfaces', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const overlayRule = styles.match(
+      /\.v-tooltip > \.v-overlay__content,\s*\.v-snackbar__wrapper\s*\{(?<declarations>[\s\S]*?)\n {2}\}/u,
+    )?.groups?.declarations
+
+    expect(overlayRule).toBeDefined()
+    expect(overlayRule).toContain('color: rgb(var(--v-theme-on-surface)) !important')
+  })
+
   it('keeps the PWA install description on the theme emphasis color', () => {
     const component = readFileSync(resolve(cwd(), 'src/components/pwa/PWAInstallPrompt.vue'), 'utf8')
 
@@ -593,9 +609,7 @@ describe('glass overlay material styles', () => {
       /\.layout-wrapper:not\(\.layout-fixed-shell-backplate-active\) \.layout-vertical-nav::before,[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
     )
     expect(styles).not.toContain('.settings-section-card.app-grouped-list')
-    expect(styles).toMatch(
-      /\.file-browser-toolbar\.v-toolbar\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-surface-backdrop-filter\)\s*!important;/,
-    )
+    expect(styles).not.toContain('.file-browser-toolbar.v-toolbar')
     expect(styles).not.toMatch(
       /\[data-glass-scroll-presentation='native'\][\s\S]*?:where\([\s\S]*?--glass-native-surface-backdrop-filter/,
     )

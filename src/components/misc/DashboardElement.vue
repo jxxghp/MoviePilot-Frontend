@@ -1,36 +1,14 @@
 <script setup lang="ts">
+import { providePluginHostSDK } from '@/composables/usePluginHostSDK'
 import { h, resolveComponent } from 'vue'
 import { createPluginInstanceApi } from '@/api'
 import { DashboardItem } from '@/api/types'
 import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
-import { useToast } from 'vue-toastification'
-import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
-import { provideScopedAgentHost } from '@/composables/useAgentHost'
-import { useConfirm } from '@/composables/useConfirm'
-import { openSharedDialog } from '@/composables/useSharedDialog'
 import RemoteComponentError from './RemoteComponentError.vue'
 
 type DashboardComponentLoader = () => Promise<any>
-
-// 仪表板联邦组件复用主应用 Toast 实例。
-const $toast = useToast()
-provide('moviepilot:toast', $toast)
-
-// 向仪表板联邦组件导出主应用公共弹窗入口。
-provide('moviepilot:dialog', openSharedDialog)
-
-// 确认弹窗单独提供，避免插件自行挂载确认组件。
-const createConfirm = useConfirm()
-provide('moviepilot:confirm', createConfirm)
-
-// 向仪表板联邦组件导出主程序原生订阅入口。
-const nativeSubscribe = usePluginNativeSubscribe()
-provide('moviepilot:nativeSubscribe', nativeSubscribe)
-
-// 向联邦组件注入按插件实例绑定的 Agent 宿主能力，emit 自动标记来源实例。
-provideScopedAgentHost(() => props.config?.id)
 
 const DashboardSkeleton = {
   // 创建无需模板编译的仪表板加载骨架。
@@ -135,6 +113,16 @@ const pluginRenderMode = computed(() => props.config?.render_mode || 'vuetify')
 
 // 仪表盘远程组件共享源码，但所有插件动态 API 保持实例级隔离。
 const scopedPluginApi = computed(() => createPluginInstanceApi(props.config?.id || '', props.config?.source_plugin_id))
+
+// 统一 SDK 与兼容注入共用同一组宿主服务。
+const hostSdk = providePluginHostSDK({
+  surface: 'dashboard',
+  pluginId: () => props.config?.id,
+  sourcePluginId: () => props.config?.source_plugin_id,
+  api: () => scopedPluginApi.value,
+})
+const nativeSubscribe = hostSdk.subscriptions.create
+const subscriptionManager = hostSdk.subscriptions.manage
 
 // 插件节点身份变化时重建异步组件，使失败后的远程模块可以再次加载。
 const pluginDashboardIdentity = computed(
@@ -265,6 +253,8 @@ onUnmounted(() => {
         :config="props.config"
         :allow-refresh="props.allowRefresh"
         :api="scopedPluginApi"
+        :host-sdk="hostSdk"
+        :subscription-manager="subscriptionManager"
         :plugin-id="props.config?.id"
         :source-plugin-id="props.config?.source_plugin_id"
         :native-subscribe="nativeSubscribe"

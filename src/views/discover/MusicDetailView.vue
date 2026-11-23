@@ -11,6 +11,8 @@ import { getMediaSubscribeId, useMediaSubscribe } from '@/composables/useMediaSu
 import { useMusicSiteSearch } from '@/composables/useMusicSiteSearch'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { canUseNativeMediaPlayback, playMusicTrack } from '@/utils/mediaPlayback'
+import { useToast } from 'vue-toastification'
 import {
   buildMusicAlbumRoute,
   buildMusicArtistRoute,
@@ -22,6 +24,7 @@ import {
 
 const { t } = useI18n()
 const router = useRouter()
+const $toast = useToast()
 
 const props = defineProps<{
   // 音乐数据源原生单曲 ID
@@ -39,6 +42,10 @@ const isRefreshed = ref(false)
 const music = ref<MediaInfo>()
 const album = ref<MusicAlbumInfo>()
 const isSubscribed = ref(false)
+const isStartingPlayback = ref(false)
+const canPlayInApp = computed(
+  () => canUseNativeMediaPlayback() && Boolean(music.value?.media_id) && music.value?.music_type !== 'album',
+)
 
 // 可点击跳转的艺术家
 const artistLinks = computed(() => getMusicArtistLinks(music.value))
@@ -128,6 +135,20 @@ async function checkSubscribeStatus() {
   }
 }
 
+/** 在媒体库中匹配这首录音，并交给 App 原生音频播放器。 */
+async function playCurrentTrack() {
+  if (!music.value || isStartingPlayback.value) return
+  isStartingPlayback.value = true
+  try {
+    await playMusicTrack(music.value, albumTracks.value)
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('music.playbackFailed'))
+  } finally {
+    isStartingPlayback.value = false
+  }
+}
+
 /** 打开所属专辑详情页。 */
 function goAlbum() {
   if (!music.value?.album_id || !props.mediaSource) return
@@ -143,6 +164,14 @@ function goArtist(artistId?: string, name?: string) {
 watch(() => [props.mediaSource, props.mediaId], loadMusicDetail, { immediate: true })
 useNativePageHeader({
   actions: computed(() => [
+    {
+      title: t('music.play'),
+      icon: 'mdi-play',
+      show: canPlayInApp.value,
+      action: () => {
+        void playCurrentTrack()
+      },
+    },
     {
       title: t('music.searchResources'),
       icon: 'mdi-magnify',
@@ -191,6 +220,17 @@ useNativePageHeader({
     </template>
 
     <template #actions>
+      <VBtn
+        v-if="canPlayInApp"
+        color="primary"
+        variant="flat"
+        prepend-icon="mdi-play"
+        :loading="isStartingPlayback"
+        :disabled="isStartingPlayback"
+        @click="playCurrentTrack"
+      >
+        {{ t('music.play') }}
+      </VBtn>
       <VBtn v-if="canSearch" variant="tonal" color="primary" prepend-icon="mdi-magnify" @click="openMusicSiteSearch">
         {{ t('music.searchResources') }}
       </VBtn>
@@ -219,29 +259,29 @@ useNativePageHeader({
       </div>
       <div v-if="music.release_date || music.year" class="music-fact">
         <span>{{ t('music.releaseDate') }}</span>
-        <span class="music-fact-value">{{ music.release_date || music.year }}</span>
+        <span class="music-fact-value num">{{ music.release_date || music.year }}</span>
       </div>
       <div v-if="music.duration" class="music-fact">
         <span>{{ t('music.duration') }}</span>
-        <span class="music-fact-value">{{ formatMusicDuration(music.duration) }}</span>
+        <span class="music-fact-value num">{{ formatMusicDuration(music.duration) }}</span>
       </div>
       <div v-if="music.track_number" class="music-fact">
         <span>{{ t('music.track') }}</span>
-        <span class="music-fact-value">
+        <span class="music-fact-value num">
           {{ music.disc_number ? `${music.disc_number}-${music.track_number}` : music.track_number }}
         </span>
       </div>
       <div v-if="music.isrc" class="music-fact">
         <span>ISRC</span>
-        <span class="music-fact-value">{{ music.isrc }}</span>
+        <span class="music-fact-value num">{{ music.isrc }}</span>
       </div>
       <div v-if="music.listen_count" class="music-fact">
         <span>{{ t('music.listenCount') }}</span>
-        <span class="music-fact-value">{{ music.listen_count.toLocaleString() }}</span>
+        <span class="music-fact-value num">{{ music.listen_count.toLocaleString() }}</span>
       </div>
       <div class="music-fact music-fact--last">
         <span>{{ sourceLabel }} ID</span>
-        <span class="music-fact-value music-fact-id">{{ music.media_id }}</span>
+        <span class="music-fact-value music-fact-id num">{{ music.media_id }}</span>
       </div>
     </template>
 
@@ -288,7 +328,7 @@ useNativePageHeader({
 
 <style scoped>
 .music-link {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   cursor: pointer;
   text-decoration: none;
 }
@@ -301,7 +341,7 @@ useNativePageHeader({
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 0.5rem;
   padding-inline: 1rem;
 }
@@ -323,8 +363,10 @@ useNativePageHeader({
 .music-external-link {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+  border: 1px solid var(--mp-border);
   border-radius: 9999px;
+  background: var(--mp-muted);
+  color: var(--mp-fg);
   font-size: 0.875rem;
   padding-block: 0.25rem;
   padding-inline: 0.75rem;
@@ -338,7 +380,7 @@ useNativePageHeader({
 /* 章节标题对齐影视详情页：h2 + 上下留白，避免曲目列表贴着标题 */
 .music-section-heading {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.75rem;
   margin: 0;
   padding-block: 1rem;

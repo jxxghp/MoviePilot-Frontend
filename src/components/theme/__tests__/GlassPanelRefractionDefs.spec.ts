@@ -256,6 +256,7 @@ describe('GlassPanelRefractionDefs', () => {
     }
 
     document.documentElement.dataset.theme = 'glass'
+    document.documentElement.dataset.glassColorScheme = 'dark'
     document.documentElement.dataset.glassAppearance = effectiveSettings.value.glassAppearance
     document.documentElement.dataset.glassQuality = effectiveSettings.value.glassQuality
 
@@ -1623,5 +1624,45 @@ describe('GlassPanelRefractionDefs', () => {
     expect(layer.style.getPropertyValue('filter')).toBe('')
     expect(navbar.style.getPropertyValue('--glass-panel-filter')).toBe('')
     expect(shell.querySelectorAll('[data-glass-panel-refraction]')).toHaveLength(0)
+  })
+
+  it('enables live SVG refraction with tone filter injection in light glass and scales frosted bodyBlur', async () => {
+    document.documentElement.dataset.glassColorScheme = 'light'
+    mountPanel()
+    await settle()
+
+    const clearFilter = card.style.getPropertyValue('backdrop-filter')
+    expect(clearFilter).toContain('url(')
+    expect(clearFilter).toContain(
+      'var(--glass-panel-tone-filter, saturate(118%) brightness(var(--glass-transmission-brightness, 1)))',
+    )
+    expect(card.style.getPropertyPriority('backdrop-filter')).toBe('important')
+    expect(card.hasAttribute('data-glass-panel-refraction')).toBe(true)
+
+    effectiveSettings.value.glassAppearance = 'frosted'
+    effectiveSettings.value.glassQuality = 'balanced'
+    await settle()
+
+    const lightBalancedBlur = Number(wrapper?.find('feGaussianBlur').attributes('stdDeviation'))
+    expect(lightBalancedBlur).toBeGreaterThan(20)
+    expect(wrapper?.find('feDisplacementMap').attributes('in')).toBe('diffused')
+    expect(wrapper?.findAll('feComposite')).toHaveLength(0)
+    expect(card.style.getPropertyValue('backdrop-filter')).not.toContain('blur(')
+
+    effectiveSettings.value.glassQuality = 'high'
+    await settle()
+
+    const lightBlur = Number(wrapper?.find('feGaussianBlur').attributes('stdDeviation'))
+    expect(lightBlur).toBeGreaterThan(20)
+    expect(wrapper?.findAll('feComposite')).toHaveLength(0)
+
+    document.documentElement.dataset.glassColorScheme = 'dark'
+    await flushPromises()
+    await settle()
+
+    const darkBlur = Number(wrapper?.find('feGaussianBlur').attributes('stdDeviation'))
+    expect(darkBlur).toBeLessThan(lightBlur)
+    expect(wrapper?.findAll('feComposite').length).toBeGreaterThan(0)
+    expect(card.style.getPropertyValue('backdrop-filter')).toContain('url(')
   })
 })

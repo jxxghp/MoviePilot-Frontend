@@ -167,6 +167,32 @@ export interface NativeLayout {
   consumedByNativeFrame: boolean
 }
 
+/** 已匹配到媒体服务器的音乐队列项，不承载流地址或认证信息。 */
+export interface NativePlaybackQueueItem {
+  itemId: string
+  title: string
+  /** 精确媒体服务器配置名称，用于避免不同服务器的条目 ID 冲突。 */
+  server?: string
+  /** 当前实例图片代理生成的专辑封面地址。 */
+  artworkURL?: string
+}
+
+/** 网页请求在 App 内打开指定媒体条目，不承载流地址或认证信息。 */
+export interface NativePlaybackOpenRequest {
+  itemId: string
+  title: string
+  /** 精确媒体服务器配置名称，用于避免不同服务器的条目 ID 冲突。 */
+  server?: string
+  /** 当前实例图片代理生成的专辑封面地址；原始外站地址不会穿过原生桥。 */
+  artworkURL?: string
+  /** 已按专辑曲序匹配成功的音乐队列；只在 App 原生播放时使用。 */
+  queue?: NativePlaybackQueueItem[]
+  /** 当前曲目在 queue 中的零基位置。 */
+  queueIndex?: number
+  season?: number
+  episode?: number
+}
+
 /** v1 消息外壳；会话仅用于隔离不同文档，不作为认证凭据。 */
 export interface NativeEnvelope {
   protocol: 'moviepilot.chrome'
@@ -204,6 +230,8 @@ export interface NativeTransport {
   cardMenusVersion?: 1
   /** 可选独立操作菜单；双方协商后由系统有界弹窗代替原 HTML 菜单。 */
   standaloneMenusVersion?: 1
+  /** 可选 App 内媒体播放能力；条目 ID 会在原生端通过当前实例重新解析。 */
+  playbackVersion?: 1
   /** 非敏感安装标识，仅用于退出当前账号时撤销对应通知绑定。 */
   notificationInstallation?: string
   /** 只发送 JSON 声明，不暴露任意原生方法。 */
@@ -227,6 +255,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 /** 关联标识保持与 Swift 相同的短 ASCII 范围。 */
 export function isNativeIdentifier(value: unknown): value is string {
   return typeof value === 'string' && /^[\x21-\x7e]{1,128}$/.test(value)
+}
+
+/** 单文件票据允许较长的 Fernet ID，其它播放 ID 沿用原有长度限制。 */
+export function isNativePlaybackItemId(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  return value.startsWith('file.') ? /^file\.[A-Za-z0-9_-]{64,4096}$/.test(value) : isNativeIdentifier(value)
 }
 
 /** 内部路由不接受绝对来源、反斜杠或控制字符。 */

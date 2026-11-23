@@ -1,7 +1,10 @@
 import {
   isNativeIdentifier,
+  isNativePlaybackItemId,
   isRecord,
   type NativeEnvelope,
+  type NativePlaybackOpenRequest,
+  type NativePlaybackQueueItem,
   type NativeSnapshot,
   type NativeTransport,
 } from './protocol'
@@ -39,6 +42,8 @@ export class NativeChromeSession {
   private stateRevision = 0
   private routeRevision = 0
   private sequence = 0
+  /** 首次接管沿用前台协商状态；等待期间到达的宿主场景信号必须保留。 */
+  private hostLifecycle: 'active' | 'inactive' | 'background' = 'active'
   private timer?: ReturnType<typeof setTimeout>
   private runningCommands = 0
   private readonly results = new Map<string, Promise<{ accepted: boolean; error?: string }>>()
@@ -57,6 +62,7 @@ export class NativeChromeSession {
   private cacheActive = false
   private cardMenusNegotiated = false
   private standaloneMenusNegotiated = false
+  private playbackNegotiated = false
   private menusPaused = false
   private menusForeground = true
   /** 网页退出先同步通知宿主，再阻止本代次产生任何新的组件凭据。 */
@@ -65,6 +71,55 @@ export class NativeChromeSession {
     this.cancelWidgetRequest()
     this.widgetsPaused = true
     this.post('widget.logout', {})
+  }
+  /** 只把当前主文档明确选中的媒体条目交给已协商的播放器能力。 */
+  private readonly playbackOpen = (event: Event) => {
+    if (this.phase !== 'active' || !this.playbackNegotiated || this.menusPaused || !this.menusForeground) return
+    const value = (event as CustomEvent<unknown>).detail
+    if (!isRecord(value)) return
+    const itemId = value.itemId
+    const title = value.title
+    const server = value.server
+    const artworkURL = normalizePlaybackArtworkURL(value.artworkURL)
+    const playbackQueue = normalizePlaybackQueue(value.queue, value.queueIndex, itemId)
+    const season = value.season
+    const episode = value.episode
+    const hasEpisode = season !== undefined || episode !== undefined
+    if (
+      !isNativePlaybackItemId(itemId) ||
+      typeof title !== 'string' ||
+      !title.trim() ||
+      title.length > 256 ||
+      Array.from(title).some(character => {
+        const code = character.charCodeAt(0)
+        return code < 0x20 || code === 0x7f
+      }) ||
+      (server !== undefined &&
+        (typeof server !== 'string' ||
+          !server.trim() ||
+          new TextEncoder().encode(server).length > 128 ||
+          Array.from(server).some(character => {
+            const code = character.charCodeAt(0)
+            return code < 0x20 || code === 0x7f
+          }))) ||
+      (hasEpisode &&
+        (!Number.isInteger(season) ||
+          !Number.isInteger(episode) ||
+          (season as number) < 0 ||
+          (season as number) > 999 ||
+          (episode as number) < 0 ||
+          (episode as number) > 9999))
+    )
+      return
+    const request: NativePlaybackOpenRequest = {
+      itemId,
+      title: title.trim(),
+      ...(typeof server === 'string' ? { server: server.trim() } : {}),
+      ...(artworkURL ? { artworkURL } : {}),
+      ...(playbackQueue ? { queue: playbackQueue.items, queueIndex: playbackQueue.index } : {}),
+      ...(hasEpisode ? { season: season as number, episode: episode as number } : {}),
+    }
+    this.post('playback.open', { ...request })
   }
   private readonly listener = (event: Event) => {
     void this.receive((event as CustomEvent<unknown>).detail).catch(() => this.fail())
@@ -79,6 +134,7 @@ export class NativeChromeSession {
     this.phase = 'waiting'
     this.options.target.addEventListener('moviepilot:native-message', this.listener)
     this.options.target.addEventListener('moviepilot:widget-logout', this.widgetLogout)
+    this.options.target.addEventListener('moviepilot:playback-open', this.playbackOpen)
     this.post('web.ready', {
       majors: [1],
       capabilities: [
@@ -95,6 +151,7 @@ export class NativeChromeSession {
         ...(this.options.transport.standaloneMenusVersion === 1 && this.options.standaloneMenus
           ? ['standalone-menus.v1']
           : []),
+        ...(this.options.transport.playbackVersion === 1 ? ['playback.v1'] : []),
       ],
     })
     this.timer = setTimeout(() => {
@@ -139,6 +196,7 @@ export class NativeChromeSession {
   async stop() {
     this.cardMenusNegotiated = false
     this.standaloneMenusNegotiated = false
+    this.playbackNegotiated = false
     this.updateMenus()
     this.cacheNegotiated = false
     this.updateCache()
@@ -148,6 +206,7 @@ export class NativeChromeSession {
     clearTimeout(this.timer)
     this.options.target.removeEventListener('moviepilot:native-message', this.listener)
     this.options.target.removeEventListener('moviepilot:widget-logout', this.widgetLogout)
+    this.options.target.removeEventListener('moviepilot:playback-open', this.playbackOpen)
     this.phase = 'closed'
     await this.options.setActive(false)
     this.results.clear()
@@ -332,6 +391,9 @@ export class NativeChromeSession {
         this.options.standaloneMenus &&
         capabilities.includes('standalone-menus.v1'),
       )
+      this.playbackNegotiated = Boolean(
+        this.options.transport.playbackVersion === 1 && capabilities.includes('playback.v1'),
+      )
       this.phase = 'configured'
       this.publish()
       this.timer = setTimeout(() => {
@@ -427,6 +489,8 @@ export class NativeChromeSession {
         return
       }
       this.phase = 'active'
+      // 首次进入也要初始化生命周期，不能等待一次前后台切换才唤醒无焦点的 WebView。
+      this.options.lifecycle(this.hostLifecycle)
       this.updateMenus()
       this.updateCache()
       clearTimeout(this.timer)
@@ -440,6 +504,7 @@ export class NativeChromeSession {
     if (message.type === 'host.lifecycle') {
       const state = message.payload.state
       if (state === 'active' || state === 'inactive' || state === 'background') {
+        this.hostLifecycle = state
         this.widgetForeground = state === 'active'
         this.cacheForeground = state === 'active'
         this.menusForeground = state === 'active'
@@ -567,4 +632,70 @@ export class NativeChromeSession {
       }
     }
   }
+}
+
+/** 原生桥只接收当前实例图片代理地址，避免把外站 URL 或认证信息传给播放器。 */
+function normalizePlaybackArtworkURL(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 2048) return undefined
+  try {
+    const url = new URL(value, document.baseURI)
+    const imageURL = url.searchParams.get('imgurl')
+    const allowedParameters = new Set(['imgurl', 'cache', 'use_cookies', 'maxWidth', 'quality'])
+    if (
+      url.origin !== window.location.origin ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      !url.pathname.endsWith('/system/img/0') ||
+      !imageURL ||
+      [...url.searchParams.keys()].some(key => !allowedParameters.has(key)) ||
+      [...url.searchParams.keys()].some((key, index, keys) => keys.indexOf(key) !== index)
+    )
+      return undefined
+    const source = new URL(imageURL)
+    if (!['http:', 'https:'].includes(source.protocol) || source.username || source.password || source.hash) {
+      return undefined
+    }
+    return url.href
+  } catch {
+    return undefined
+  }
+}
+
+/** 只把当前条目所在的有限曲序队列交给原生播放，过滤掉不完整的队列声明。 */
+function normalizePlaybackQueue(
+  value: unknown,
+  selectedIndex: unknown,
+  currentItemId: unknown,
+): { items: NativePlaybackQueueItem[]; index: number } | undefined {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 100) return undefined
+  if (!Number.isInteger(selectedIndex) || (selectedIndex as number) < 0 || (selectedIndex as number) >= value.length) {
+    return undefined
+  }
+  const items: NativePlaybackQueueItem[] = []
+  for (const candidate of value) {
+    if (!isRecord(candidate)) return undefined
+    const itemId = candidate.itemId
+    const title = candidate.title
+    const server = candidate.server
+    const artworkURL = normalizePlaybackArtworkURL(candidate.artworkURL)
+    if (
+      !isNativePlaybackItemId(itemId) ||
+      typeof title !== 'string' ||
+      !title.trim() ||
+      title.length > 256 ||
+      (server !== undefined &&
+        (typeof server !== 'string' || !server.trim() || new TextEncoder().encode(server).length > 128)) ||
+      (candidate.artworkURL !== undefined && !artworkURL)
+    )
+      return undefined
+    items.push({
+      itemId,
+      title: title.trim(),
+      ...(typeof server === 'string' ? { server: server.trim() } : {}),
+      ...(artworkURL ? { artworkURL } : {}),
+    })
+  }
+  const index = selectedIndex as number
+  return items[index]?.itemId === currentItemId ? { items, index } : undefined
 }

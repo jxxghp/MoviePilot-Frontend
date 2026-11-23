@@ -538,88 +538,90 @@ onMounted(async () => {
         </div>
       </div>
       <div v-if="showHorizontalThemeNav" class="theme-horizontal-nav">
-        <VMenu
-          v-for="group in horizontalNavGroups"
-          :key="group.title"
-          :model-value="openHorizontalNavGroup === group.title"
-          location="bottom start"
-          offset="8"
-          open-on-hover
-          :open-delay="0"
-          :close-delay="120"
-          :close-on-content-click="false"
-          @update:model-value="openHorizontalNavGroup = $event ? group.title : null"
-        >
-          <template #activator="{ props: menuProps }">
-            <VBtn
-              v-bind="menuProps"
-              :prepend-icon="group.icon"
-              append-icon="mdi-chevron-down"
-              :variant="isHorizontalNavGroupActive(group) ? 'tonal' : 'text'"
-              :color="isHorizontalNavGroupActive(group) ? 'primary' : 'default'"
-              rounded="pill"
-              class="theme-horizontal-nav__item"
-            >
-              {{ group.title }}
-            </VBtn>
-          </template>
-
-          <VList class="theme-horizontal-nav__menu" min-width="13rem" density="comfortable">
-            <template v-for="item in group.items" :key="`${group.title}-${item.title}-${item.to}`">
-              <VMenu
-                v-if="hasHorizontalDynamicTabs(item)"
-                location="end top"
-                offset="8"
-                open-on-hover
-                :open-delay="0"
-                :close-delay="120"
-                :close-on-content-click="true"
+        <div class="theme-horizontal-nav__menu-items">
+          <VMenu
+            v-for="group in horizontalNavGroups"
+            :key="group.title"
+            :model-value="openHorizontalNavGroup === group.title"
+            location="bottom start"
+            offset="8"
+            open-on-hover
+            :open-delay="0"
+            :close-delay="120"
+            :close-on-content-click="false"
+            @update:model-value="openHorizontalNavGroup = $event ? group.title : null"
+          >
+            <template #activator="{ props: menuProps }">
+              <VBtn
+                v-bind="menuProps"
+                :prepend-icon="group.icon"
+                append-icon="mdi-chevron-down"
+                :variant="isHorizontalNavGroupActive(group) ? 'tonal' : 'text'"
+                :color="isHorizontalNavGroupActive(group) ? 'primary' : 'default'"
+                rounded="pill"
+                class="theme-horizontal-nav__item"
               >
-                <template #activator="{ props: subMenuProps }">
-                  <VListItem
-                    v-bind="subMenuProps"
-                    :active="isHorizontalNavActive(item)"
-                    class="theme-horizontal-nav__submenu-activator"
-                  >
-                    <template #prepend>
-                      <VIcon :icon="String(item.icon || '')" />
-                    </template>
-                    <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
-                    <template #append>
-                      <VIcon icon="mdi-chevron-right" size="small" />
-                    </template>
-                  </VListItem>
-                </template>
-
-                <VList class="theme-horizontal-nav__submenu" min-width="12rem" density="comfortable">
-                  <VListItem
-                    v-for="tab in getHorizontalNavTabs(item)"
-                    :key="`${item.to}-${tab.tab}`"
-                    :active="isHorizontalDynamicTabActive(tab)"
-                    @click="handleHorizontalDynamicTabSelect(item, tab)"
-                  >
-                    <template #prepend>
-                      <VIcon :icon="getHorizontalTabIcon(tab)" />
-                    </template>
-                    <VListItemTitle>{{ tab.title }}</VListItemTitle>
-                  </VListItem>
-                </VList>
-              </VMenu>
-
-              <VListItem
-                v-else
-                :to="item.to || undefined"
-                :active="isHorizontalNavActive(item)"
-                @click="closeHorizontalNavGroup"
-              >
-                <template #prepend>
-                  <VIcon :icon="String(item.icon || '')" />
-                </template>
-                <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
-              </VListItem>
+                {{ group.title }}
+              </VBtn>
             </template>
-          </VList>
-        </VMenu>
+
+            <VList class="theme-horizontal-nav__menu" min-width="13rem" density="comfortable">
+              <template v-for="item in group.items" :key="`${group.title}-${item.title}-${item.to}`">
+                <VMenu
+                  v-if="hasHorizontalDynamicTabs(item)"
+                  location="end top"
+                  offset="8"
+                  open-on-hover
+                  :open-delay="0"
+                  :close-delay="120"
+                  :close-on-content-click="true"
+                >
+                  <template #activator="{ props: subMenuProps }">
+                    <VListItem
+                      v-bind="subMenuProps"
+                      :active="isHorizontalNavActive(item)"
+                      class="theme-horizontal-nav__submenu-activator"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="String(item.icon || '')" />
+                      </template>
+                      <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
+                      <template #append>
+                        <VIcon icon="mdi-chevron-right" size="small" />
+                      </template>
+                    </VListItem>
+                  </template>
+
+                  <VList class="theme-horizontal-nav__submenu" min-width="12rem" density="comfortable">
+                    <VListItem
+                      v-for="tab in getHorizontalNavTabs(item)"
+                      :key="`${item.to}-${tab.tab}`"
+                      :active="isHorizontalDynamicTabActive(tab)"
+                      @click="handleHorizontalDynamicTabSelect(item, tab)"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="getHorizontalTabIcon(tab)" />
+                      </template>
+                      <VListItemTitle>{{ tab.title }}</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
+
+                <VListItem
+                  v-else
+                  :to="item.to || undefined"
+                  :active="isHorizontalNavActive(item)"
+                  @click="closeHorizontalNavGroup"
+                >
+                  <template #prepend>
+                    <VIcon :icon="String(item.icon || '')" />
+                  </template>
+                  <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
+                </VListItem>
+              </template>
+            </VList>
+          </VMenu>
+        </div>
         <div v-if="visibleHorizontalHeaderButtons.length" class="theme-horizontal-nav__actions">
           <VBtn
             v-for="button in visibleHorizontalHeaderButtons"
@@ -781,11 +783,13 @@ onMounted(async () => {
 .theme-navbar-actions--horizontal {
   grid-column: 3;
   grid-row: 1;
-  gap: 0.85rem;
+  gap: 0.5rem;
+  min-inline-size: 0;
 
   :deep(.search-desktop-activator) {
-    flex-basis: clamp(12rem, 20vw, 17.5rem);
-    inline-size: clamp(12rem, 20vw, 17.5rem);
+    flex: 0 1 clamp(9.5rem, 14vw, 16rem);
+    inline-size: auto;
+    min-inline-size: 8rem;
   }
 
   :deep(.ms-2),
@@ -822,8 +826,22 @@ onMounted(async () => {
   block-size: auto;
   gap: 0.25rem;
   min-inline-size: 0;
-  overflow: visible;
-  padding: 0;
+}
+
+.theme-horizontal-nav__menu-items {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .theme-horizontal-nav__item {
@@ -834,7 +852,7 @@ onMounted(async () => {
 
 .theme-horizontal-nav__menu,
 .theme-horizontal-nav__submenu {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border: var(--app-overlay-border);
 }
 
 .theme-horizontal-nav__submenu-activator {
@@ -845,7 +863,32 @@ onMounted(async () => {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  gap: 0.125rem;
   margin-inline-start: auto;
+
+  :deep(.v-btn.v-btn--icon) {
+    block-size: 2.25rem;
+    inline-size: 2.25rem;
+  }
+}
+
+// 窄桌面视口与存在页面右侧操作按钮时收紧搜索框与导航间距，避免最右侧分组箭头被横向裁切。
+@media (width <= 1536px) {
+  .theme-navbar-actions--horizontal {
+    gap: 0.375rem;
+
+    :deep(.search-desktop-activator) {
+      flex: 0 1 clamp(8rem, 13.5vw, 14rem);
+    }
+  }
+
+  .theme-horizontal-nav__menu-items {
+    gap: 0.125rem;
+  }
+
+  .theme-horizontal-nav__item {
+    padding-inline: 0.625rem !important;
+  }
 }
 
 @media (width <= 1366px) {

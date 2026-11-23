@@ -9,11 +9,14 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import { useDisplay } from 'vuetify'
 
 const AddSubtitleDownloadDialog = defineAsyncComponent(() => import('../dialog/AddSubtitleDownloadDialog.vue'))
 
 // 多语言支持
 const { t } = useI18n()
+const display = useDisplay()
+const isDesktopLayout = computed(() => display.mdAndUp.value)
 
 // 输入参数
 const props = defineProps({
@@ -117,8 +120,12 @@ watch(
   <div class="subtitle-item-hover-area w-100">
     <VListItem
       :value="subtitle?.enclosure"
-      class="app-hover-lift-card pa-3 mb-2 rounded subtitle-item overflow-hidden"
-      :class="{ 'border-start border-success border-3 opacity-85': isDownloaded }"
+      class="pa-3 subtitle-item overflow-hidden"
+      :class="{
+        'app-hover-lift-card mb-2 rounded': !isDesktopLayout,
+        'subtitle-item--desktop no-blur': isDesktopLayout,
+        'border-start border-success border-3 opacity-85': isDownloaded,
+      }"
       @click="handleAddDownload"
     >
       <template #prepend>
@@ -236,8 +243,37 @@ watch(
   border: var(--app-card-light-border);
 }
 
-.subtitle-item-hover-area:hover .subtitle-item {
+.subtitle-item-hover-area:hover .subtitle-item:not(.subtitle-item--desktop) {
   border-color: rgba(var(--v-theme-primary), 0.3);
   transform: translate3d(0, -0.25rem, 0);
+}
+
+.subtitle-item--desktop {
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  padding-inline: 16px !important;
+  transition: background-color 150ms ease;
+}
+
+.subtitle-item--desktop :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+
+.subtitle-item--desktop:not(.border-success) {
+  border: 0;
+}
+
+.subtitle-item--desktop.border-success {
+  border-block: 0;
+  border-inline-end: 0;
+}
+
+.subtitle-item-hover-area:hover .subtitle-item--desktop {
+  background-color: var(--mp-list-row-hover) !important;
+  box-shadow: none !important;
+  transform: none;
 }
 </style>

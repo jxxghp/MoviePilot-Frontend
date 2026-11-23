@@ -21,6 +21,18 @@ const plugin: Plugin = {
   state: true,
 }
 
+const adminAssistantState = {
+  globalSettings: {
+    data: {
+      AI_AGENT_ENABLE: true,
+      AI_AGENT_HIDE_ENTRY: false,
+    },
+  },
+  user: {
+    superUser: true,
+  },
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
 })
@@ -31,6 +43,7 @@ describe('PluginLogDialog', () => {
     const user = userEvent.setup()
     await renderWithProviders(PluginLogDialog, {
       props: { plugin },
+      initialState: adminAssistantState,
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
 
@@ -43,19 +56,50 @@ describe('PluginLogDialog', () => {
     ])
   })
 
-  it('requests a read-only diagnosis for the current plugin log', async () => {
+  it('requests a read-only diagnosis for the current plugin log when assistant is enabled for admins', async () => {
     const prompts: string[] = []
     const stopDiagnostics = onAgentAssistantDiagnostic(({ prompt }) => prompts.push(prompt))
     const user = userEvent.setup()
     const view = await renderWithProviders(PluginLogDialog, {
       props: { plugin },
+      initialState: adminAssistantState,
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
 
-    await user.click(await screen.findByText('AI 诊断'))
+    await user.click(await screen.findByRole('button', { name: 'AI 诊断' }))
 
     expect(prompts).toEqual([expect.stringContaining('plugins/myplugin.log')])
     expect(view.emitted('update:modelValue')).toEqual([[false]])
     stopDiagnostics()
+  })
+
+  it.each([
+    {
+      label: 'assistant is disabled',
+      initialState: { globalSettings: { data: { AI_AGENT_ENABLE: false } }, user: { superUser: true } },
+    },
+    {
+      label: 'assistant entry is hidden',
+      initialState: {
+        globalSettings: { data: { AI_AGENT_ENABLE: true, AI_AGENT_HIDE_ENTRY: true } },
+        user: { superUser: true },
+      },
+    },
+    {
+      label: 'user is not a superuser',
+      initialState: {
+        globalSettings: { data: { AI_AGENT_ENABLE: true, AI_AGENT_HIDE_ENTRY: false } },
+        user: { superUser: false },
+      },
+    },
+  ])('hides the AI diagnosis action when $label', async ({ initialState }) => {
+    await renderWithProviders(PluginLogDialog, {
+      props: { plugin },
+      initialState,
+      global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
+    })
+
+    expect(await screen.findByText('下载')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'AI 诊断' })).not.toBeInTheDocument()
   })
 })

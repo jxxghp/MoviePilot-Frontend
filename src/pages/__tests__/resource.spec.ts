@@ -4,19 +4,24 @@ import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { createSearchDiagnostics } from '@tests/support/fixtures/searchDiagnostics'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, nextTick, type ComputedRef } from 'vue'
+import { NativeLayoutAdapter, nativeChromeActive } from '@/native/layout'
 import { useRoute } from 'vue-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
-  dynamicButtonOptions: undefined as unknown as { onClick: () => void },
+  appMode: false,
+  dynamicButtonOptions: undefined as unknown as { onClick: () => void; show: ComputedRef<boolean> },
   keepAliveRefresh: undefined as unknown as () => Promise<void>,
   toastError: vi.fn(),
   toastWarning: vi.fn(),
   useDynamicButton: vi.fn(),
 }))
+
+const nativeLayout = new NativeLayoutAdapter(document, window)
+afterEach(() => nativeLayout.setActive(false))
 
 const musicBrainzAlbumId = '695f5ac8-cfd5-4e7b-96a0-6d545f5c9f17'
 
@@ -28,7 +33,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/composables/useDynamicButton', () => ({
-  useDynamicButton: (options: { onClick: () => void }) => {
+  useDynamicButton: (options: { onClick: () => void; show: ComputedRef<boolean> }) => {
     mocks.dynamicButtonOptions = options
     mocks.useDynamicButton(options)
   },
@@ -42,9 +47,9 @@ vi.mock('@/composables/useKeepAliveRefresh', () => ({
 }))
 
 vi.mock('@/composables/usePWA', async () => {
-  const { ref } = await import('vue')
+  const { computed } = await import('vue')
   return {
-    usePWA: () => ({ appMode: ref(false) }),
+    usePWA: () => ({ appMode: computed(() => nativeChromeActive.value || mocks.appMode) }),
   }
 })
 
@@ -540,6 +545,8 @@ const searchRouteCases: SearchRouteCase[] = [
 
 describe('resource page search flow', () => {
   beforeEach(() => {
+    nativeLayout.setActive(false)
+    mocks.appMode = false
     EventSourceFake.instances = []
     vi.stubGlobal('EventSource', EventSourceFake)
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -561,7 +568,9 @@ describe('resource page search flow', () => {
     expect(screen.queryByRole('status', { name: '本页搜索情况' })).not.toBeInTheDocument()
     source.message({ type: 'done', diagnostics: createSearchDiagnostics() })
     source.fail()
-    expect(await screen.findByRole('status', { name: '本页搜索情况' })).toHaveTextContent('规则“中文字幕”未应用')
+    const panel = await screen.findByRole('status', { name: '本页搜索情况' })
+    expect(panel).toHaveTextContent('候选 0 · 保留 0')
+    expect(panel).not.toHaveTextContent('规则“中文字幕”未应用')
   })
 
   it('restores optional diagnostics with the matching remembered results', async () => {
@@ -1104,6 +1113,55 @@ describe('resource page search flow', () => {
     expect(await screen.findByText('待确认资源')).toBeInTheDocument()
   })
 
+  it('keeps rejected music candidates visible with their manual review mode', async () => {
+    await renderResource({
+      path: '/resource',
+      query: { keyword: '音乐拒绝候选', result_type: 'torrent', type: '音乐' },
+    })
+    const rejected = createTorrent({ title: '被拒但可人工确认的资源' })
+    rejected.meta_info.type = '音乐'
+    rejected.match_status = 'candidate'
+    rejected.match_reason = 'title_mismatch'
+    finishStream(await latestEventSource(), [rejected])
+
+    expect(await screen.findByText('被拒但可人工确认的资源')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('tab', { name: /^精确匹配$/ }))
+    const emptyState = await screen.findByTestId('resource-empty-state')
+    expect(emptyState).toHaveTextContent('找到 1 个音乐候选，但没有通过身份匹配')
+    expect(emptyState).toHaveTextContent('切换到“待确认”查看候选资源及匹配原因。')
+    await fireEvent.click(screen.getByRole('tab', { name: /^待确认$/ }))
+    expect(await screen.findByText('被拒但可人工确认的资源')).toBeInTheDocument()
+  })
+
+  it('describes music identity matching when an older backend returns only rejected counts', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '2026 原音精选', type: '音乐' } })
+    const source = await latestEventSource()
+    source.message({ type: 'replace', items: [], candidate_items: 15, total_items: 0, value: 100 })
+    source.message({ type: 'done' })
+    source.fail()
+
+    const emptyState = await screen.findByTestId('resource-empty-state')
+    expect(emptyState).toHaveTextContent('找到 15 个音乐候选，但没有通过身份匹配')
+    expect(emptyState).not.toHaveTextContent('过滤规则')
+  })
+
+  it('keeps the filter explanation when music candidates were actually filtered before matching', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '音质不符', type: '音乐' } })
+    const source = await latestEventSource()
+    source.message({
+      type: 'replace',
+      items: [],
+      candidate_items: 2,
+      total_items: 0,
+      match_counts: { filter_params: 2 },
+      value: 100,
+    })
+    source.message({ type: 'done' })
+    source.fail()
+
+    expect(await screen.findByTestId('resource-empty-state')).toHaveTextContent('找到 2 个资源，但均不符合过滤规则')
+  })
+
   it.each([
     {
       item: createTorrent({ title: '流式资源预览' }),
@@ -1230,6 +1288,22 @@ describe('resource page search flow', () => {
     expect(await screen.findByTestId('resource-empty-state')).toHaveTextContent('找到 5 个资源，但均不符合过滤规则')
   })
 
+  it('distinguishes an invalid rule configuration from candidates that simply do not match', async () => {
+    await renderResource({ path: '/resource', query: { keyword: '旧规则搜索', result_type: 'torrent' } })
+    const source = await latestEventSource()
+    const diagnostics = createSearchDiagnostics()
+    diagnostics.stage_counts = { candidates: 146, retained: 0 }
+    diagnostics.warnings = [{ code: 'rule_id_invalid', rule_group: '国产剧', rule_ids: [' Pre Candidate'] }]
+    source.message({ type: 'replace', stage: 'filtered', items: [], candidate_items: 146, total_items: 0, value: 100 })
+    source.message({ type: 'done', stage: 'done', diagnostics })
+    source.fail()
+    const empty = await screen.findByTestId('resource-empty-state')
+    expect(empty).toHaveTextContent('发现过滤规则配置异常')
+    expect(empty).toHaveTextContent('修复规则 ID 或规则组表达式')
+    expect(empty).not.toHaveTextContent('均不符合过滤规则')
+    expect(screen.getByRole('status', { name: '本页搜索情况' })).toHaveTextContent('" Pre Candidate"')
+  })
+
   it.each([false, true])(
     'clears completed SSE pagination when the initial search falls back to HTTP (batched=%s)',
     async batched => {
@@ -1354,7 +1428,8 @@ describe('resource page search flow', () => {
     expect(await screen.findByTestId('torrent-card')).toHaveTextContent('可见卡片结果')
   })
 
-  it('restores row view and persists the dynamic card/row toggle', async () => {
+  it('restores row view and persists the dynamic card/row toggle in PWA mode', async () => {
+    mocks.appMode = true
     localStorage.setItem('MPTorrentsViewType', 'row')
     await renderResource({
       path: '/resource',
@@ -1365,11 +1440,43 @@ describe('resource page search flow', () => {
 
     expect(await screen.findByTestId('torrent-row')).toHaveTextContent('切换视图结果')
 
+    expect(mocks.dynamicButtonOptions.show.value).toBe(true)
     mocks.dynamicButtonOptions.onClick()
     await nextTick()
 
     expect(screen.getByTestId('torrent-card')).toHaveTextContent('切换视图结果')
     expect(localStorage.getItem('MPTorrentsViewType')).toBe('card')
+  })
+
+  it.each(['torrent', 'subtitle'] as const)('原生 App 的 %s 结果固定卡片并让出右下角按钮', async resultType => {
+    localStorage.setItem('MPTorrentsViewType', 'row')
+    nativeLayout.setActive(true)
+    await renderResource({ path: '/resource', query: { keyword: '原生卡片', result_type: resultType } })
+    const source = await latestEventSource()
+    finishStream(source, [
+      resultType === 'subtitle' ? createSubtitle('原生字幕结果') : createTorrent({ title: '原生资源结果' }),
+    ])
+    expect(await screen.findByTestId(resultType === 'subtitle' ? 'subtitle-card' : 'torrent-card')).toBeInTheDocument()
+    expect(screen.queryByTestId(resultType === 'subtitle' ? 'subtitle-row' : 'torrent-row')).not.toBeInTheDocument()
+    expect(mocks.dynamicButtonOptions.show.value).toBe(false)
+    mocks.dynamicButtonOptions.onClick()
+    await nextTick()
+    expect(localStorage.getItem('MPTorrentsViewType')).toBe('row')
+    expect(screen.getByTestId(resultType === 'subtitle' ? 'subtitle-card' : 'torrent-card')).toBeInTheDocument()
+  })
+
+  it('原生协商在结果恢复之后完成时重新分组，退出后恢复网页行视图', async () => {
+    localStorage.setItem('MPTorrentsViewType', 'row')
+    await renderResource({ path: '/resource', query: { keyword: '延迟接管' } })
+    const source = await latestEventSource()
+    finishStream(source, [createTorrent({ title: '已有结果' })])
+    expect(await screen.findByTestId('torrent-row')).toHaveTextContent('已有结果')
+    nativeLayout.setActive(true)
+    expect(await screen.findByTestId('torrent-card')).toHaveTextContent('已有结果')
+    expect(screen.queryByTestId('torrent-row')).not.toBeInTheDocument()
+    nativeLayout.setActive(false)
+    expect(await screen.findByTestId('torrent-row')).toHaveTextContent('已有结果')
+    expect(localStorage.getItem('MPTorrentsViewType')).toBe('row')
   })
 
   it('clears filters for a new route search', async () => {

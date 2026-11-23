@@ -484,7 +484,10 @@ describe('SubscribeCard display and progress', () => {
 
     expect(screen.getByLabelText('待定中')).toBeInTheDocument()
     expect(screen.getByText('8 / 10')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30')
+    const progress = screen.getByRole('progressbar')
+    expect(progress).toHaveAttribute('aria-valuenow', '30')
+    expect(progress.querySelector('.v-progress-linear__buffer')).toHaveStyle({ width: '80%' })
+    expect(container.querySelector('.subscribe-card-mobile-trailing-meta')).toHaveTextContent('30%')
     expect(screen.getByText(lastUpdateText)).toBeInTheDocument()
     expect(document.querySelector('.subscribe-card-mobile-menu')).toBeInTheDocument()
     expect(document.querySelector('.subscribe-card-mobile-media')).toContainElement(screen.getByText(/卡片测试媒体/))
@@ -507,13 +510,14 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
   })
 
-  it('applies mobile wash visuals to movies without episode progress', async () => {
+  it('applies mobile wash and state labels to movies without episode progress', async () => {
     setViewport(480)
-    const { container } = await renderCard({
+    const { container, media, rerender } = await renderCard({
       best_version: true,
       state: 'R',
       total_episode: undefined,
       type: '电影',
+      year: '2025',
     })
 
     expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
@@ -521,7 +525,13 @@ describe('SubscribeCard display and progress', () => {
     expect(container.querySelector('.subscribe-card-mobile-state')).toHaveStyle({
       color: 'rgb(var(--v-theme-success))',
     })
+    expect(screen.getByText('洗版中')).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card-mobile-trailing-meta')).toHaveTextContent('2025')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+
+    await rerender({ media: { ...media, best_version: false, state: 'R' } })
+    expect(screen.getByText('订阅中')).toBeInTheDocument()
+    expect(container.querySelector('.subscribe-card-mobile-trailing-meta')).toHaveTextContent('2025')
   })
 
   it('synchronizes desktop P, S, and R state from updated media props', async () => {
@@ -542,30 +552,48 @@ describe('SubscribeCard display and progress', () => {
   })
 
   it.each([375, 480, 1024])(
-    'opens quiet waiting details without triggering subscription editing at %ipx',
+    'shows a long site wait as its resume time and explains it in details at %ipx',
     async width => {
       setViewport(width)
+      const resumeAt = new Date(Date.now() + 10 * 60_000)
+      const time = resumeAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
       await renderCard({
         execution_status: {
           batch_id: 'batch-1',
           can_cancel: true,
           current_site_id: 9,
-          error: '站点暂时忙，系统会自动继续搜索',
+          error: '测试站 站点设置的访问次数已用完，到时自动继续',
+          next_run_at: resumeAt.toISOString(),
           phase: 'waiting_site_budget',
-          state: 'running',
-          updated_at: '2026-09-01T01:00:00+00:00',
+          state: 'queued',
+          updated_at: new Date().toISOString(),
         },
       })
 
-      expect(screen.getByText('稍后继续')).toBeInTheDocument()
-      expect(screen.queryByTitle('站点暂时忙，系统会自动继续搜索')).not.toBeInTheDocument()
+      expect(screen.getByText(`${time} 再搜`)).toBeInTheDocument()
+      expect(screen.queryByText('测试站 站点设置的访问次数已用完，到时自动继续')).not.toBeInTheDocument()
       await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
       expect(await screen.findByRole('dialog')).toBeInTheDocument()
-      expect(screen.getByText('站点暂时繁忙，系统会自动继续搜索，无需重复操作。')).toBeVisible()
+      expect(screen.getByText('测试站 站点设置的访问次数已用完，到时自动继续')).toBeVisible()
       expect(mocks.openSharedDialog).not.toHaveBeenCalled()
-      expect(screen.queryByText('站点暂时忙，系统会自动继续搜索')).not.toBeInTheDocument()
     },
   )
+
+  it('treats a short site wait as part of searching', async () => {
+    await renderCard({
+      execution_status: {
+        can_cancel: true,
+        error: '正在搜索',
+        next_run_at: new Date(Date.now() + 10_000).toISOString(),
+        phase: 'waiting_site_budget',
+        state: 'queued',
+        updated_at: new Date().toISOString(),
+      },
+    })
+
+    expect(screen.getByText('搜索中')).toBeInTheDocument()
+    expect(screen.queryByText(/再搜/)).not.toBeInTheDocument()
+  })
 
   it.each(['subscription', 'task', 'batch'] as const)(
     'keeps live details for the same task, then closes when the %s identity changes',
@@ -573,15 +601,16 @@ describe('SubscribeCard display and progress', () => {
       const execution = {
         batch_id: 'batch-a',
         can_cancel: true,
-        phase: 'waiting_site_budget',
+        phase: 'waiting_subscription',
         source: 'manual',
-        state: 'running',
+        state: 'queued',
         task_id: 'task-a',
         updated_at: new Date().toISOString(),
       }
       const { media, rerender } = await renderCard({ execution_status: execution })
       await fireEvent.click(screen.getByRole('button', { name: '搜索详情' }))
-      expect(await screen.findByRole('dialog')).toHaveTextContent('稍后继续')
+      expect(await screen.findByRole('dialog')).toHaveTextContent('排队中')
+      expect(screen.getByRole('dialog')).toHaveTextContent('前面的订阅搜完后自动开始，不用重复点搜索。')
 
       const resumed = { ...execution, phase: 'searching' }
       await rerender({ media: { ...media, execution_status: resumed } })
@@ -619,7 +648,7 @@ describe('SubscribeCard display and progress', () => {
     expect(screen.queryByTitle('站点暂时忙，系统会自动继续搜索')).not.toBeInTheDocument()
   })
 
-  it.each([480, 1024])('shows a skipped execution as a non-error terminal state at %ipx', async width => {
+  it.each([480, 1024])('keeps normal card metadata for a skipped execution at %ipx', async width => {
     setViewport(width)
     await renderCard({
       execution_status: {
@@ -628,51 +657,63 @@ describe('SubscribeCard display and progress', () => {
         state: 'skipped',
         updated_at: new Date().toISOString(),
       },
-    })
-
-    expect(screen.getByText('已跳过')).toBeInTheDocument()
-    if (width < 600) {
-      expect(document.querySelector('[data-subscribe-state-icon="mdi-skip-next-circle-outline"]')).toBeInTheDocument()
-    }
-  })
-
-  it.each([480, 1024])('briefly shows a fresh completion then restores normal metadata at %ipx', async width => {
-    setViewport(width)
-    const { media, rerender, unmount } = await renderCard({
       lack_episode: 4,
       state: 'R',
       total_episode: 10,
       type: '电视剧',
     })
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-09-02T12:00:00+08:00'))
 
-    try {
-      await rerender({
-        media: {
-          ...media,
-          execution_status: {
-            can_cancel: false,
-            phase: 'completed',
-            state: 'completed',
-            updated_at: new Date().toISOString(),
-          },
-        },
-      })
-
-      expect(screen.getByText('搜索完成')).toBeInTheDocument()
-      if (width < 600) expect(screen.queryByText('6 / 10')).not.toBeInTheDocument()
-
-      await vi.advanceTimersByTimeAsync(5_000)
-
-      expect(screen.queryByText('搜索完成')).not.toBeInTheDocument()
-      expect(screen.getByText('6 / 10')).toBeInTheDocument()
-      if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
-    } finally {
-      unmount()
-      vi.useRealTimers()
-    }
+    expect(screen.queryByText('已跳过')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '搜索详情' })).not.toBeInTheDocument()
+    expect(screen.getByText('6 / 10')).toBeInTheDocument()
   })
+
+  it.each([
+    [480, 2, '已添加下载'],
+    [1024, 2, '已添加下载'],
+    [480, 0, '暂无资源'],
+    [1024, 0, '暂无资源'],
+  ])(
+    'briefly shows a fresh completion then restores normal metadata at %ipx (%i added)',
+    async (width, added, label) => {
+      setViewport(width)
+      const { media, rerender, unmount } = await renderCard({
+        lack_episode: 4,
+        state: 'R',
+        total_episode: 10,
+        type: '电视剧',
+      })
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-02T12:00:00+08:00'))
+
+      try {
+        await rerender({
+          media: {
+            ...media,
+            execution_status: {
+              can_cancel: false,
+              phase: 'completed',
+              state: 'completed',
+              submitted_count: added,
+              updated_at: new Date().toISOString(),
+            },
+          },
+        })
+
+        expect(screen.getByText(label)).toBeInTheDocument()
+        if (width < 600) expect(screen.queryByText('6 / 10')).not.toBeInTheDocument()
+
+        await vi.advanceTimersByTimeAsync(5_000)
+
+        expect(screen.queryByText(label)).not.toBeInTheDocument()
+        expect(screen.getByText('6 / 10')).toBeInTheDocument()
+        if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
+      } finally {
+        unmount()
+        vi.useRealTimers()
+      }
+    },
+  )
 
   it('does not revive an expired completion after the card is reloaded', async () => {
     setViewport(480)
@@ -689,7 +730,7 @@ describe('SubscribeCard display and progress', () => {
       type: '电视剧',
     })
 
-    expect(screen.queryByText('搜索完成')).not.toBeInTheDocument()
+    expect(screen.queryByText('暂无资源')).not.toBeInTheDocument()
     expect(screen.getByText('6 / 10')).toBeInTheDocument()
   })
 
@@ -734,7 +775,7 @@ describe('SubscribeCard display and progress', () => {
       type: '电视剧',
     })
 
-    expect(screen.queryByText('待搜索')).not.toBeInTheDocument()
+    expect(screen.queryByText('排队中')).not.toBeInTheDocument()
     expect(screen.getByText('6 / 10')).toBeInTheDocument()
     if (width >= 600) expect(screen.getByText(formatDateDifference(media.last_update))).toBeInTheDocument()
   })
@@ -998,10 +1039,11 @@ describe('SubscribeCard item operations', () => {
 })
 
 describe('SubscribeCard compact execution vocabulary', () => {
-  it.each([zhCN, zhTW])('keeps every Chinese state within four characters', locale => {
+  it.each([zhCN, zhTW])('keeps every Chinese state within five characters', locale => {
     const i18n = createI18n({ legacy: false, locale: 'test', messages: { test: locale } })
-    for (const state of Object.keys(locale.subscribe.execution.state)) {
-      expect([...i18n.global.t(`subscribe.execution.state.${state}`)].length).toBeLessThanOrEqual(4)
+    for (const label of Object.keys(locale.subscribe.execution.label)) {
+      const text = i18n.global.t(`subscribe.execution.label.${label}`, { time: '02:20' })
+      expect([...text].length).toBeLessThanOrEqual(label === 'waiting' ? 8 : 5)
     }
   })
 })

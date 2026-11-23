@@ -5,9 +5,10 @@
 @use '@core/scss/index' as template;
 @use '@layouts/styles/index' as layouts;
 @use 'vuetify/styles' as vuetify;
+@use '@styles/tokens' as tokens;
 @use '@styles/common' as common;
 
 /* 第三方库纯CSS样式 */
 @import 'vue-toastification/dist/index.css';
 @import 'vue3-perfect-scrollbar/style.css';
-@import '@vue-js-cron/vuetify/dist/vuetify.css'; 
+@import '@vue-js-cron/vuetify/dist/vuetify.css';

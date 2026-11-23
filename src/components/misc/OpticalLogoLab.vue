@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { THEME_CUSTOMIZER_CHANGE_EVENT } from '@/composables/useThemeCustomizer'
 import PrismaticLogo from '@/components/misc/PrismaticLogo.vue'
+import { createDecorativeWebGLContext } from '@/utils/webgl'
 
 type WebGlMaterialMode = 'crystal' | 'chrome' | 'energy' | 'ceramic' | 'matte'
 type LogoStyle = WebGlMaterialMode | 'prismatic'
@@ -2668,6 +2669,7 @@ function scheduleMaterialPrewarm() {
   }
 }
 
+/** 仅在浏览器允许流畅渲染时初始化装饰场景，否则保留静态 Logo 以保证登录可用。 */
 async function initializeScene() {
   const token = ++generation
   const canvas = canvasRef.value
@@ -2677,7 +2679,23 @@ async function initializeScene() {
     await loadRuntime()
     if (token !== generation) return
     const T = requireThree()
-    renderer = new T.WebGLRenderer({ alpha: true, antialias: true, canvas, powerPreference: 'high-performance' })
+    const context = createDecorativeWebGLContext(canvas, {
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance',
+    })
+    if (!context) {
+      phase.value = 'fallback'
+      return
+    }
+    renderer = new T.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      canvas,
+      context,
+      failIfMajorPerformanceCaveat: true,
+      powerPreference: 'high-performance',
+    })
     renderer.setClearColor(0x000000, 0)
     renderer.outputColorSpace = T.SRGBColorSpace
     renderer.toneMapping = T.ACESFilmicToneMapping
@@ -3570,7 +3588,7 @@ onBeforeUnmount(() => {
   &[aria-pressed='true'] {
     border-color: rgba(var(--v-theme-primary), 0.18);
     background: rgba(var(--v-theme-primary), 0.1);
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
     outline: none;
   }
 

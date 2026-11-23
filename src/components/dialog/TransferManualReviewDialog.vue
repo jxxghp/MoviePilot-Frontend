@@ -389,7 +389,7 @@ async function discardManualReview() {
   display: flex;
   align-items: flex-start;
   border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
   font-size: 0.84rem;
   gap: 0.5rem;
   line-height: 1.5;

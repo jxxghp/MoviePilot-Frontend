@@ -11,10 +11,10 @@ const router = useRouter()
 const searchOpen = ref(false)
 const searchBar = ref<InstanceType<typeof SearchBarDialog> | null>(null)
 
-/** 打开全局搜索，并在桌面端聚焦常驻搜索输入框。 */
+/** 原生搜索作为独立入口替换当前地址，业务栏目位置由导航宿主保留。 */
 function openSearch() {
   if (nativeChromeActive.value && window.MoviePilotNative?.searchPageVersion === 1) {
-    void router.push('/search')
+    void router.replace('/search')
     return false
   }
   searchOpen.value = true

@@ -159,7 +159,7 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading
     side="end"
     :items="dataList"
     :margin="dataList.length > 0 ? 600 : 0"
-    class="overflow-visible pt-3 px-2"
+    class="media-card-list-scroll overflow-visible pt-3 px-2"
     @load="fetchData"
   >
     <template #loading />
@@ -182,3 +182,10 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading
     <NoDataFound v-if="dataList.length === 0 && isRefreshed" error-code="404" :error-title="t('common.noData')" />
   </VInfiniteScroll>
 </template>
+
+<style scoped>
+/* 页面级媒体墙末端避让右下角悬浮操作栈与移动安全区，不侵入仪表盘内部子卡片。 */
+.media-card-list-scroll {
+  padding-block-end: var(--mp-bottom-clearance);
+}
+</style>

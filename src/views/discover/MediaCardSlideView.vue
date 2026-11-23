@@ -4,10 +4,7 @@ import { nativeReadonlyCache } from '@/native/cache'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import VirtualSlideView from '@/components/slide/VirtualSlideView.vue'
-import { useI18n } from 'vue-i18n'
 import { useIntersectionObserver, until } from '@vueuse/core'
-
-const { t } = useI18n()
 
 // 输入参数
 const props = defineProps({

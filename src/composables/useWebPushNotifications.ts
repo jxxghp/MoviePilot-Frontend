@@ -1,8 +1,17 @@
 import { onScopeDispose, toValue, watch, type InjectionKey, type MaybeRefOrGetter } from 'vue'
-import api from '@/api'
+import api, { isApiBusinessFailure } from '@/api'
 import { urlBase64ToUint8Array } from '@/@core/utils/navigator'
 
 const SUBSCRIPTION_REFRESH_INTERVAL_MS = 5 * 60 * 1000
+const WEBPUSH_PUBLIC_KEY_ENDPOINT = '/message/webpush/public-key'
+const WEBPUSH_SUBSCRIBE_ENDPOINT = '/message/webpush/subscribe'
+
+/** 后端返回的 Web Push VAPID 公钥载荷。 */
+interface WebPushPublicKeyPayload {
+  public_key?: string
+}
+
+type ApplicationServerKey = ReturnType<typeof urlBase64ToUint8Array>
 
 export type WebPushPermissionRequester = () => Promise<NotificationPermission | null>
 
@@ -15,13 +24,74 @@ function currentNotificationPermission(): NotificationPermission {
   return Notification.permission
 }
 
-/** 在管理员会话内恢复浏览器订阅，补齐后端重启后丢失的内存登记。 */
+/** 逐字节比较两个 VAPID 公钥，判断浏览器现有订阅是否仍绑定当前服务端公钥。 */
+function sameApplicationServerKey(existing: ArrayBuffer | null | undefined, expected: ApplicationServerKey): boolean {
+  if (!existing) return false
+  const existingBytes = new Uint8Array(existing)
+  if (existingBytes.length !== expected.length) return false
+  for (let index = 0; index < expected.length; index += 1) {
+    if (existingBytes[index] !== expected[index]) return false
+  }
+  return true
+}
+
+/** 浏览器暴露了订阅公钥且与服务端不一致时，需要退订并按新公钥重建订阅。 */
+function isSubscriptionKeyMismatched(subscription: PushSubscription, expected: ApplicationServerKey): boolean {
+  const existingKey = subscription.options?.applicationServerKey
+  if (existingKey === undefined) return false
+  return !sameApplicationServerKey(existingKey, expected)
+}
+
+/** 判断浏览器是否因现有订阅使用了旧公钥而拒绝直接重新订阅。 */
+function isInvalidStateError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'InvalidStateError'
+}
+
+/** 在管理员会话内恢复浏览器订阅，补齐后端重启后丢失的内存登记并跟踪服务端公钥轮换。 */
 export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>) {
   let pending: AbortController | null = null
   let activeRegistration: ServiceWorkerRegistration | null = null
+  let activeApplicationServerKey: ApplicationServerKey | null = null
   let disposed = false
 
-  /** 复用浏览器已有订阅；仅在已授权时创建订阅，不在后台弹出权限请求。 */
+  /** 从后端拉取当前实例的 VAPID 公钥并更新内存缓存，避免在前端静态写死密钥。 */
+  async function fetchApplicationServerKey(signal: AbortSignal): Promise<ApplicationServerKey | null> {
+    try {
+      const data = await api.get<WebPushPublicKeyPayload>(WEBPUSH_PUBLIC_KEY_ENDPOINT, {
+        feedback: 'silent',
+        skipNavigationCancellation: true,
+        signal,
+        timeout: 10_000,
+      })
+      const rawKey = typeof data?.public_key === 'string' ? data.public_key.trim() : ''
+      if (!rawKey) {
+        activeApplicationServerKey = null
+        return null
+      }
+      const keyBytes = urlBase64ToUint8Array(rawKey)
+      if (!keyBytes.length) {
+        activeApplicationServerKey = null
+        return null
+      }
+      activeApplicationServerKey = keyBytes
+      return keyBytes
+    } catch (error) {
+      if (isApiBusinessFailure(error)) activeApplicationServerKey = null
+      throw error
+    }
+  }
+
+  /** 将当前浏览器订阅同步到后端。 */
+  async function registerSubscription(subscription: PushSubscription, signal: AbortSignal): Promise<void> {
+    await api.post(WEBPUSH_SUBSCRIBE_ENDPOINT, subscription.toJSON(), {
+      feedback: 'silent',
+      skipNavigationCancellation: true,
+      signal,
+      timeout: 10_000,
+    })
+  }
+
+  /** 复用浏览器已有订阅；公钥变化或无订阅且已授权时自动重建，不在后台弹出权限请求。 */
   async function syncSubscription(): Promise<boolean> {
     const currentSession = toValue(session)
     if (disposed || !currentSession || pending || !('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -36,24 +106,30 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
       if (controller.signal.aborted || currentSession !== toValue(session)) return false
       activeRegistration = registration?.active ? registration : null
       if (!registration?.active) return false
+
+      const applicationServerKey = await fetchApplicationServerKey(controller.signal)
+      if (controller.signal.aborted || currentSession !== toValue(session) || !applicationServerKey) return false
+
       let subscription = await registration.pushManager.getSubscription()
       if (controller.signal.aborted || currentSession !== toValue(session)) return false
+
+      if (subscription && isSubscriptionKeyMismatched(subscription, applicationServerKey)) {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
+        if (typeof subscription.unsubscribe === 'function') await subscription.unsubscribe()
+        if (controller.signal.aborted || currentSession !== toValue(session)) return false
+        subscription = null
+      }
 
       if (!subscription) {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY),
+          applicationServerKey,
         })
       }
       if (controller.signal.aborted || currentSession !== toValue(session)) return false
 
-      await api.post('/message/webpush/subscribe', subscription.toJSON(), {
-        feedback: 'silent',
-        skipNavigationCancellation: true,
-        signal: controller.signal,
-        timeout: 10_000,
-      })
+      await registerSubscription(subscription, controller.signal)
       return true
     } catch (error) {
       if (!controller.signal.aborted) console.warn('WebPush subscription failed:', error)
@@ -79,23 +155,46 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
     if (Notification.permission === 'denied') return 'denied'
     if (!activeRegistration?.active) return null
 
-    // subscribe 必须在首次 await 之前调用；浏览器会在此调用中请求通知权限。
+    // 已预取公钥时必须在首次 await 之前调用 subscribe；浏览器会在此调用中请求通知权限。
     pending?.abort()
     const controller = new AbortController()
     pending = controller
     try {
-      const subscription = await activeRegistration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY),
-      })
+      const registration = activeRegistration
+      let applicationServerKey = activeApplicationServerKey
+      let subscribePromise: Promise<PushSubscription>
+      if (applicationServerKey) {
+        subscribePromise = registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        })
+      } else {
+        applicationServerKey = await fetchApplicationServerKey(controller.signal)
+        if (controller.signal.aborted || currentSession !== toValue(session) || !applicationServerKey) return null
+        subscribePromise = registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        })
+      }
+
+      let subscription: PushSubscription
+      try {
+        subscription = await subscribePromise
+      } catch (subscribeError) {
+        if (!isInvalidStateError(subscribeError)) throw subscribeError
+        const existing = await registration.pushManager.getSubscription()
+        if (existing && typeof existing.unsubscribe === 'function') await existing.unsubscribe()
+        if (controller.signal.aborted || currentSession !== toValue(session)) return null
+        const latestKey = (await fetchApplicationServerKey(controller.signal)) ?? applicationServerKey
+        if (controller.signal.aborted || currentSession !== toValue(session) || !latestKey) return null
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: latestKey,
+        })
+      }
       if (controller.signal.aborted || currentSession !== toValue(session)) return null
 
-      await api.post('/message/webpush/subscribe', subscription.toJSON(), {
-        feedback: 'silent',
-        skipNavigationCancellation: true,
-        signal: controller.signal,
-        timeout: 10_000,
-      })
+      await registerSubscription(subscription, controller.signal)
       return 'granted'
     } catch (error) {
       if (!controller.signal.aborted) console.warn('WebPush permission request failed:', error)
@@ -115,6 +214,7 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
     () => {
       pending?.abort()
       pending = null
+      activeApplicationServerKey = null
       void syncSubscription()
     },
     { immediate: true },

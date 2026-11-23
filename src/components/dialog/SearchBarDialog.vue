@@ -12,6 +12,7 @@ import { buildUserPermissionContext, hasPermission, filterMenusByPermission } fr
 import { useMediaSources } from '@/composables/useMediaSources'
 import type { NativePanelEntry, NativePanelSource } from '@/native/registry'
 import { nativePanelId } from '@/native/panel'
+import { nativeChromeActive } from '@/native/layout'
 
 // 显示器宽度
 const display = useDisplay()
@@ -72,6 +73,8 @@ const chooseSiteDialog = ref(false)
 const selectedSites = ref<number[]>([])
 const allSites = ref<Site[]>([])
 const siteSearchType = ref<'torrent' | 'subtitle' | 'music'>('torrent')
+// 原生页选择站点只更新摘要，确认后由页面的主按钮执行搜索。
+const nativeSiteSelection = ref<NativeResourceType | null>(null)
 
 // 定义事件
 const emit = defineEmits(['close', 'update:modelValue'])
@@ -103,7 +106,7 @@ const searchOverlayProps = computed(() =>
 const searchWord = ref<string | null>(null)
 
 type MediaSearchSource = MediaDataSource
-type MediaSearchType = 'media' | 'music' | 'collection' | 'person'
+type MediaSearchType = 'media' | 'library' | 'music' | 'collection' | 'person'
 
 interface MediaSearchSourceOption {
   label: string
@@ -121,6 +124,7 @@ interface MediaSearchAction {
 // 各类搜索的媒体数据源可多选，为空数组时由后端按“基础设置-媒体搜索数据源”全局配置执行。
 const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource[]>>({
   media: [],
+  library: [],
   music: [],
   collection: [],
   person: [],
@@ -163,7 +167,7 @@ let isInitializingSources = false
 function initializeMediaSearchSources() {
   isInitializingSources = true
   try {
-    ;(['media', 'music', 'collection', 'person'] as const).forEach(searchType => {
+    ;(['media', 'library', 'music', 'collection', 'person'] as const).forEach(searchType => {
       const configured = configuredMediaSearchSources.value.filter(source =>
         mediaSearchSourceOptions.value[searchType].some(option => option.value === source),
       )
@@ -194,6 +198,7 @@ const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSou
   const personSources = new Set<MediaDataSource>(['themoviedb', 'douban', 'musicbrainz'])
   return {
     media: mediaSearchSources.value,
+    library: [],
     music: musicSearchSources.value,
     collection: mediaSearchSources.value.filter(source => source.value === 'themoviedb'),
     person: [...mediaSearchSources.value, ...musicSearchSources.value].filter(
@@ -221,6 +226,16 @@ const mediaSearchActions = computed(() => {
       title: t('dialog.searchBar.filmTV'),
       description: t('resource.title'),
     },
+    ...(nativeChromeActive.value && window.MoviePilotNative?.playbackVersion === 1
+      ? [
+          {
+            type: 'library' as const,
+            icon: 'mdi-database-search-outline',
+            title: t('dialog.searchBar.mediaLibrary'),
+            description: t('dialog.searchBar.librarySearch'),
+          },
+        ]
+      : []),
     {
       type: 'music',
       icon: 'mdi-music-note-outline',
@@ -411,6 +426,7 @@ async function queryMusicSites() {
 
 /** 打开指定资源类型的站点选择对话框。 */
 async function openSiteDialog(type: 'torrent' | 'subtitle' | 'music' = 'torrent') {
+  nativeSiteSelection.value = null
   siteSearchType.value = type
   await loadUserSitePreferences()
   if (type === 'music') {
@@ -423,6 +439,14 @@ async function openSiteDialog(type: 'torrent' | 'subtitle' | 'music' = 'torrent'
 
 /** 按当前搜索类型刷新站点选择列表。 */
 async function reloadSearchSites() {
+  if (nativeSiteSelection.value) {
+    const state = nativeResourceSelections[nativeSiteSelection.value]
+    state.ready = false
+    await loadNativeResourceSites(nativeSiteSelection.value)
+    allSites.value = [...state.sites]
+    selectedSites.value = selectedSites.value.filter(id => state.sites.some(site => site.id === id))
+    return
+  }
   if (siteSearchType.value === 'music') {
     await queryMusicSites()
     return
@@ -442,9 +466,14 @@ const matchedSubscribeItems = computed(() => {
   })
 })
 
-/** 使用选中的站点执行当前资源类型搜索。 */
+/** 原生页仅确认站点选择；原有网页弹窗继续直接搜索。 */
 function searchSites(sites: number[]) {
   chooseSiteDialog.value = false
+  if (nativeSiteSelection.value) {
+    nativeResourceSelections[nativeSiteSelection.value].selected = [...sites]
+    nativeSiteSelection.value = null
+    return
+  }
   selectedSites.value = sites
   if (siteSearchType.value === 'subtitle') {
     searchSubtitle()
@@ -512,6 +541,11 @@ function searchMusicTorrent() {
 function searchMedia(searchType: MediaSearchType) {
   if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
+  if (searchType === 'library') {
+    router.push({ path: '/media-library/search', query: { query: searchWord.value } })
+    closeSearch()
+    return
+  }
   if (searchType === 'music') {
     const sources = selectedMediaSearchSources.music
     router.push({
@@ -771,7 +805,6 @@ interface NativeResourceSelection {
   ready: boolean
   failed: boolean
 }
-const nativeResourceType = ref<NativeResourceType>('torrent')
 const nativeResourceSelections = reactive<Record<NativeResourceType, NativeResourceSelection>>({
   torrent: { sites: [], selected: [], loading: false, ready: false, failed: false },
   music: { sites: [], selected: [], loading: false, ready: false, failed: false },
@@ -780,7 +813,6 @@ const nativeResourceSelections = reactive<Record<NativeResourceType, NativeResou
 
 /** 站点请求按类型隔离；失败保留显式重试，不能把失败当作无站点并搜索全部。 */
 async function loadNativeResourceSites(type: NativeResourceType) {
-  nativeResourceType.value = type
   const state = nativeResourceSelections[type]
   if (state.loading || state.ready) return
   state.loading = true
@@ -801,6 +833,16 @@ async function loadNativeResourceSites(type: NativeResourceType) {
   } finally {
     state.loading = false
   }
+}
+
+/** 复用站点选择弹窗；各资源类型的临时选择互不覆盖，取消不写回。 */
+function openNativeSiteSelection(type: NativeResourceType) {
+  const state = nativeResourceSelections[type]
+  nativeSiteSelection.value = type
+  siteSearchType.value = type
+  allSites.value = [...state.sites]
+  selectedSites.value = [...state.selected]
+  chooseSiteDialog.value = true
 }
 
 /** 将现有搜索状态投影为独立页面；宿主仅切换展示分组，不维护第二套业务接口。 */
@@ -866,32 +908,17 @@ function nativeSearchPage(): NativePanelSource {
                 else searchTorrent()
               },
             },
-            ...(type === nativeResourceType.value ? state.sites.slice(0, 32) : []).map(site => ({
-              id: `native-site-${type}-${site.id}`,
-              title: site.name,
-              selected: state.selected.includes(site.id),
-              keepOpen: true,
-              invoke: () => {
-                state.selected = state.selected.includes(site.id)
-                  ? state.selected.filter(id => id !== site.id)
-                  : [...state.selected, site.id]
-              },
-            })),
-            ...(state.ready && !state.sites.length
+            ...(state.ready
               ? [
                   {
-                    id: `native-sites-empty-${type}`,
-                    title: t('common.noData'),
-                    enabled: false,
-                  },
-                ]
-              : []),
-            ...(state.sites.length > 32
-              ? [
-                  {
-                    id: `native-sites-all-${type}`,
-                    title: t('dialog.searchBar.selectSites'),
-                    invoke: () => openSiteDialog(type),
+                    id: `native-sites-select-${type}`,
+                    title:
+                      state.sites
+                        .filter(site => state.selected.includes(site.id))
+                        .map(site => site.name)
+                        .join('、') || t('common.noData'),
+                    keepOpen: true,
+                    invoke: () => openNativeSiteSelection(type),
                   },
                 ]
               : []),
@@ -1331,6 +1358,7 @@ onMounted(() => {
     v-model="chooseSiteDialog"
     :sites="allSites"
     :selected="selectedSites"
+    :selection-only="nativeSiteSelection !== null"
     @search="searchSites"
     @close="chooseSiteDialog = false"
     @reload="reloadSearchSites"
@@ -1512,7 +1540,7 @@ onMounted(() => {
 .media-source-button--active {
   background: var(--app-grouped-list-active-background) !important;
   border-radius: var(--app-control-radius) !important;
-  color: rgb(var(--v-theme-primary)) !important;
+  color: var(--mp-primary-fg) !important;
 }
 
 .search-result-item {
@@ -1553,7 +1581,7 @@ onMounted(() => {
 }
 
 .primary-text {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 /* 空状态 */
