@@ -1475,6 +1475,27 @@ describe('AccountSettingSystem', () => {
     expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ MUSIC_LOCAL_COVER_ENABLE: !enabled }))
   })
 
+  it.each([
+    [undefined, 'strict', '严格校验失败时回落忽略时长', 'fallback_ignore_duration'],
+    ['fallback_ignore_duration', 'fallback_ignore_duration', '忽略时长校验', 'ignore_duration'],
+    ['ignore_duration', 'ignore_duration', '严格校验（默认）', 'strict'],
+  ])(
+    'loads and saves automatic music track alignment from %s to %s',
+    async (initial, expectedInitial, targetLabel, expectedSaved) => {
+      if (initial !== undefined) systemEnv.MUSIC_TRACK_MATCH = initial
+      systemEnv.MODULE_ENABLE = { MusicBrainzModule: false, TheAudioDbModule: false }
+      await renderSettings()
+      const dialog = await openAdvancedTab('媒体')
+      const trackMatchSelect = dialog.getByLabelText('自动整理曲目对齐方式')
+      expect(trackMatchSelect).toHaveValue(expectedInitial)
+      expect(trackMatchSelect.closest('section')).toHaveAccessibleName('音乐元数据')
+      await selectOption('自动整理曲目对齐方式', targetLabel)
+      await fireEvent.click(dialog.getByRole('button', { name: '保存' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(findPost('system/env')?.[1]).toEqual(expect.objectContaining({ MUSIC_TRACK_MATCH: expectedSaved }))
+    },
+  )
+
   it('round-trips advanced media metadata, recognition, and Fanart settings', async () => {
     const user = userEvent.setup()
     await renderSettings()
