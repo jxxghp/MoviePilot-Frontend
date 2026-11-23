@@ -134,7 +134,7 @@ watch(musicCover, () => {
             v-if="musicCover && !musicCoverLoadError"
             width="10rem"
             aspect-ratio="1"
-            class="object-cover rounded-lg ring-1 ring-gray-500"
+            class="object-cover rounded-lg media-info-cover-frame"
             :src="musicCover"
             cover
             eager
@@ -160,7 +160,7 @@ watch(musicCover, () => {
           <VImg
             width="10rem"
             aspect-ratio="2/3"
-            class="object-cover aspect-w-2 aspect-h-3 rounded-lg ring-1 ring-gray-500"
+            class="object-cover aspect-w-2 aspect-h-3 rounded-lg media-info-cover-frame"
             :src="mediaPoster"
             cover
           >
@@ -172,10 +172,10 @@ watch(musicCover, () => {
           </VImg>
         </div>
         <div class="flex-grow">
-          <VCardItem class="pb-1">
+          <VCardItem class="pb-1 px-8 px-md-4 pe-md-8">
             <div class="text-center text-md-left text-h6 font-weight-bold line-clamp-2 overflow-hidden text-ellipsis">
               {{ context?.media_info?.title || recognizedName }}
-              <span v-if="context?.meta_info?.season_episode" class="text-sm text-medium-emphasis align-top">
+              <span v-if="context?.meta_info?.season_episode" class="text-sm text-medium-emphasis align-top num">
                 {{ context?.meta_info?.season_episode }}
               </span>
             </div>
@@ -189,18 +189,18 @@ watch(musicCover, () => {
               <div v-if="musicAlbumArtist" class="text-body-2 text-medium-emphasis">
                 {{ t('music.albumArtist') }}：{{ musicAlbumArtist }}
               </div>
-              <div v-if="musicSummary" class="text-body-2 text-medium-emphasis">
+              <div v-if="musicSummary" class="text-body-2 text-medium-emphasis num">
                 {{ musicSummary }}
               </div>
             </div>
-            <VCardSubtitle v-else class="text-center text-md-left">
+            <VCardSubtitle v-else class="text-center text-md-left num">
               {{ context?.media_info?.year || context?.meta_info?.year }}
             </VCardSubtitle>
           </VCardItem>
 
           <VCardText
             v-if="context?.media_info?.overview"
-            class="line-clamp-4 overflow-hidden text-ellipsis text-center text-md-left ..."
+            class="line-clamp-4 overflow-hidden text-ellipsis text-center text-md-left"
           >
             {{ context?.media_info?.overview }}
           </VCardText>
@@ -244,7 +244,7 @@ watch(musicCover, () => {
               :key="audioChip"
               variant="tonal"
               color="warning"
-              class="me-1 mb-1"
+              class="me-1 mb-1 num"
             >
               {{ audioChip }}
             </VChip>
@@ -271,7 +271,7 @@ watch(musicCover, () => {
               v-if="!isMusic && context?.media_info?.tmdb_id"
               variant="tonal"
               color="success"
-              class="me-1 mb-1"
+              class="me-1 mb-1 num"
               @click="openTmdbPage(context?.media_info?.type || '', context?.media_info?.tmdb_id)"
             >
               {{ context?.media_info?.tmdb_id }}
@@ -326,12 +326,16 @@ watch(musicCover, () => {
 </template>
 
 <style scoped>
+.media-info-cover-frame {
+  border: 1px solid var(--mp-border);
+}
+
 .recognized-music-cover {
   flex: 0 0 auto;
 }
 
 .music-cover-placeholder {
-  background: rgba(var(--v-theme-on-surface), 0.08);
+  background: var(--mp-muted);
 }
 
 .music-recognition-summary {

@@ -117,20 +117,26 @@ const $toast = useToast()
 // 下载器选项
 const downloaderOptions = ref<{ title: string; value: string }[]>([])
 
+/** TMDB 剧集组接口返回项。 */
+interface SubscribeEpisodeGroup {
+  id: number
+  name: string
+  group_count: number
+  episode_count: number
+}
+
 // 所有剧集组
-const episodeGroups = ref<{ [key: string]: any }[]>([])
+const episodeGroups = ref<SubscribeEpisodeGroup[]>([])
 
 // 剧集组选项
 const episodeGroupOptions = computed(() => {
-  return (episodeGroups.value as { id: number; name: string; group_count: number; episode_count: number }[]).map(
-    item => {
-      return {
-        title: item.name,
-        subtitle: `${item.group_count} 季 • ${item.episode_count} 集`,
-        value: item.id,
-      }
-    },
-  )
+  return episodeGroups.value.map(item => {
+    return {
+      title: item.name,
+      subtitle: `${item.group_count} 季 • ${item.episode_count} 集`,
+      value: item.id,
+    }
+  })
 })
 
 // 生成1到100季的下拉框选项
@@ -182,7 +188,7 @@ async function loadDownloaderSetting() {
     const downloaders: DownloaderConf[] = await api.get('download/clients')
     downloaderOptions.value = [
       { title: t('common.default'), value: '' },
-      ...downloaders.map((item: { name: any }) => ({
+      ...downloaders.map(item => ({
         title: item.name,
         value: item.name,
       })),
@@ -381,7 +387,7 @@ onMounted(() => {
 <template>
   <VDialog scrollable max-width="45rem" :fullscreen="!display.mdAndUp.value">
     <VCard>
-      <VCardItem class="py-2">
+      <VCardItem class="py-2 pe-12">
         <VDialogCloseBtn @click="emit('close')" />
         <template #prepend>
           <VIcon icon="mdi-clipboard-list-outline" class="me-2" />
@@ -396,6 +402,7 @@ onMounted(() => {
           {{ props.type }}
         </VCardSubtitle>
       </VCardItem>
+      <VDivider />
       <VCardText>
         <VForm @submit.prevent="() => {}">
           <VTabs v-model="activeTab" show-arrows>
@@ -422,6 +429,7 @@ onMounted(() => {
                   <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="4">
                     <VTextField
                       v-model="subscribeForm.total_episode"
+                      class="num"
                       :label="t('dialog.subscribeEdit.totalEpisode')"
                       :rules="[numberValidator]"
                       :hint="t('dialog.subscribeEdit.totalEpisodeHint')"
@@ -432,6 +440,7 @@ onMounted(() => {
                   <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="4">
                     <VTextField
                       v-model="subscribeForm.start_episode"
+                      class="num"
                       :label="t('dialog.subscribeEdit.startEpisode')"
                       :rules="[numberValidator]"
                       :hint="t('dialog.subscribeEdit.startEpisodeHint')"
@@ -727,6 +736,7 @@ onMounted(() => {
           </VWindow>
         </VForm>
       </VCardText>
+      <VDivider />
       <VCardActions class="app-dialog-actions">
         <VBtn v-if="!props.default" color="error" variant="tonal" @click="removeSubscribe">
           {{ t('dialog.subscribeEdit.cancelSubscribe') }}
@@ -736,7 +746,7 @@ onMounted(() => {
           color="primary"
           variant="flat"
           :disabled="!searchIntervalValid"
-          @click=";`${props.default ? saveDefaultSubscribeConfig() : updateSubscribeInfo()}`"
+          @click="props.default ? saveDefaultSubscribeConfig() : updateSubscribeInfo()"
           prepend-icon="mdi-content-save"
           class="px-5"
         >

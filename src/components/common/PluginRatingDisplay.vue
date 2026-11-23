@@ -51,7 +51,7 @@ const starIcons = computed(() =>
   align-items: center;
   gap: 0.25rem;
   min-inline-size: 0;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1;
   white-space: nowrap;
@@ -64,12 +64,14 @@ const starIcons = computed(() =>
 }
 
 .plugin-rating-display__value {
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  color: var(--mp-fg);
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
 .plugin-rating-display__count {
   overflow: hidden;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
 }
 </style>

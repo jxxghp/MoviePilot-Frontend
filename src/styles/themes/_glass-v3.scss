@@ -184,8 +184,7 @@ $-custom-content-surfaces: (
         outline-offset: 2px;
       }
 
-      .dashboard-grid-content-measure > .v-card :is(h4, h5, h6),
-      .site-card .font-semibold {
+      .dashboard-grid-content-measure > .v-card :is(h4, h5, h6) {
         font-variant-numeric: tabular-nums;
       }
 
@@ -195,21 +194,6 @@ $-custom-content-surfaces: (
         box-shadow: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-      }
-
-      .layout-page-content .site-card h3,
-      .layout-page-content .plugin-card__banner .v-card-title {
-        font-weight: 650;
-        letter-spacing: 0;
-      }
-
-      .layout-page-content .plugin-card__banner {
-        // 品牌染色与吸收继续由各材质公式决定，分割线保持极轻呼吸感以免割裂整卡材质。
-        border-block-end: 1px solid var(--mp-card-dock-border, rgba(255, 255, 255, 0.055));
-      }
-
-      .layout-page-content .plugin-card__banner .text-shadow {
-        text-shadow: none;
       }
     }
   }

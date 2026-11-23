@@ -719,7 +719,7 @@ watch([searchFilter, statusFilter, typeFilter], () => {
 
 .cache-panel-filters :deep(.v-field) {
   border-radius: var(--app-field-radius);
-  background: var(--mp-input);
+  background: var(--mp-muted);
 }
 
 .cache-panel-mobile-actions {
