@@ -68,6 +68,7 @@ import { createDecorativeWebGLContext } from '@/utils/webgl'
 import {
   analyzeGlassWallpaperTone,
   DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
+  getLightGlassWallpaperExposure,
   loadGlassWallpaperTone,
   takeGlassWallpaperDecodedSource,
   type GlassWallpaperToneProfile,
@@ -296,6 +297,8 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uInteractionRadii: IUniform<Vector4[]>
   uInteractionRectCount: IUniform<number>
   uInteractionRects: IUniform<Vector4[]>
+  /** 1 表示浅色玻璃亮色调交互动态路径，0 表示深色玻璃路径。 */
+  uLightScheme: IUniform<number>
   uMotion: IUniform<number>
   uMotionExpansion: IUniform<number>
   uMaxRefractionPixels: IUniform<number>
@@ -370,6 +373,8 @@ interface UseGlassOpticalRendererOptions {
   dynamicsMode?: MaybeRefOrGetter<ThemeCustomizerGlassDynamicsMode>
   flowStrength?: MaybeRefOrGetter<number>
   interactionSource?: GlassOpticalInteractionSource
+  /** 浅色玻璃开关；启用时以 dynamics-only 亮色调模式运行，静止帧完全由 CSS/SVG 材质持有。 */
+  lightScheme?: MaybeRefOrGetter<boolean>
   /** 旧调用方的单一动态强度仅作为三个独立维度的兼容回退。 */
   motionStrength?: MaybeRefOrGetter<number>
   /** scroll-space 页面表面与 DOM 共用的短时呈现状态；fixed-space 不参与路由入场。 */
@@ -580,6 +585,7 @@ uniform float uHasRippleTexture;
 uniform vec4 uInteractionRadii[8];
 uniform vec4 uInteractionRects[8];
 uniform int uInteractionRectCount;
+uniform float uLightScheme;
 uniform float uMotion;
 uniform float uMotionExpansion;
 uniform float uMaxRefractionPixels;
@@ -671,6 +677,20 @@ vec3 compressWallpaperLuminance(vec3 color, float wallpaperExposure) {
 }
 
 vec3 toneMapWallpaper(vec3 color, vec2 uv, float wallpaperExposure) {
+  if (uLightScheme > 0.5) {
+    // 浅色玻璃下光学层位于卡片 backdrop-filter 之下，输出与底层浅色壁纸一致的日光曝光、色度与顶部薄纱，
+    // 由卡片自身亮度带和材质填充统一接管，避免交互区出现暗灰污渍或二次发白。
+    vec3 exposed = clamp(color * wallpaperExposure, 0.0, 1.0);
+    float lightLuminance = dot(exposed, vec3(0.2126, 0.7152, 0.0722));
+    vec3 saturated = clamp(mix(vec3(lightLuminance), exposed, 1.05), 0.0, 1.0);
+    float viewportY = (1.0 - uv.y) * max(uVisibleViewportSize.y, 1.0);
+    float topVeil =
+      viewportY < 100.0
+        ? mix(0.3, 0.1, clamp(viewportY / 100.0, 0.0, 1.0))
+        : mix(0.1, 0.0, clamp((viewportY - 100.0) / 110.0, 0.0, 1.0));
+    return mix(saturated, vec3(1.0), topVeil);
+  }
+
   float tinted = step(0.5, uAppearance) * (1.0 - step(1.5, uAppearance));
   float frosted = step(1.5, uAppearance);
   float exposure = mix(0.86, 0.85, tinted);
@@ -991,6 +1011,32 @@ ${GLASS_FLUID_FRAGMENT_SURFACE_REFRACTION}
   }
   float refractedLuminance = dot(refracted, vec3(0.2126, 0.7152, 0.0722));
   float tinted = step(0.5, uAppearance) * (1.0 - step(1.5, uAppearance));
+  if (uLightScheme > 0.5) {
+    vec3 lightHighlight = tinted > 0.5
+      ? mix(vec3(1.0), uTintColor, mix(0.22, 0.44, uTintDensity))
+      : vec3(1.0);
+    if (uHasWallpaperTexture < 0.5) {
+      float lightProceduralAlpha =
+        mask * caustic * mix(0.18, 0.12, frosted) * uReflectionStrength * clamp(dynamicsPresence, 0.0, 1.0);
+      // 透明混合已由 alpha 承载衰减；RGB 保持未衰减纯高光色，避免亮壁纸上产生暗灰晕环。
+      gl_FragColor = vec4(lightHighlight, clamp(lightProceduralAlpha, 0.0, 0.45));
+      return;
+    }
+    // 卡片自身亮度带会按约 5 倍压缩底层对比度；这里以未扰动采样兜底防变暗，并按焦散与波峰能量抬升亮色珠光高光。
+    vec3 baseLightSample = sampleWallpaper(coverUv(vUv));
+    float lightCrest = clamp(
+      caustic * mix(0.85, 0.78, frosted) * uReflectionStrength +
+        dynamicsPresence * mix(0.34, 0.74, frosted),
+      0.0,
+      0.94
+    );
+    vec3 floorSample = mix(baseLightSample * mix(0.95, 1.0, frosted), baseLightSample, smoothstep(0.0, 0.35, lightCrest));
+    vec3 liftedRefracted = mix(max(refracted, floorSample), lightHighlight, lightCrest);
+    float lightDynamicsAlpha =
+      clamp(dynamicsPresence * mix(0.72, 0.92, uQuality) * mix(1.0, 1.12, frosted), 0.0, 0.94);
+    gl_FragColor = vec4(liftedRefracted, lightDynamicsAlpha);
+    return;
+  }
   float transmissionOffset = min(uTransmissionStrength - 1.0, 0.0);
   if (transmissionOffset < 0.0) {
     float dimming = mix(0.14, 0.18, uQuality) * mix(1.0, 0.65, frosted);
@@ -1143,6 +1189,7 @@ function collectGlassOpticalSurfaceDescriptors(
   surfaceSpace: GlassPresentationSpace | 'all' = 'all',
   includeOutsideViewport = false,
   collectedElements?: HTMLElement[],
+  skipFrostedBackplateSidebar = false,
 ) {
   const candidates: Array<GlassOpticalSurfaceDescriptor & { visibleArea: number }> = []
   const seen = new Set<HTMLElement>()
@@ -1152,6 +1199,8 @@ function collectGlassOpticalSurfaceDescriptors(
     if (surfaceSpace !== 'all' && resolvedSpace !== surfaceSpace) continue
     // 移动端透明顶栏只使用稳定的 CSS 表面，避免滚动重扫时再次叠加壁纸折射。
     if (viewportWidth <= 600 && appearance === 'clear' && selector === '.layout-navbar') continue
+    // Chromium 桌面浅色磨砂侧栏由 z-index 10 背板承载亮度带；z-index 11 fixed 画布跳过该侧栏，防止在无 backdrop-filter 的导航文字背后叠绘未压缩壁纸。
+    if (skipFrostedBackplateSidebar && selector === '.layout-vertical-nav') continue
 
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (seen.has(element)) continue
@@ -1286,11 +1335,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let activeTextureHeight = 1
   let activeTextureWidth = 1
   let activeHasWallpaperTexture = false
+  let activeWallpaperToneProfile: GlassWallpaperToneProfile = { ...DEFAULT_GLASS_WALLPAPER_TONE_PROFILE }
   let activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
   let previousTexture: Texture | null = null
   let previousFrostedTarget: WebGLRenderTarget | null = null
   let previousTextureHeight = 1
   let previousTextureWidth = 1
+  let previousWallpaperToneProfile: GlassWallpaperToneProfile = { ...DEFAULT_GLASS_WALLPAPER_TONE_PROFILE }
   let previousWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
   let wallpaperTransitionStartedAt = 0
   let wallpaperActivationRollback: {
@@ -1379,8 +1430,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let preparationDeferred = false
   let dynamicsGeneration = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
+  const isLightScheme = () => Boolean(toValue(options.lightScheme))
+  const resolveWallpaperExposure = (profile: GlassWallpaperToneProfile) =>
+    isLightScheme() ? getLightGlassWallpaperExposure(profile) : profile.exposure
   const usesDynamicsOnly = () =>
-    presentationSpace === 'scroll' || (presentationSpace === 'fixed' && toValue(options.appearance) === 'frosted')
+    isLightScheme() ||
+    presentationSpace === 'scroll' ||
+    (presentationSpace === 'fixed' && toValue(options.appearance) === 'frosted')
   const wallpaperSourceCache = options.wallpaperSourceCache ?? createGlassWallpaperSourceCache()
 
   /** 所有持续绘制入口共享活动边界，资源准备和 uniform 同步不依赖呈现帧。 */
@@ -1646,6 +1702,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     previousFrostedTarget = null
     previousTextureHeight = activeTextureHeight
     previousTextureWidth = activeTextureWidth
+    previousWallpaperToneProfile = activeWallpaperToneProfile
     previousWallpaperExposure = activeWallpaperExposure
     resources.uniforms.uPreviousTexture.value = activeTexture
     resources.uniforms.uPreviousFrostedTexture.value = activeFrostedTarget?.texture ?? activeTexture
@@ -2263,13 +2320,19 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     const viewportWidth = window.innerWidth
     const nextObservedSurfaces: HTMLElement[] = []
+    const appearance = toValue(options.appearance)
+    const skipFrostedBackplateSidebar =
+      isLightScheme() &&
+      appearance === 'frosted' &&
+      Boolean(document.querySelector('.layout-wrapper.layout-fixed-shell-backplate-active'))
     surfaceRegistry = collectGlassOpticalSurfaceDescriptors(
       viewportWidth,
       window.innerHeight,
-      toValue(options.appearance),
+      appearance,
       presentationSpace,
       true,
       nextObservedSurfaces,
+      skipFrostedBackplateSidebar,
     )
     if (interactionClipMembershipDirty) refreshInteractionClipRegistry()
     else refreshInteractionClipGeometry()
@@ -2641,6 +2704,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(toValue(options.appearance))
     resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
     resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
+    resources.uniforms.uLightScheme.value = isLightScheme() ? 1 : 0
     resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
     resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
     resources.uniforms.uTintDensity.value = materialResponse.tintDensity
@@ -3707,7 +3771,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     previousFrostedTarget = null
     previousTextureHeight = 1
     previousTextureWidth = 1
-    previousWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
+    previousWallpaperToneProfile = { ...DEFAULT_GLASS_WALLPAPER_TONE_PROFILE }
+    previousWallpaperExposure = resolveWallpaperExposure(previousWallpaperToneProfile)
     wallpaperTransitionStartedAt = 0
     wallpaperActivationRollback = null
     disposeWallpaperResources(activeTexture, activeFrostedTarget)
@@ -3716,7 +3781,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeTextureHeight = 1
     activeTextureWidth = 1
     activeHasWallpaperTexture = false
-    activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
+    activeWallpaperToneProfile = { ...DEFAULT_GLASS_WALLPAPER_TONE_PROFILE }
+    activeWallpaperExposure = resolveWallpaperExposure(activeWallpaperToneProfile)
     activeWallpaperUrl.value = ''
     activeWallpaperRevision.value = 0
     activeWallpaperPreparationKey.value = ''
@@ -3804,12 +3870,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       previousFrostedTarget = activeFrostedTarget
       previousTextureHeight = activeTextureHeight
       previousTextureWidth = activeTextureWidth
-      previousWallpaperExposure = activeWallpaperExposure
+      previousWallpaperToneProfile = activeWallpaperToneProfile
+      previousWallpaperExposure = resolveWallpaperExposure(previousWallpaperToneProfile)
       activeTexture = texture
       activeFrostedTarget = frostedTarget
       activeTextureHeight = height
       activeTextureWidth = width
-      activeWallpaperExposure = toneProfile.exposure
+      activeWallpaperToneProfile = toneProfile
+      activeWallpaperExposure = resolveWallpaperExposure(toneProfile)
       resources.uniforms.uPreviousTexture.value = previousTexture
       resources.uniforms.uPreviousFrostedTexture.value = previousFrostedTarget?.texture ?? previousTexture
       resources.uniforms.uTexture.value = activeTexture
@@ -3836,16 +3904,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       activeFrostedTarget = frostedTarget
       activeTextureHeight = height
       activeTextureWidth = width
-      activeWallpaperExposure = toneProfile.exposure
+      activeWallpaperToneProfile = toneProfile
+      activeWallpaperExposure = resolveWallpaperExposure(toneProfile)
       previousTextureHeight = height
       previousTextureWidth = width
-      previousWallpaperExposure = toneProfile.exposure
+      previousWallpaperToneProfile = toneProfile
+      previousWallpaperExposure = activeWallpaperExposure
       resources.uniforms.uPreviousTexture.value = texture
       resources.uniforms.uPreviousFrostedTexture.value = frostedTarget?.texture ?? texture
       resources.uniforms.uTexture.value = texture
       resources.uniforms.uFrostedTexture.value = frostedTarget?.texture ?? texture
-      resources.uniforms.uPreviousWallpaperExposure.value = toneProfile.exposure
-      resources.uniforms.uWallpaperExposure.value = toneProfile.exposure
+      resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
+      resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
       resources.uniforms.uTextureMix.value = 1
       wallpaperTransitionStartedAt = 0
       wallpaperActivationRollback = null
@@ -4153,11 +4223,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeFrostedTarget = previousFrostedTarget
     activeTextureHeight = previousTextureHeight
     activeTextureWidth = previousTextureWidth
-    activeWallpaperExposure = previousWallpaperExposure
+    activeWallpaperToneProfile = previousWallpaperToneProfile
+    activeWallpaperExposure = resolveWallpaperExposure(activeWallpaperToneProfile)
     previousTexture = null
     previousFrostedTarget = null
     previousTextureHeight = activeTextureHeight
     previousTextureWidth = activeTextureWidth
+    previousWallpaperToneProfile = activeWallpaperToneProfile
     previousWallpaperExposure = activeWallpaperExposure
     wallpaperTransitionStartedAt = 0
     wallpaperActivationRollback = null
@@ -4244,6 +4316,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uInteractionRadii: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uInteractionRectCount: { value: 0 },
         uInteractionRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
+        uLightScheme: { value: isLightScheme() ? 1 : 0 },
         uMotion: { value: 0 },
         uMotionExpansion: { value: getMotionExpansion() },
         uMaxRefractionPixels: { value: getMaxRefractionPixels() },
@@ -4251,7 +4324,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uPointerVelocity: { value: new three.Vector2(0, 0) },
         uPresentationSize: { value: new three.Vector2(window.innerWidth, window.innerHeight) },
         uPreviousCoverScale: { value: new three.Vector2(1, 1) },
-        uPreviousWallpaperExposure: { value: DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure },
+        uPreviousWallpaperExposure: { value: resolveWallpaperExposure(previousWallpaperToneProfile) },
         uQuality: { value: toValue(options.quality) === 'high' ? 1 : 0 },
         uReflectionStrength: { value: getReflectionStrengthScale() },
         uRippleDeformationStrength: {
@@ -4272,7 +4345,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uTexture: { value: null },
         uFrostedTexture: { value: null },
         uTextureMix: { value: 1 },
-        uWallpaperExposure: { value: DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure },
+        uWallpaperExposure: { value: resolveWallpaperExposure(activeWallpaperToneProfile) },
         uTintColor: { value: new three.Color(toValue(options.tintColor)) },
         uFrostDetailLevel: { value: materialResponse.frostDetailLevel },
         uSurfaceDensity: { value: materialResponse.surfaceDensity },
@@ -4497,6 +4570,27 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         }
         preparePendingWallpaper()
       }
+    },
+  )
+
+  watch(
+    () => isLightScheme(),
+    lightScheme => {
+      if (!resources) return
+
+      activeWallpaperExposure = resolveWallpaperExposure(activeWallpaperToneProfile)
+      previousWallpaperExposure = resolveWallpaperExposure(previousWallpaperToneProfile)
+      resources.uniforms.uLightScheme.value = lightScheme ? 1 : 0
+      resources.uniforms.uDynamicsOnly.value = usesDynamicsOnly() ? 1 : 0
+      resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
+      resources.uniforms.uPreviousWallpaperExposure.value = previousWallpaperExposure
+      updateSurfaceUniforms(performance.now(), false)
+      // 失焦期间从深色切到浅色时主动清空画布，避免 fixed 层残留上一帧深色静态导航背景。
+      if (lightScheme && presentationPaused) {
+        resources.renderer.setScissorTest(false)
+        resources.renderer.clear()
+      }
+      scheduleFrame()
     },
   )
 

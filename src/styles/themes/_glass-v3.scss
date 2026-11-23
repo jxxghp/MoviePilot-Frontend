@@ -763,5 +763,44 @@ $-custom-content-surfaces: (
         -webkit-backdrop-filter: none !important;
       }
     }
+
+    // 浅色玻璃降低透明度时回退为实白表面，补充柔和冷灰细边防止卡片与浅色画布融为一体。
+    html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance] body[data-theme='glass'] {
+      .layout-wrapper[data-shell-mode='desktop'] .layout-navbar,
+      .layout-wrapper[data-shell-mode].layout-navbar-fixed .layout-navbar,
+      .layout-wrapper[data-shell-mode].layout-navbar-fixed .layout-navbar::before,
+      .layout-wrapper[data-shell-mode] .layout-navbar,
+      .layout-wrapper[data-shell-mode] .layout-navbar::before,
+      .footer-nav-card,
+      .layout-wrapper[data-shell-mode='desktop'] .layout-vertical-nav::before,
+      .layout-page-content
+        .v-card:not(
+          .v-card .v-card,
+          .file-browser-view .v-card,
+          .no-blur,
+          .media-card,
+          .playing-card,
+          .bg-primary,
+          .bg-success,
+          .bg-info,
+          .bg-warning,
+          .bg-error
+        ),
+      .layout-page-content
+        :is(.site-card, .plugin-card, .downloading-card, .subscribe-card, .workflow-task-card, .workflow-share-card),
+      .layout-page-content :is(#{$-custom-content-surfaces}),
+      .dashboard-grid-content-measure > .v-card,
+      .dashboard-grid-content-measure > :first-child > .v-card {
+        border: 1px solid rgba(15, 23, 42, 0.1) !important;
+      }
+
+      [data-native-page-heading] .v-btn.v-btn--variant-text,
+      .slider-header .view-all-button {
+        border: 1px solid rgba(15, 23, 42, 0.1) !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        background: rgb(var(--glass-popup-rgb)) !important;
+      }
+    }
   }
 }

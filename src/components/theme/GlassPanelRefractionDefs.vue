@@ -86,10 +86,13 @@ const optics = computed(() =>
     translation: settings.value.glassTranslationStrength,
   }),
 )
+const lightScheme = ref(document.documentElement.dataset.glassColorScheme === 'light')
 const bodyBlur = computed(() => {
   if (settings.value.glassAppearance !== 'frosted') return 0
   const material = getGlassMaterialResponse(settings.value.glassAppearance, settings.value.glassTransparencyStrength)
-  return (settings.value.glassQuality === 'high' ? 10 : 16) * material.frostBlurScale
+  // 浅色 WebGL 仅在交互动态期叠加，静止磨砂散射统一走 24px 基线与 CSS 路径保持一致；深色保留既有半径。
+  const base = lightScheme.value ? 24 : settings.value.glassQuality === 'high' ? 10 : 16
+  return base * material.frostBlurScale
 })
 const scale = computed(() => {
   const response = optics.value
@@ -360,8 +363,13 @@ function reconcileBindings() {
 
 /** 必须先将对应 defs 提交到 DOM，再发布表面引用和材质接管标记。 */
 function bindFilter(binding: SurfaceBinding) {
-  const suffix = settings.value.glassQuality === 'balanced' && bodyBlur.value > 0 ? ` blur(${bodyBlur.value}px)` : ''
-  const filter = `url("#${binding.id}")${suffix} saturate(118%) brightness(var(--glass-transmission-brightness, 1))`
+  // 浅色磨砂在 balanced/high 均由 SVG 内部 feGaussianBlur(edgeMode="duplicate") 完成主体散射，避免后置 CSS blur 露出未模糊外框。
+  const suffix =
+    !lightScheme.value && settings.value.glassQuality === 'balanced' && bodyBlur.value > 0
+      ? ` blur(${bodyBlur.value}px)`
+      : ''
+  // 浅色通过 --glass-panel-tone-filter 注入无截断亮度带压缩；深色未定义该变量时逐字回退原串。
+  const filter = `url("#${binding.id}")${suffix} var(--glass-panel-tone-filter, saturate(118%) brightness(var(--glass-transmission-brightness, 1)))`
   if (binding.kind === 'backplate') setStyle(binding, 'filter', filter)
   else if (binding.kind === 'card') {
     setStyle(binding, 'backdrop-filter', filter)
@@ -527,7 +535,7 @@ function handleSurfaceAttribute(record: MutationRecord) {
 }
 
 watch(
-  settings,
+  [settings, lightScheme],
   () => {
     suspend()
     scheduleSync()
@@ -537,6 +545,7 @@ watch(
 
 onMounted(() => {
   shell = svg.value?.closest<HTMLElement>('.layout-wrapper') ?? null
+  lightScheme.value = document.documentElement.dataset.glassColorScheme === 'light'
   reducedTransparency = window.matchMedia('(prefers-reduced-transparency: reduce)')
   reducedTransparency.addEventListener('change', scheduleSync)
   observer = new MutationObserver(records => {
@@ -545,6 +554,9 @@ onMounted(() => {
     for (const record of records) {
       if (svg.value?.contains(record.target)) continue
       if (record.type === 'attributes') {
+        if (record.target === document.documentElement && record.attributeName === 'data-glass-color-scheme') {
+          lightScheme.value = document.documentElement.dataset.glassColorScheme === 'light'
+        }
         if (handleSurfaceAttribute(record)) needsSync = true
       } else if (
         [...record.addedNodes, ...record.removedNodes].some(
@@ -567,7 +579,7 @@ onMounted(() => {
     })
   observer.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme', 'data-theme-radius'],
+    attributeFilter: ['data-theme', 'data-theme-radius', 'data-glass-color-scheme'],
   })
   if (typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
@@ -656,7 +668,11 @@ onActivated(scheduleSync)
           preserveAspectRatio="none"
           result="map"
         />
-        <template v-if="settings.glassQuality === 'high' && settings.glassAppearance === 'frosted'">
+        <template v-if="lightScheme && settings.glassAppearance === 'frosted'">
+          <feGaussianBlur in="SourceGraphic" :stdDeviation="bodyBlur" edgeMode="duplicate" result="diffused" />
+          <feDisplacementMap in="diffused" in2="map" xChannelSelector="R" yChannelSelector="B" :scale="scale" />
+        </template>
+        <template v-else-if="settings.glassQuality === 'high' && settings.glassAppearance === 'frosted'">
           <feGaussianBlur in="SourceGraphic" :stdDeviation="bodyBlur" edgeMode="duplicate" result="diffused" />
           <feDisplacementMap
             in="diffused"

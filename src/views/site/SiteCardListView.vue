@@ -654,4 +654,26 @@ useNativePageHeader({
   block-size: 0.375rem;
   inline-size: 0.375rem;
 }
+
+// 浅色玻璃下异常筛选胶囊直接浮于鲜活壁纸之上，补充轻透白霜托底以维持错误语义文字可读性。
+:global(
+  html[data-theme='glass'][data-glass-color-scheme='light']
+    .site-anomaly-filter-chip:not(.site-anomaly-filter-chip--active)
+) {
+  border-color: rgba(var(--v-theme-error), 0.3);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.72) 84%, rgba(var(--v-theme-error), 0.72));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :global(
+    html[data-theme='glass'][data-glass-color-scheme='light']
+      .site-anomaly-filter-chip:not(.site-anomaly-filter-chip--active)
+  ) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, rgb(var(--glass-popup-rgb, 255, 255, 255)) 88%, rgb(var(--v-theme-error)));
+  }
+}
 </style>

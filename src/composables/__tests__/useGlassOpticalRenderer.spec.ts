@@ -7031,4 +7031,101 @@ describe('glass optical surface discovery', () => {
     expect(subscribe).toHaveBeenCalled()
     scope.stop()
   })
+
+  it('switches lightScheme into dynamics-only bright exposure mode without altering dark defaults', async () => {
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const lightScheme = ref(true)
+    wallpaperToneMocks.load.mockResolvedValueOnce({
+      corsReady: true,
+      profile: {
+        exposure: 0.72,
+        highlightLuminance: 0.92,
+        medianLuminance: 0.36,
+      },
+    })
+    appendOpticalSurface('layout-navbar', { height: 64, width: 1200, x: 0, y: 0 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        dynamicsMode: ref('fluid'),
+        lightScheme,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'fixed',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const scene = render.mock.calls
+      .map(call => call[0] as unknown as { children: Array<{ material?: ShaderMaterial }> })
+      .find(candidate => candidate.children[0]?.material?.uniforms.uLightScheme)
+    if (!scene) throw new Error('main optical scene was not rendered')
+    const uniforms = scene.children[0].material!.uniforms
+    const fragmentShader = scene.children[0].material!.fragmentShader
+
+    expect(uniforms.uLightScheme.value).toBe(1)
+    expect(uniforms.uDynamicsOnly.value).toBe(1)
+    expect(uniforms.uWallpaperExposure.value).toBeGreaterThanOrEqual(0.93)
+    expect(uniforms.uWallpaperExposure.value).toBeLessThanOrEqual(1.06)
+    expect(fragmentShader).toContain('if (uLightScheme > 0.5)')
+    expect(fragmentShader).toContain('gl_FragColor = vec4(lightHighlight, clamp(lightProceduralAlpha, 0.0, 0.45));')
+
+    lightScheme.value = false
+    await nextTick()
+    expect(uniforms.uLightScheme.value).toBe(0)
+    expect(uniforms.uDynamicsOnly.value).toBe(0)
+    expect(uniforms.uWallpaperExposure.value).toBeCloseTo(0.72, 4)
+
+    scope.stop()
+  })
+
+  it('skips fixed vertical-nav overlay in light frosted mode when the fixed-shell backplate owns the sidebar', async () => {
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const wrapper = document.createElement('div')
+    wrapper.className = 'layout-wrapper layout-fixed-shell-backplate-active'
+    const nav = document.createElement('aside')
+    nav.className = 'layout-vertical-nav'
+    nav.getBoundingClientRect = () => new DOMRect(0, 0, 260, 800)
+    wrapper.append(nav)
+    document.body.append(wrapper)
+
+    const lightScheme = ref(true)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        dynamicsMode: ref('fluid'),
+        lightScheme,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'fixed',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const scene = render.mock.calls
+      .map(call => call[0] as unknown as { children: Array<{ material?: ShaderMaterial }> })
+      .find(candidate => candidate.children[0]?.material?.uniforms.uRectCount)
+    if (!scene) throw new Error('main optical scene was not rendered')
+    const uniforms = scene.children[0].material!.uniforms
+
+    expect(uniforms.uRectCount.value).toBe(0)
+
+    lightScheme.value = false
+    await nextTick()
+    expect(uniforms.uRectCount.value).toBe(1)
+
+    scope.stop()
+  })
 })

@@ -56,7 +56,7 @@ html[data-theme='plain'] {
   :where(.v-card, .v-sheet)
     :where(.v-card, .v-sheet, .v-list, .v-expansion-panel):not(
       [class*='border'],
-      .ai-agent-settings-card,
+      .collapsible-setting-card,
       .app-card-shell
     ) {
     --app-surface-border: 0 solid transparent;
@@ -1443,15 +1443,6 @@ html[data-theme='glass'] {
     --permission-editor-shadow: inset 0 1px 0 rgba(255, 255, 255, 8%);
   }
 
-  // 智能助手折叠区使用均匀的玻璃描边，替换普通主题渐变产生的顶部黑边。
-  .ai-agent-settings-card {
-    border: 1px solid rgba(255, 255, 255, 10%) !important;
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
-    backdrop-filter: var(--glass-surface-backdrop-filter) !important;
-    background: var(--glass-surface-soft) !important;
-    box-shadow: none !important;
-  }
-
   // 横向榜单的滚动容器需要完整容纳玻璃卡片向上下扩散的阴影。
   .slider-container {
     --slider-shadow-bleed-start: 48px;
@@ -2081,34 +2072,92 @@ html[data-theme='glass'][data-glass-color-scheme='light'] {
   --glass-shell-rgb: 242, 242, 247;
   --glass-frosted-rgb: 255, 255, 255;
   --glass-wallpaper-shade-rgb: 255, 255, 255;
+  // 浅色壁纸保持原貌且不随外观切档改变，仅在顶部保留轻量导航与页头阅读薄纱。
+  --glass-light-wallpaper-filter: saturate(1.05) brightness(var(--glass-wallpaper-brightness, 1.01));
+  --glass-light-wallpaper-veil: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.1) 100px,
+    rgba(255, 255, 255, 0) 210px
+  );
 }
 
+/* 浅色玻璃：壁纸保持原貌，材质调色完全在玻璃内部发生。
+   无截断线性亮度带 [F, H] 把任意壁纸压缩进深色文字可读区间，contrast=(H-F)/(H+F)、brightness=H+F 保证亮部不截断；
+   透明（clear）零模糊增强色度，色调（tinted）零模糊去饱和叠加近均匀主色覆膜，磨砂（frosted）叠加 24px 级散射；
+   画质档控制边缘 SVG 折射与 WebGL 交互动态层，浅色下 WebGL 仅输出亮色调交互流体/水漾，静止帧完全交给 CSS/SVG 材质。 */
 html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance][data-glass-ui-style] {
-  --glass-control: rgba(255, 255, 255, 42%);
-  --glass-control-prominent: rgba(255, 255, 255, 48%);
-  --glass-control-prominent-focus: color-mix(in srgb, rgba(255, 255, 255, 68%) 86%, rgba(var(--v-theme-primary), 14%));
-  --glass-border: rgba(24, 24, 27, calc(0.06 + var(--glass-reflection, 0.5) * 0.08));
-  --glass-border-raised: rgba(24, 24, 27, calc(0.08 + var(--glass-reflection, 0.5) * 0.1));
-  --glass-border-hover: rgba(24, 24, 27, 18%);
-  --glass-highlight: rgba(255, 255, 255, 62%);
-  --glass-control-prominent-border: rgba(24, 24, 27, 11%);
+  --glass-light-floor: clamp(0.52, calc(0.5 + var(--glass-transmission, 0.71) * 0.2), 0.76);
+  --glass-light-ceiling: 0.97;
+  --glass-light-chroma: 190%;
+  --glass-light-tone-filter: saturate(var(--glass-light-chroma))
+    contrast(
+      calc(
+        (var(--glass-light-ceiling) - var(--glass-light-floor)) /
+          (var(--glass-light-ceiling) + var(--glass-light-floor))
+      )
+    )
+    brightness(calc(var(--glass-light-ceiling) + var(--glass-light-floor)));
+  --glass-light-body-filter: var(--glass-light-tone-filter);
+  // Chromium SVG 行内滤镜消费此变量，使 css / balanced / high 三档保持同一材质底色。
+  --glass-panel-tone-filter: var(--glass-light-tone-filter);
+  --glass-native-surface-backdrop-filter: var(--glass-light-body-filter);
+  --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
+  --glass-dashboard-backdrop-filter: var(--glass-native-surface-backdrop-filter);
+  --glass-raised-backdrop-filter: var(--glass-light-body-filter);
+  --glass-sidebar-backdrop-filter: var(--glass-light-body-filter);
+  --glass-fixed-shell-backdrop-filter: var(--glass-light-body-filter);
+  --glass-fixed-shell-backplate-filter: var(--glass-light-body-filter);
+  --glass-navbar-backdrop-filter: var(--glass-light-body-filter);
+  --glass-v3-navigation-filter: var(--glass-light-body-filter);
+
+  // 第一层外层主卡：默认「透明 (clear)」采用低白底高透射，靠亮度带与清晰棱边界定体积。
+  --glass-v3-fill: clamp(0.12, calc(0.06 + var(--glass-surface-density, 0.62) * 0.26), 0.34);
+  --glass-v3-card-tint: 0;
+  --glass-v3-rim: clamp(0.28, calc(0.26 + var(--glass-reflection, 0.42) * 0.44), 0.72);
+  --glass-surface: rgba(255, 255, 255, var(--glass-v3-fill));
+  --glass-surface-soft: rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.04));
+  --glass-surface-raised: rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.12));
+  --glass-border: rgba(15, 23, 42, calc(0.06 + var(--glass-reflection, 0.42) * 0.06));
+  --glass-border-raised: rgba(15, 23, 42, calc(0.08 + var(--glass-reflection, 0.42) * 0.07));
+  --glass-border-hover: rgba(15, 23, 42, calc(0.12 + var(--glass-reflection, 0.42) * 0.09));
+  --glass-highlight: rgba(255, 255, 255, clamp(0.5, calc(0.45 + var(--glass-reflection, 0.42) * 0.45), 0.9));
+  --glass-v3-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 24px -10px rgba(15, 23, 42, 0.14);
+  --glass-v3-hover-shadow: 0 2px 4px rgba(15, 23, 42, 0.07), 0 16px 34px -10px rgba(15, 23, 42, 0.18);
+
+  // 内嵌子卡（L2）与有框输入凹井（L3）随三档材质自适应，严禁叠第二层 backdrop-filter 或外阴影。
+  --glass-light-subcard-bg: rgba(255, 255, 255, 0.34);
+  --glass-light-subcard-border: rgba(15, 23, 42, 0.085);
+  --glass-light-field-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.54) 0%, rgba(255, 255, 255, 0.68) 100%);
+  --glass-light-field-focus-bg: rgba(255, 255, 255, 0.92);
+
+  // 弹出层与菜单保持清晰阅读扩散，同时响应「界面风格：自适应 / 通透」切换。
+  --glass-popup-blur: 14px;
+  --glass-dialog-blur: 22px;
+  --glass-popup-filter: blur(var(--glass-popup-blur)) saturate(165%) brightness(1.04);
+  --glass-dialog-filter: blur(var(--glass-dialog-blur)) saturate(170%) brightness(1.04);
+  --glass-overlay-backdrop-filter: var(--glass-popup-filter);
+  --glass-popup-surface: rgba(255, 255, 255, clamp(0.72, calc(0.66 + var(--glass-surface-density, 0.62) * 0.18), 0.88));
+  --glass-overlay-surface: var(--glass-popup-surface);
+  --glass-control: rgba(255, 255, 255, 0.56);
+  --glass-control-prominent: rgba(255, 255, 255, 0.72);
+  --glass-control-prominent-focus: color-mix(in srgb, rgba(255, 255, 255, 0.94) 90%, rgba(var(--v-theme-primary), 10%));
+  --glass-control-prominent-border: rgba(15, 23, 42, 0.14);
   --glass-control-shortcut-background: rgba(60, 60, 67, 7%);
   --glass-control-shortcut-border: rgba(60, 60, 67, 14%);
   --glass-chip-base-opacity: 16%;
   --glass-chip-tint-opacity: calc(0.18 + var(--glass-tint-density, 0.65) * 0.14);
   --glass-button-surface: rgba(255, 255, 255, 38%);
   --glass-button-surface-hover: rgba(255, 255, 255, 56%);
-  --glass-transmission-brightness: 1.02 !important;
-  --glass-v3-rim: 0.34;
   --glass-shadow:
-    0 8px 24px -6px rgba(15, 23, 42, 7%), 0 0 0 0.5px rgba(15, 23, 42, 6%), inset 0 1px 0 rgba(255, 255, 255, 68%);
+    0 1px 2px rgba(15, 23, 42, 5%), 0 10px 24px -10px rgba(15, 23, 42, 14%), inset 0 1px 0 var(--glass-highlight);
   --glass-shadow-raised:
-    0 14px 36px -8px rgba(15, 23, 42, 12%), 0 0 0 0.5px rgba(15, 23, 42, 8%), inset 0 1px 0 rgba(255, 255, 255, 78%);
+    0 16px 38px -10px rgba(15, 23, 42, 12%), 0 0 0 0.5px rgba(15, 23, 42, 9%), inset 0 1px 0 rgba(255, 255, 255, 82%);
   --glass-shadow-hover: 0 14px 32px rgba(0, 0, 0, 10%), inset 0 1px 0 rgba(255, 255, 255, 78%);
   --glass-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%), inset 0 -1px 0 rgba(15, 23, 42, 6%);
   --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 78%), inset 0 -1px 0 rgba(15, 23, 42, 8%);
   --glass-control-shadow-active: inset 0 1px 0 rgba(15, 23, 42, 8%), inset 0 -1px 0 rgba(255, 255, 255, 40%);
-  --glass-overlay-scrim: rgba(15, 23, 42, 18%);
+  --glass-overlay-scrim: rgba(15, 23, 42, 14%);
   --app-grouped-list-separator-color: rgba(60, 60, 67, 11%);
   --app-grouped-list-hover-background: rgba(60, 60, 67, 6%);
   --glass-nav-active-background: linear-gradient(
@@ -2118,37 +2167,104 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   );
   --glass-nav-active-border: 1px solid rgba(var(--v-theme-primary), 62%);
   --glass-nav-active-shadow: 0 6px 16px rgba(var(--v-theme-primary), 20%), inset 0 1px 0 rgba(255, 255, 255, 38%);
-  // 保持浅色玻璃卡片真实的通透感（约 0.56~0.68），使卡片与水平顶栏共享同一套日光半透玻璃物理层次
-  --glass-v3-fill: clamp(0.52, calc(0.48 + var(--glass-surface-density, 0.62) * 0.24), 0.74);
-  --glass-v3-shadow: 0 8px 24px -6px rgba(15, 23, 42, 6%), 0 0 0 0.5px rgba(15, 23, 42, 6%);
-  --glass-v3-hover-shadow: 0 14px 32px -8px rgba(15, 23, 42, 10%), 0 0 0 0.5px rgba(15, 23, 42, 9%);
-  --glass-popup-surface: rgba(255, 255, 255, calc(0.76 + var(--glass-surface-density, 0.62) * 0.16));
-  --glass-overlay-surface: rgba(255, 255, 255, calc(0.78 + var(--glass-surface-density, 0.62) * 0.14));
   --glass-navbar-frosted-background:
     linear-gradient(rgba(255, 255, 255, 34%), rgba(255, 255, 255, 34%)), var(--glass-v3-card-background);
 
-  &[data-glass-appearance='frosted'] {
-    --glass-popup-surface: rgba(255, 255, 255, calc(0.78 + var(--glass-surface-density, 0.86) * 0.14));
-    --glass-overlay-surface: var(--glass-popup-surface);
-  }
-
-  &[data-glass-ui-style='clear'] {
-    --glass-popup-surface: rgba(255, 255, 255, calc(0.58 + var(--glass-surface-density, 0.62) * 0.2));
-    --glass-overlay-surface: var(--glass-popup-surface);
-  }
-
-  // 标准质量档在浅色玻璃下保留轻量卡片毛玻璃，防止半透卡片直接叠在剧照暗部硬边上显脏
-  &[data-glass-quality='css'] {
-    --glass-native-surface-backdrop-filter: blur(16px) saturate(135%) brightness(var(--glass-transmission-brightness));
-    --glass-raised-backdrop-filter: blur(20px) saturate(140%) brightness(var(--glass-transmission-brightness));
-    --glass-overlay-backdrop-filter: blur(20px) saturate(140%);
-  }
-
+  // 「色调 (tinted)」：零模糊有色滤光玻璃，压低底层壁纸色度并叠加近均匀主题色覆膜，色相整体统一为主题色族。
   &[data-glass-appearance='tinted'] {
+    --glass-light-floor: clamp(0.54, calc(0.53 + var(--glass-transmission, 0.71) * 0.2), 0.78);
+    --glass-light-chroma: clamp(15%, calc(100% - var(--glass-tint-density, 0.65) * 100%), 70%);
+    --glass-v3-fill: clamp(0.1, calc(0.04 + var(--glass-surface-density, 0.72) * 0.22), 0.3);
+    --glass-v3-card-tint: clamp(0.08, calc(0.06 + var(--glass-tint-density, 0.65) * 0.16), 0.24);
+    --glass-surface: color-mix(
+      in srgb,
+      rgba(255, 255, 255, var(--glass-v3-fill)) 82%,
+      rgba(var(--glass-material-accent-rgb), var(--glass-v3-card-tint))
+    );
+    --glass-surface-soft: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.04)) 82%,
+      rgba(var(--glass-material-accent-rgb), var(--glass-v3-card-tint))
+    );
+    --glass-surface-raised: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.12)) 80%,
+      rgba(var(--glass-material-accent-rgb), var(--glass-v3-card-tint))
+    );
+    // 浅色有色玻璃尾端保持 0.75 覆盖（替代深色默认 0.35 衰减），避免卡片右下退成无色白板。
+    --glass-v3-card-background:
+      linear-gradient(128deg, rgba(255, 255, 255, var(--glass-v3-sheen)), transparent 38%),
+      linear-gradient(
+        135deg,
+        rgba(var(--glass-material-accent-rgb), var(--glass-v3-card-tint)),
+        rgba(var(--glass-material-accent-rgb), calc(var(--glass-v3-card-tint) * 0.75))
+      ),
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, var(--glass-v3-fill)),
+        rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.04))
+      );
+    --glass-border: color-mix(
+      in srgb,
+      rgba(15, 23, 42, calc(0.06 + var(--glass-reflection, 0.42) * 0.06)) 65%,
+      rgba(var(--glass-material-accent-rgb), 0.35)
+    );
+    --glass-v3-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 24px -10px rgba(var(--glass-material-accent-rgb), 0.18);
+    --glass-v3-hover-shadow:
+      0 2px 4px rgba(15, 23, 42, 0.07), 0 16px 34px -10px rgba(var(--glass-material-accent-rgb), 0.24);
+    --glass-light-subcard-bg: rgba(255, 255, 255, 0.42);
+    --glass-light-subcard-border: color-mix(
+      in srgb,
+      rgba(15, 23, 42, 0.085) 74%,
+      rgba(var(--glass-material-accent-rgb), 0.26)
+    );
     --glass-popup-surface: color-mix(
       in srgb,
-      rgba(255, 255, 255, calc(0.68 + var(--glass-surface-density, 0.72) * 0.2)) 94%,
-      rgba(var(--glass-material-accent-rgb), 24%)
+      rgba(255, 255, 255, clamp(0.7, calc(0.64 + var(--glass-surface-density, 0.72) * 0.18), 0.86)) 86%,
+      rgba(var(--glass-material-accent-rgb), 0.28)
+    );
+    --glass-overlay-surface: var(--glass-popup-surface);
+  }
+
+  // 「磨砂 (frosted)」：24px 级强扩散散射，壁纸具象细节化作柔和环境色云，配合更厚体块感。
+  &[data-glass-appearance='frosted'] {
+    --glass-light-floor: clamp(0.5, calc(0.46 + var(--glass-transmission, 0.71) * 0.2), 0.72);
+    --glass-light-ceiling: 0.98;
+    --glass-light-chroma: 170%;
+    --glass-light-body-filter: blur(calc(24px * var(--glass-frost-blur-scale, 1))) var(--glass-light-tone-filter);
+    --glass-v3-fill: clamp(0.28, calc(0.16 + var(--glass-surface-density, 0.7) * 0.32), 0.5);
+    --glass-surface: rgba(255, 255, 255, var(--glass-v3-fill));
+    --glass-surface-soft: rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.04));
+    --glass-surface-raised: rgba(255, 255, 255, calc(var(--glass-v3-fill) + 0.1));
+    --glass-v3-shadow: 0 2px 6px rgba(15, 23, 42, 0.05), 0 16px 36px -12px rgba(15, 23, 42, 0.18);
+    --glass-light-subcard-bg: rgba(15, 23, 42, 0.042);
+    --glass-light-subcard-border: rgba(15, 23, 42, 0.075);
+    --glass-light-field-bg: rgba(255, 255, 255, 0.72);
+    --glass-light-field-focus-bg: rgba(255, 255, 255, 0.94);
+    --glass-popup-blur: 24px;
+    --glass-dialog-blur: 28px;
+    --glass-popup-surface: rgba(255, 255, 255, clamp(0.78, calc(0.72 + var(--glass-surface-density, 0.7) * 0.16), 0.9));
+    --glass-overlay-surface: var(--glass-popup-surface);
+  }
+
+  // 「界面风格：通透 (clear)」在透明/色调材质下收轻弹层模糊与遮罩，确保设置开关生效。
+  &[data-glass-ui-style='clear']:is([data-glass-appearance='clear'], [data-glass-appearance='tinted']) {
+    --glass-popup-blur: 6px;
+    --glass-dialog-blur: 12px;
+    --glass-popup-surface: rgba(
+      255,
+      255,
+      255,
+      clamp(0.52, calc(0.46 + var(--glass-surface-density, 0.62) * 0.2), 0.72)
+    );
+    --glass-overlay-surface: var(--glass-popup-surface);
+  }
+
+  &[data-glass-ui-style='clear'][data-glass-appearance='tinted'] {
+    --glass-popup-surface: color-mix(
+      in srgb,
+      rgba(255, 255, 255, clamp(0.5, calc(0.44 + var(--glass-surface-density, 0.72) * 0.2), 0.7)) 86%,
+      rgba(var(--glass-material-accent-rgb), 0.26)
     );
     --glass-overlay-surface: var(--glass-popup-surface);
   }
@@ -2156,14 +2272,55 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
 
 /* 浅色玻璃填充上的文字使用主题前景色，同时消除水平浮动顶栏在浅色下的灰暗压光与死白外框。*/
 html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass'] {
-  --glass-transmission-brightness: 1.02 !important;
+  // 提升浅色半透玻璃正文区次要文字不透明度，保证暗壁纸下 0 模糊清透卡片次要说明仍 >= 4.5:1。
+  .layout-page-content {
+    --v-medium-emphasis-opacity: 0.78;
+  }
 
+  .v-card,
+  :is(.file-browser-view, .transfer-history-mobile-record, .mobile-calendar-filter-card, .mobile-calendar-event-card),
+  .layout-navbar,
+  .layout-vertical-nav::before {
+    --glass-v3-surface-edge:
+      inset 0 1px 0 rgba(255, 255, 255, calc(0.45 + var(--glass-reflection, 0.42) * 0.45)),
+      inset 1px 0 0 rgba(255, 255, 255, calc(0.14 + var(--glass-reflection, 0.42) * 0.22)),
+      inset 0 -1px 0 rgba(15, 23, 42, calc(0.035 + var(--glass-reflection, 0.42) * 0.035));
+  }
+
+  .v-dialog > .v-overlay__scrim {
+    background: rgba(15, 23, 42, 0.14);
+  }
+
+  // 抵消 _glass-v3.scss 自适应离顶时的 brightness(92%)，防止浅色浮动顶栏发灰。
   .layout-wrapper.layout-navbar-floating-eligible.layout-navbar-away-from-top .layout-navbar {
-    --glass-navbar-opacity: clamp(0.42, calc(0.38 + var(--glass-surface-density, 0.62) * 0.16), 0.62);
-    --glass-navbar-scrim-end: clamp(0.52, calc(0.46 + var(--glass-surface-density, 0.62) * 0.18), 0.7);
-    --glass-navbar-brightness: 1.09;
-    --glass-navbar-rim: rgba(24, 24, 27, 0.08);
-    --glass-navbar-top-opacity: 0.62;
+    --glass-navbar-opacity: clamp(0.32, calc(0.26 + var(--glass-surface-density, 0.62) * 0.2), 0.54);
+    --glass-navbar-scrim-end: clamp(0.42, calc(0.36 + var(--glass-surface-density, 0.62) * 0.2), 0.62);
+    --glass-navbar-tint: clamp(0.12, calc(var(--glass-tint-density, 0.65) * 0.2), 0.24);
+    --glass-navbar-brightness: calc(var(--glass-transmission-brightness, 1) * 1.16);
+    --glass-navbar-rim: rgba(15, 23, 42, 0.09);
+    --glass-navbar-top-opacity: 0.72;
+  }
+
+  // 严禁浅色下嵌套子容器重复采样 backdrop-filter，避免亮度带二次叠加导致内层发白发平。
+  .layout-page-content :is(.v-card, .app-surface) :is(.v-card, .v-sheet, .v-list, .v-expansion-panel, .v-table) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  // 浅色登录卡位于顶部 210px 阅读薄纱之下，直接在 .login-card 挂载亮度带避免入场动画 transform/overflow 阻断子层 backdrop-filter。
+  .login-card {
+    -webkit-backdrop-filter: var(--glass-light-body-filter) !important;
+    backdrop-filter: var(--glass-light-body-filter) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(15, 23, 42, 0.09),
+      inset 0 1px 0 rgba(255, 255, 255, 0.78),
+      0 24px 64px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  .login-card__surface {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--glass-v3-card-background) !important;
   }
 
   // 登录输入区使用浅色控件描边与填充，保留色调叠层和独立的聚焦反馈。
@@ -2300,11 +2457,55 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)) !important;
   }
 
-  // 浅色玻璃下表格、代码编辑器、日志行与权限面板改用冷灰吸收层，避免白底叠白雾失去轮廓。
-  .v-field.v-field--variant-outlined {
-    box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 7%);
+  // 第三层：浅色玻璃下桌面有框输入框采用凹井渐变与内阴影，暗底靠填充、亮底靠内凹边界分层，排除移动端无框表单。
+  .v-field.v-field--variant-outlined:not(
+      .app-responsive-input--field .v-field,
+      .app-responsive-input--multiline .v-field
+    ) {
+    --v-field-border-opacity: 0.18;
+
+    background: var(--glass-light-field-bg) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(15, 23, 42, 0.07),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+
+    .v-label.v-field-label--floating {
+      opacity: 0.88;
+      text-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+    }
   }
 
+  .v-field.v-field--variant-outlined.v-field--focused:not(
+      .app-responsive-input--field .v-field,
+      .app-responsive-input--multiline .v-field
+    ) {
+    --v-field-border-opacity: 0.42;
+
+    background: var(--glass-light-field-focus-bg) !important;
+    box-shadow:
+      0 0 0 3px rgba(var(--v-theme-primary), 0.14),
+      inset 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+
+  .v-field.v-field--variant-outlined.v-field--error:not(
+      .app-responsive-input--field .v-field,
+      .app-responsive-input--multiline .v-field
+    ) {
+    --v-field-border-opacity: 1;
+  }
+
+  .v-field.v-field--variant-outlined.v-field--error.v-field--focused:not(
+      .app-responsive-input--field .v-field,
+      .app-responsive-input--multiline .v-field
+    ) {
+    --v-field-border-opacity: 1;
+
+    box-shadow:
+      0 0 0 3px rgba(var(--v-theme-error), 0.16),
+      inset 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+
+  // 浅色玻璃下表格、代码编辑器、日志行与权限面板改用冷灰吸收层，避免白底叠白雾失去轮廓。
   .v-table {
     .v-table__wrapper > table > thead {
       background-color: rgba(15, 23, 42, 4.5%);
@@ -2333,15 +2534,21 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     --permission-editor-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%);
   }
 
-  .ai-agent-settings-card {
-    border: 1px solid var(--glass-border) !important;
+  // 第二层：内嵌设置子卡随三档材质切换半透叠片或冷灰凹槽，严禁叠加外阴影或第二层背景模糊。
+  .collapsible-setting-card {
+    border: 1px solid var(--glass-light-subcard-border) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--glass-light-subcard-bg) !important;
+    background-image: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   }
 
   .app-card-colorful {
     --app-card-accent-start-opacity: 0.1;
     --app-card-accent-end-opacity: 0.032;
     --app-card-bg: rgba(255, 255, 255, 0.44);
-    --app-card-hover-bg: rgba(255, 255, 255, 0.66);
+    --app-card-hover-bg: rgba(255, 255, 255, 0.68);
     --app-card-dock-bg: rgba(15, 23, 42, 0.036);
     --app-card-border-color: rgba(15, 23, 42, 0.11);
     --app-card-hover-border-color: rgba(var(--app-card-accent-rgb), 0.42);
@@ -2351,5 +2558,132 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     --app-card-icon-border: rgba(15, 23, 42, 0.09);
     --app-card-chip-bg: rgba(15, 23, 42, 0.05);
     --app-card-chip-border: rgba(15, 23, 42, 0.09);
+  }
+
+  // 直接浮于壁纸之上的裸露页头采用贴合字形的无框柔光晕（避免 background-clip 裁切文字阻断 text-shadow 或形成白框）。
+  .layout-page-content [data-native-page-title] .text-moviepilot {
+    background-clip: border-box;
+    background-image: none;
+    color: color-mix(in oklab, var(--mp-primary-fg) 84%, var(--mp-semantic-fg-anchor));
+    text-shadow:
+      0 0 6px rgba(255, 255, 255, 0.98),
+      0 1px 12px rgba(255, 255, 255, 0.92),
+      0 0 24px rgba(255, 255, 255, 0.76);
+  }
+
+  [data-native-page-heading] .v-btn.v-btn--variant-text {
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    background: rgba(255, 255, 255, 0.42);
+  }
+
+  .slider-header .title-text {
+    text-shadow:
+      0 0 6px rgba(255, 255, 255, 0.96),
+      0 1px 12px rgba(255, 255, 255, 0.9),
+      0 0 24px rgba(255, 255, 255, 0.72);
+  }
+
+  .slider-header .title-badge {
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.65);
+  }
+
+  .slider-header .view-all-button {
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    background-color: rgba(255, 255, 255, 0.56);
+  }
+
+  // 已处于卡片内部的标题与按钮自带玻璃承托，不重复叠加柔光或磨砂底。
+  .v-card {
+    [data-native-page-title] .text-moviepilot {
+      text-shadow: none;
+    }
+
+    [data-native-page-heading] .v-btn.v-btn--variant-text {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background: transparent;
+    }
+
+    .slider-header .title-text {
+      text-shadow: none;
+    }
+
+    .slider-header .title-badge {
+      box-shadow: none;
+    }
+
+    .slider-header .view-all-button {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+}
+
+// 匹配 _glass-v3.scss 权重，保证浅色透明/色调下桌面导航壳与悬停卡片保持亮白内棱边，不回退到深石板灰 --glass-border-hover。
+html[data-theme='glass'][data-glass-color-scheme='light']:is(
+    [data-glass-appearance='clear'],
+    [data-glass-appearance='tinted']
+  )
+  body[data-theme='glass'] {
+  .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active) .layout-navbar,
+  .layout-wrapper[data-shell-mode='desktop']:not(.layout-horizontal-nav-active) .layout-vertical-nav::before {
+    --glass-v3-surface-edge:
+      inset 0 1px 0 rgba(255, 255, 255, calc(0.45 + var(--glass-reflection, 0.42) * 0.45)),
+      inset 1px 0 0 rgba(255, 255, 255, calc(0.14 + var(--glass-reflection, 0.42) * 0.22)),
+      inset 0 -1px 0 rgba(15, 23, 42, calc(0.035 + var(--glass-reflection, 0.42) * 0.035));
+  }
+
+  @media (hover: hover) {
+    .v-card:hover {
+      --glass-v3-surface-edge:
+        inset 0 1px 0 rgba(255, 255, 255, calc(0.6 + var(--glass-reflection, 0.42) * 0.35)),
+        inset 1px 0 0 rgba(255, 255, 255, calc(0.2 + var(--glass-reflection, 0.42) * 0.2)),
+        inset 0 -1px 0 rgba(15, 23, 42, calc(0.05 + var(--glass-reflection, 0.42) * 0.04));
+    }
+  }
+}
+
+// 覆盖基础规则对色调/磨砂登录卡的专属填充，使三档浅色登录卡统一跟随亮度带与浅色卡面材质。
+html[data-theme='glass'][data-glass-color-scheme='light']:is(
+    [data-glass-appearance='tinted'],
+    [data-glass-appearance='frosted']
+  )
+  body[data-theme='glass'] {
+  .login-card {
+    -webkit-backdrop-filter: var(--glass-light-body-filter) !important;
+    backdrop-filter: var(--glass-light-body-filter) !important;
+  }
+
+  .login-card__surface {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: var(--glass-v3-card-background) !important;
+  }
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance='frosted'] body[data-theme='glass'] {
+  .v-card,
+  :is(.file-browser-view, .transfer-history-mobile-record, .mobile-calendar-filter-card, .mobile-calendar-event-card),
+  .layout-navbar,
+  .layout-vertical-nav::before {
+    --glass-v3-surface-edge:
+      inset 0 1px 0 rgba(255, 255, 255, calc(0.5 + var(--glass-reflection, 0.42) * 0.42)),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 10px 24px -12px rgba(255, 255, 255, 0.48),
+      inset 0 -1px 0 rgba(15, 23, 42, calc(0.035 + var(--glass-reflection, 0.42) * 0.035));
+  }
+}
+
+// 浅色常驻侧栏在 balanced/high 两档启用 SVG 实时折射时统一以更高权重注入亮度带变量。
+@each $quality in ('balanced', 'high') {
+  html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-quality='#{$quality}']:is(
+      [data-glass-appearance='clear'],
+      [data-glass-appearance='tinted']
+    )
+    body[data-theme='glass']
+    .layout-wrapper[data-glass-navigation-refraction='chromium'][data-glass-sidebar-refraction-ready='true']
+    .layout-vertical-nav:not(.overlay-nav):not([data-glass-panel-refraction]) {
+    --glass-sidebar-live-filter: url('#glass-sidebar-live-refraction-#{$quality}') var(--glass-panel-tone-filter);
   }
 }

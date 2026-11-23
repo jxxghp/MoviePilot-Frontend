@@ -114,6 +114,7 @@ describe('GlassNavbarRefractionDefs', () => {
     wrapper = undefined
     shell.remove()
     delete document.documentElement.dataset.themeRadius
+    delete document.documentElement.dataset.glassColorScheme
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.useRealTimers()
@@ -802,5 +803,23 @@ describe('GlassNavbarRefractionDefs', () => {
     await flushPromises()
     expect(shell.hasAttribute('data-glass-navbar-refraction-ready')).toBe(false)
     expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('keeps live SVG refraction active across light and dark glass switches', async () => {
+    document.documentElement.dataset.glassColorScheme = 'light'
+    shell.className = 'layout-wrapper'
+    shell.dataset.shellMode = 'desktop'
+    mountWithSidebar()
+    await settle()
+
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
+
+    document.documentElement.dataset.glassColorScheme = 'dark'
+    await flushPromises()
+    await settle()
+
+    expectReadyForWidth(1423)
+    expectReadyForSidebar(260)
   })
 })

@@ -57,6 +57,13 @@ function readPercentile(sorted: number[], percentile: number) {
   return sorted[Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * percentile)))]
 }
 
+/** 浅色玻璃保留自然日光亮度，压制极亮雪景防过曝并微提暗景，避免把壁纸洗灰。 */
+export function getLightGlassWallpaperExposure(profile: GlassWallpaperToneProfile): number {
+  const highlightPenalty = Math.max(0, profile.highlightLuminance - 0.88) * 0.35
+
+  return clamp(1.01 + (0.48 - profile.medianLuminance) * 0.14 - highlightPenalty, 0.93, 1.06)
+}
+
 /**
  * 以中位亮度为主、高亮分位为辅计算有限曝光。
  * 指数响应缩小跨壁纸差异后统一降低曝光，保留图像细节并优先保证正文可读性。
