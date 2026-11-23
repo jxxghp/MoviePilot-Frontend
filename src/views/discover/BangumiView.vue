@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppFilterBar from '@/components/filter/AppFilterBar.vue'
 import MediaCardListView from '@/views/discover/MediaCardListView.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -48,36 +49,30 @@ const currentKey = ref(0)
 watch([filterParams], () => {
   currentKey.value++
 })
+const secondaryFilterCount = computed(() => {
+  let count = 0
+  if (filterParams.sort && filterParams.sort !== 'rank') count += 1
+  if (filterParams.year) count += 1
+  return count
+})
 </script>
 
 <template>
-  <div class="app-filter-bar">
-    <div class="app-filter-row">
-      <VLabel class="app-filter-label">{{ t('bangumi.category') }}</VLabel>
-      <VChipGroup v-model="filterParams.cat" class="app-filter-chips">
-        <VChip
-          :color="filterParams.cat == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in bangumiCatDict"
-          :key="key"
-        >
-          {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
+  <AppFilterBar :active-count="secondaryFilterCount">
+    <template #primary>
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('bangumi.category') }}</VLabel>
+        <VChipGroup v-model="filterParams.cat" class="app-filter-chips">
+          <VChip v-for="(value, key) in bangumiCatDict" :key="key" :value="key">
+            {{ value }}
+          </VChip>
+        </VChipGroup>
+      </div>
+    </template>
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('bangumi.sort') }}</VLabel>
       <VChipGroup v-model="filterParams.sort" class="app-filter-chips">
-        <VChip
-          :color="filterParams.sort == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in bangumiSortDict"
-          :key="key"
-        >
+        <VChip v-for="(value, key) in bangumiSortDict" :key="key" :value="key">
           {{ value }}
         </VChip>
       </VChipGroup>
@@ -85,20 +80,18 @@ watch([filterParams], () => {
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('bangumi.year') }}</VLabel>
       <VChipGroup v-model="filterParams.year" class="app-filter-chips">
-        <VChip
-          :color="filterParams.year == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in yearDict"
-          :key="key"
-        >
+        <VChip v-for="(value, key) in yearDict" :key="key" :value="key">
           {{ value }}
         </VChip>
       </VChipGroup>
     </div>
-  </div>
+  </AppFilterBar>
   <div>
-    <MediaCardListView :key="currentKey" apipath="discover/bangumi" :params="filterParams" />
+    <MediaCardListView
+      :key="currentKey"
+      apipath="discover/bangumi"
+      :params="filterParams"
+      :hide-type-badge="Boolean(filterParams.cat)"
+    />
   </div>
 </template>

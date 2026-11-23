@@ -341,6 +341,7 @@ export default {
     active: '激活',
     inactive: '未激活',
     filter: '筛选',
+    collapse: '收起',
     noMatchingData: '没有符合条件的数据',
     tryChangingFilters: '请尝试更改筛选条件',
     default: '默认',
@@ -6068,6 +6069,7 @@ export default {
     genre: '风格',
     language: '语言',
     rating: '评分',
+    voteCount: '人数',
     sortType: {
       popularityDesc: '热度降序',
       popularityAsc: '热度升序',

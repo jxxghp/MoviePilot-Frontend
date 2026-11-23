@@ -2,12 +2,18 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
+import AppFilterBar from '@/components/filter/AppFilterBar.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 
 // 国际化
 const { t } = useI18n()
+const display = useDisplay()
+
+const gridMinItemWidth = computed(() => (display.xs.value ? 104 : 144))
+const gridGap = computed(() => (display.xs.value ? 10 : 16))
 
 // 输入参数
 const props = defineProps({
@@ -229,40 +235,41 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
     loadingGenerations.delete(generation)
   }
 }
+const secondaryFilterCount = computed(() => {
+  let count = 0
+  if (filterParams.genre_id) count += 1
+  if (filterParams.min_rating > 0) count += 1
+  return count
+})
 </script>
 
 <template>
   <!-- 筛选器 -->
-  <div class="app-filter-bar">
-    <div class="app-filter-row">
-      <VLabel class="app-filter-label">{{ t('tmdb.sort') }}</VLabel>
-      <VChipGroup v-model="filterParams.sort_type" class="app-filter-chips">
-        <VChip :color="filterParams.sort_type == 'time' ? 'primary' : ''" filter tile value="time">
-          {{ t('tmdb.sortType.time') }}
-        </VChip>
-        <VChip :color="filterParams.sort_type == 'count' ? 'primary' : ''" filter tile value="count">
-          {{ t('tmdb.sortType.count') }}
-        </VChip>
-        <VChip :color="filterParams.sort_type == 'rating' ? 'primary' : ''" filter tile value="rating">
-          {{ t('tmdb.sortType.rating') }}
-        </VChip>
-      </VChipGroup>
-    </div>
+  <AppFilterBar :active-count="secondaryFilterCount">
+    <template #primary>
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('tmdb.sort') }}</VLabel>
+        <VChipGroup v-model="filterParams.sort_type" class="app-filter-chips">
+          <VChip value="time">
+            {{ t('tmdb.sortType.time') }}
+          </VChip>
+          <VChip value="count">
+            {{ t('tmdb.sortType.count') }}
+          </VChip>
+          <VChip value="rating">
+            {{ t('tmdb.sortType.rating') }}
+          </VChip>
+        </VChipGroup>
+      </div>
+    </template>
 
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('tmdb.genre') }}</VLabel>
       <VChipGroup v-model="filterParams.genre_id" class="app-filter-chips">
-        <VChip :color="filterParams.genre_id == '' ? 'primary' : ''" filter tile value="">
+        <VChip value="">
           {{ t('common.all') }}
         </VChip>
-        <VChip
-          :color="filterParams.genre_id == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in currentGenreDict"
-          :key="key"
-        >
+        <VChip v-for="(value, key) in currentGenreDict" :key="key" :value="key">
           {{ value }}
         </VChip>
       </VChipGroup>
@@ -270,18 +277,23 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
 
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('tmdb.rating') }}</VLabel>
-      <VSlider
-        v-model="filterParams.min_rating"
-        thumb-label
-        max="10"
-        min="0"
-        :step="1"
-        class="app-filter-slider align-center"
-        hide-details
-      >
-      </VSlider>
+      <div class="app-filter-range-capsule app-filter-range-capsule--compact">
+        <span class="app-filter-range-readout num" :class="{ 'is-active': filterParams.min_rating > 0 }">
+          <span class="app-filter-range-readout__star" aria-hidden="true">★</span>
+          <span>{{ filterParams.min_rating > 0 ? `≥ ${filterParams.min_rating}` : t('common.all') }}</span>
+        </span>
+        <VSlider
+          v-model="filterParams.min_rating"
+          max="10"
+          min="0"
+          :step="1"
+          density="compact"
+          class="app-filter-slider align-center"
+          hide-details
+        />
+      </div>
     </div>
-  </div>
+  </AppFilterBar>
 
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <VInfiniteScroll
@@ -307,13 +319,14 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
       v-if="dataList.length > 0"
       :items="dataList"
       :get-item-key="getMediaIdentity"
-      :min-item-width="144"
+      :min-item-width="gridMinItemWidth"
+      :gap="gridGap"
       :estimated-item-height="320"
       tabindex="0"
     >
       <template #default="{ item }">
         <div>
-          <MediaCard :media="item" />
+          <MediaCard :media="item" :hide-type-badge="Boolean(props.type)" />
           <div v-if="item.popularity" class="mt-2 flex flex-row justify-center align-center">
             <span class="mp-canvas-pill num">
               <VIcon icon="mdi-fire" color="error" size="14" />

@@ -318,7 +318,6 @@ onMounted(() => {
           <div class="mb-1 flex min-w-0 items-center gap-2">
             <!-- 站点图标 -->
             <VAvatar
-              tile
               rounded="lg"
               size="32"
               class="shrink-0"

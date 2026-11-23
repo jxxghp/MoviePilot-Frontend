@@ -2379,10 +2379,20 @@ html .app-table-flush-top > .v-card > .v-table {
   padding: 0;
 }
 
-// 筛选栏与独立画布控件共享静态阅读衬底与紧凑行距，不吸顶也不叠加二层背景模糊。
+// 标准筛选栏采用无外框流式轨道，靠每颗胶囊与范围舱自带高对比微衬底在任意壁纸与平面下清晰可读；
+// 紧凑页签栏（--compact）与第三方插件动态表单（.extra-source-filters）保留整块阅读衬底。
 .app-filter-bar {
-  margin-block-end: 0.75rem;
+  margin-block-end: 0.5rem;
   margin-inline: 0.5rem;
+  padding-block: 0.25rem;
+  padding-inline: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.app-filter-bar--compact,
+.app-filter-bar.extra-source-filters {
   padding-block: 0.625rem;
   padding-inline: 0.875rem;
   border: 1px solid var(--mp-reading-border);
@@ -2399,24 +2409,123 @@ html .app-table-flush-top > .v-card > .v-table {
   padding-inline: 0.5rem;
 }
 
-.app-filter-row {
+.app-filter-bar__head {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.app-filter-bar__primary {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+}
+
+.app-filter-toggle-pill {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  block-size: 2rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--mp-filter-pill-border);
+  border-radius: 9999px;
+  background: var(--mp-filter-pill-bg);
+  box-shadow: var(--mp-filter-pill-shadow);
+  color: var(--mp-filter-pill-fg);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    border-color 160ms var(--mp-motion-ease-standard),
+    background-color 160ms var(--mp-motion-ease-standard),
+    color 160ms var(--mp-motion-ease-standard);
+}
+
+.app-filter-toggle-pill.is-active {
+  border-color: var(--mp-primary-border);
+  color: var(--mp-primary-fg);
+  font-weight: 600;
+}
+
+.app-filter-toggle-pill:focus-visible {
+  outline: 2px solid var(--mp-ring);
+  outline-offset: 2px;
+}
+
+.app-filter-toggle-pill__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.125rem;
+  block-size: 1.125rem;
+  padding-inline: 0.25rem;
+  border-radius: 9999px;
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.app-filter-collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 200ms var(--mp-motion-ease-standard),
+    opacity 160ms ease;
+}
+
+.app-filter-collapsible__inner {
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-block-start: 0.375rem;
+}
+
+.app-filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
   min-inline-size: 0;
 }
 
 .app-filter-row + .app-filter-row {
-  margin-block-start: 0.125rem;
+  margin-block-start: 0.375rem;
 }
 
 .app-filter-label {
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  block-size: 2.25rem;
   min-inline-size: 2.5rem;
-  color: var(--mp-muted-fg);
+  color: color-mix(in oklab, var(--mp-fg) 84%, transparent);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   opacity: 1;
+}
+
+// 浅色玻璃下分组标签采用无阴影 6px 轻量小标牌，既在深色/高反差壁纸上清晰可读，又与右侧 32px 可点圆胶囊拉开形状层级。
+html[data-theme='glass'][data-glass-color-scheme='light'] .app-filter-label {
+  justify-content: center;
+  block-size: 1.5rem;
+  margin-block-start: 0.375rem;
+  padding-inline: 0.4375rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: none;
+  color: rgba(24, 24, 27, 0.78);
+  font-size: 0.75rem;
+  text-shadow: none;
+}
+
+html[data-theme='glass']:not([data-glass-color-scheme='light']) .app-filter-label {
+  color: rgba(242, 245, 250, 0.92);
+  text-shadow:
+    0 1px 3px rgba(6, 10, 19, 0.92),
+    0 0 10px rgba(6, 10, 19, 0.72);
 }
 
 .app-filter-chips {
@@ -2425,12 +2534,174 @@ html .app-table-flush-top > .v-card > .v-table {
 }
 
 .app-filter-chips .v-slide-group__content {
+  gap: 0.4375rem;
   padding-block: 0.125rem;
+}
+
+// 隐藏 VChipGroup 自动插入的左右占位箭头，保证桌面所有筛选行左边缘严格垂直对齐。
+.app-filter-chips :is(.v-slide-group__prev, .v-slide-group__next) {
+  display: none !important;
+}
+
+// 筛选胶囊采用高权重作用域覆盖，屏蔽 glass.scss 的镜面 sheen 与 34% 降透规则，不波及全站其他 Chip。
+html[data-theme] .app-filter-bar .app-filter-chips .v-chip {
+  margin: 0 !important;
+  block-size: 2rem;
+  padding-inline: 0.8125rem;
+  border: 1px solid var(--mp-filter-pill-border) !important;
+  border-radius: 9999px !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background-color: var(--mp-filter-pill-bg) !important;
+  background-image: none !important;
+  box-shadow: var(--mp-filter-pill-shadow) !important;
+  color: var(--mp-filter-pill-fg) !important;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition:
+    background-color 160ms var(--mp-motion-ease-standard),
+    border-color 160ms var(--mp-motion-ease-standard),
+    color 160ms var(--mp-motion-ease-standard),
+    box-shadow 160ms var(--mp-motion-ease-standard);
+}
+
+html[data-theme] .app-filter-bar .app-filter-chips .v-chip .v-chip__underlay {
+  opacity: 0 !important;
+}
+
+html[data-theme] .app-filter-bar .app-filter-chips .v-chip:focus-visible {
+  outline: 2px solid var(--mp-ring);
+  outline-offset: 2px;
+}
+
+// 选中筛选胶囊克制降饱和：平面与浅色玻璃用饱满柔染衬底配语义前景，深色玻璃用暗底叠半透主色配中性亮字，避免荧光色块抢海报主角。
+html[data-theme] .app-filter-bar .app-filter-chips .v-chip.v-chip--selected {
+  border-color: rgba(var(--v-theme-primary), 0.42) !important;
+  background-color: color-mix(in oklab, rgb(var(--v-theme-primary)) 16%, var(--mp-surface)) !important;
+  background-image: none !important;
+  box-shadow: 0 1px 3px rgba(var(--v-theme-primary), 0.14) !important;
+  color: var(--mp-primary-fg) !important;
+  font-weight: 600;
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'] .app-filter-bar .app-filter-chips .v-chip.v-chip--selected {
+  border-color: rgba(var(--v-theme-primary), 0.56) !important;
+  background-color: color-mix(in oklab, rgb(var(--v-theme-primary)) 26%, rgba(255, 255, 255, 0.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 1px 4px rgba(var(--v-theme-primary), 0.18) !important;
+  color: var(--mp-primary-fg) !important;
+}
+
+html[data-theme='glass']:not([data-glass-color-scheme='light'])
+  .app-filter-bar
+  .app-filter-chips
+  .v-chip.v-chip--selected {
+  border-color: rgba(var(--v-theme-primary), 0.62) !important;
+  background-color: rgba(var(--glass-material-rgb), 0.6) !important;
+  background-image: linear-gradient(
+    180deg,
+    rgba(var(--v-theme-primary), 0.46),
+    rgba(var(--v-theme-primary), 0.34)
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 1px 4px rgba(0, 0, 0, 0.24) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+html[data-theme] .app-filter-bar .app-filter-chips .v-chip.v-chip--selected .v-chip__overlay {
+  opacity: 0 !important;
+}
+
+// 评分滑块与最少评价人数整合为紧凑 32px 自衬底胶囊舱，避免桌面横跨全宽长轨与无标签空框。
+.app-filter-range-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  block-size: 2rem;
+  margin-block: 0.125rem;
+  inline-size: min(100%, 26rem);
+  padding-inline: 0.75rem;
+  border: 1px solid var(--mp-filter-pill-border);
+  border-radius: 9999px;
+  background: var(--mp-filter-pill-bg);
+  box-shadow: var(--mp-filter-pill-shadow);
+  color: var(--mp-filter-pill-fg);
+}
+
+.app-filter-range-capsule--compact {
+  inline-size: min(100%, 19rem);
+}
+
+.app-filter-range-readout {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 3.25rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-filter-range-readout.is-active {
+  color: var(--mp-primary-fg);
+}
+
+.app-filter-range-readout__star {
+  color: var(--mp-warning-fg);
 }
 
 .app-filter-slider {
   flex: 1 1 0%;
-  min-inline-size: 0;
+  min-inline-size: 5rem;
+}
+
+.app-filter-vote-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline-start: 0.625rem;
+  border-inline-start: 1px solid var(--mp-filter-pill-border);
+}
+
+.app-filter-vote-prefix {
+  color: var(--mp-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.app-filter-vote-input {
+  inline-size: 2.75rem;
+  flex: 0 0 auto;
+}
+
+.app-filter-vote-input .v-field {
+  min-block-size: 1.5rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.app-filter-vote-input .v-field__input {
+  min-block-size: 1.5rem !important;
+  padding: 0 !important;
+  color: var(--mp-fg) !important;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+// 仅当用户在主题定制器显式切换硬朗圆角档时同步收为 8px。
+html[data-theme-radius='none'] .app-filter-bar .app-filter-chips .v-chip,
+html[data-theme-radius='none'] .app-filter-range-capsule,
+html[data-theme-radius='none'] .app-filter-toggle-pill {
+  border-radius: 8px !important;
 }
 
 // 直接放置于壁纸画布上的紧凑读数与状态胶囊（零 backdrop-filter 开销），保证高反差壁纸下依然清晰可读。
@@ -2450,15 +2721,61 @@ html .app-table-flush-top > .v-card > .v-table {
   white-space: nowrap;
 }
 
+html[data-theme='glass'][data-glass-color-scheme='light'] .mp-canvas-pill {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+// 桌面宽屏自动换行呈现全部筛选项，零箭头遮挡；窄屏保持贴边横滑与右缘柔和渐隐。
+@media (width >= 960px) {
+  .app-filter-chips .v-slide-group__container {
+    overflow: visible;
+  }
+
+  .app-filter-chips .v-slide-group__content {
+    flex: 1 1 auto !important;
+    flex-wrap: wrap !important;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    row-gap: 0.4375rem;
+    white-space: normal;
+  }
+}
+
+@media (width < 960px) {
+  .app-filter-chips {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent);
+  }
+
+  .app-filter-chips .v-slide-group__content {
+    padding-inline-end: 1.5rem;
+  }
+}
+
 @media (width <= 600px) {
   .app-filter-bar {
-    padding-block: 0.5rem;
-    padding-inline: 0.75rem;
+    margin-block-end: 0.375rem;
   }
 
   .app-filter-bar--compact {
     padding-block: 0.2rem;
     padding-inline: 0.375rem;
+  }
+
+  .app-filter-toggle-pill {
+    display: inline-flex;
+  }
+
+  .app-filter-collapsible:not(.is-expanded) {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .app-filter-collapsible:not(.is-expanded) .app-filter-collapsible__inner {
+    padding-block-start: 0;
   }
 
   .app-filter-row {
@@ -2467,6 +2784,28 @@ html .app-table-flush-top > .v-card > .v-table {
 
   .app-filter-label {
     min-inline-size: 2.25rem;
+  }
+
+  .app-filter-range-capsule,
+  .app-filter-range-capsule--compact {
+    inline-size: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-filter-collapsible {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme='glass'],
+  html[data-theme='glass'][data-glass-color-scheme='light'] {
+    --mp-filter-pill-bg: rgb(var(--mp-surface-rgb));
+  }
+
+  html[data-theme='glass'][data-glass-color-scheme='light'] .app-filter-label {
+    background: rgb(var(--mp-surface-rgb));
   }
 }
 

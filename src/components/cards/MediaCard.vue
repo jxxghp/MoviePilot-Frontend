@@ -61,6 +61,11 @@ const props = defineProps({
   width: String,
   /** 可选卡片高度，由海报比例决定时省略。 */
   height: String,
+  /** 单一媒体类型列表可隐藏左上类型角标，避免每张海报重复显示同一分类。 */
+  hideTypeBadge: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const { t } = useI18n()
@@ -720,10 +725,11 @@ onBeforeUnmount(() => {
           </VCardText>
           <!-- 类型角标 -->
           <VChip
+            v-if="!props.hideTypeBadge"
             v-show="isImageLoaded"
             variant="flat"
             size="small"
-            :class="getChipColor(props.media?.type || '')"
+            :class="[getChipColor(props.media?.type || ''), 'media-card-badge--type']"
             class="media-card-badge absolute left-2 top-2"
           >
             {{ getMediaTypeText(props.media?.type) }}
@@ -738,23 +744,29 @@ onBeforeUnmount(() => {
             :class="getChipColor('rating')"
             class="media-card-badge num absolute right-2 top-2"
           >
+            <svg class="media-card-badge__star" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+              />
+            </svg>
             {{ formatRating(props.media?.vote_average) }}
           </VChip>
           <!--来源图标-->
           <VAvatar
-            size="24"
+            size="20"
             variant="plain"
             density="compact"
-            class="absolute bottom-1 right-1"
-            tile
+            rounded="sm"
+            class="media-card-source-avatar absolute bottom-2 right-2"
             v-if="!isMediaCardActive(hover.isHovering) && isImageLoaded && mediaSource && !imageLoadError"
           >
-            <VIcon v-if="mediaSource === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="24" />
+            <VIcon v-if="mediaSource === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="20" />
             <VIcon
               v-else-if="musicSourceIconDict[mediaSource]"
               :color="musicSourceIconDict[mediaSource].color"
               :icon="musicSourceIconDict[mediaSource].icon"
-              size="24"
+              size="20"
             />
             <VImg
               v-else
@@ -772,6 +784,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .media-card-hover-area {
   inline-size: 100%;
+  container-type: inline-size;
 }
 
 .media-card--image-loaded {
@@ -815,28 +828,65 @@ onBeforeUnmount(() => {
 }
 
 .media-card-badge {
-  border: 1px solid rgba(248, 250, 252, 0.22);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  block-size: 1.375rem !important;
+  padding-inline: 0.4375rem !important;
+  border: 1px solid rgba(248, 250, 252, 0.14) !important;
+  border-radius: 9999px !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(11, 19, 34, 0.7) !important;
+  background-image: none !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22) !important;
   color: var(--mp-on-media) !important;
-  font-size: 0.75rem;
+  font-size: 0.6875rem !important;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-.media-card-badge--movie {
-  background: rgba(37, 99, 235, 0.78) !important;
+.media-card-badge--type::before {
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  block-size: 5.5px;
+  content: '';
+  inline-size: 5.5px;
+  margin-inline-end: 0.25rem;
 }
 
-.media-card-badge--tv {
-  background: rgba(79, 70, 229, 0.78) !important;
+.media-card-badge--movie::before {
+  background: var(--mp-on-media-movie);
 }
 
-.media-card-badge--music {
-  background: rgba(219, 39, 119, 0.78) !important;
+.media-card-badge--tv::before {
+  background: var(--mp-on-media-tv);
 }
 
-.media-card-badge--rating {
-  background: rgba(15, 23, 42, 0.72) !important;
+.media-card-badge--music::before {
+  background: var(--mp-on-media-music);
+}
+
+.media-card-badge__star {
+  flex: 0 0 auto;
+  block-size: 0.6875rem;
+  color: var(--mp-on-media-rating);
+  inline-size: 0.6875rem;
+  margin-inline-end: 0.2rem;
+}
+
+.media-card-source-avatar {
+  border-radius: 5px !important;
+}
+
+/* 移动端三列窄卡下自动隐藏左上类型角标，防止左右顶角微胶囊撞车。 */
+@container (width < 128px) {
+  .media-card-badge--type {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .media-card-badge {
+    background: rgb(11, 19, 34) !important;
+  }
 }
 </style>

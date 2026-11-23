@@ -7,8 +7,10 @@ import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import GlassMediaBackdrop from '@/components/theme/GlassMediaBackdrop.vue'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 
 const { t } = useI18n()
+const display = useDisplay()
 
 const props = defineProps({
   /** 发现源的分页接口路径。 */
@@ -18,7 +20,16 @@ const props = defineProps({
   },
   /** 发现筛选参数；当前页码由列表生命周期补充。 */
   params: Object as PropType<Record<string, unknown>>,
+  /** 单一媒体类型列表隐藏海报左上类型角标，让海报本身成为视觉主角。 */
+  hideTypeBadge: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+// 移动端（<600px）自动切换紧凑三列网格提升首屏海报密度，桌面端维持 144px 宽裕间距。
+const gridMinItemWidth = computed(() => (display.xs.value ? 104 : 144))
+const gridGap = computed(() => (display.xs.value ? 10 : 16))
 
 /** 未填满视口时继续取页，不能因缓存返回更快而改变原分页终止条件。 */
 function hasScroll() {
@@ -173,9 +184,16 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading
       </div>
     </template>
     <GlassMediaBackdrop v-if="dataList.length > 0">
-      <ProgressiveCardGrid :items="dataList" :item-aspect-ratio="1.5" :get-item-key="getMediaIdentity" tabindex="0">
+      <ProgressiveCardGrid
+        :items="dataList"
+        :min-item-width="gridMinItemWidth"
+        :gap="gridGap"
+        :item-aspect-ratio="1.5"
+        :get-item-key="getMediaIdentity"
+        tabindex="0"
+      >
         <template #default="{ item }">
-          <MediaCard :media="item" />
+          <MediaCard :media="item" :hide-type-badge="props.hideTypeBadge" />
         </template>
       </ProgressiveCardGrid>
     </GlassMediaBackdrop>

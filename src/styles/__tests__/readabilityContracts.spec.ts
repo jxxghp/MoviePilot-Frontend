@@ -18,6 +18,7 @@ const LEGACY_RAW_SEMANTIC_FG_ALLOWLIST = new Set([
 
 const RAW_SEMANTIC_FG_PATTERN = /(?<![-\w])color\s*:\s*rgb\(var\(--v-theme-(primary|success|info|warning|error)\)\)/gu
 const SURFACE_CONTAINER_TAGS = new Set([
+  'AppFilterBar',
   'VCard',
   'VDialog',
   'VMenu',
@@ -149,5 +150,43 @@ describe('跨主题可读性与玻璃表面契约守卫', () => {
     }
 
     expect(nakedViews).toEqual([])
+  })
+
+  it('探索与订阅筛选视图的 VChip 统一使用满圆胶囊，不得回退为 tile 直角或单选 filter 勾选号', () => {
+    const filterViews = [
+      'src/views/discover/AniListView.vue',
+      'src/views/discover/BangumiView.vue',
+      'src/views/discover/DoubanView.vue',
+      'src/views/discover/MusicView.vue',
+      'src/views/discover/TheMovieDbView.vue',
+      'src/views/subscribe/SubscribePopularView.vue',
+      'src/views/subscribe/SubscribeShareView.vue',
+    ]
+
+    const violations: string[] = []
+    for (const file of filterViews) {
+      const content = readFileSync(resolve(root, file), 'utf8')
+      const openIdx = content.indexOf('<template')
+      const closeIdx = content.lastIndexOf('</template>')
+      const template = openIdx >= 0 && closeIdx > openIdx ? content.slice(openIdx, closeIdx) : content
+      for (const chipMatch of template.matchAll(/<VChip\b([^>]*)>/gu)) {
+        const attrs = chipMatch[1]
+        if (/(?:^|\s)(?:tile|filter)(?:\s|\/|$)/u.test(attrs)) {
+          violations.push(`${file}: ${chipMatch[0]}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('降低透明度模式下深浅玻璃筛选微胶囊均回退至实心表面色 rgb(var(--mp-surface-rgb))', () => {
+    const commonScss = readFileSync(resolve(root, 'src/styles/common.scss'), 'utf8')
+    const reducedStart = commonScss.indexOf('@media (prefers-reduced-transparency: reduce)')
+    expect(reducedStart).toBeGreaterThanOrEqual(0)
+    const reducedBlock = commonScss.slice(reducedStart)
+    expect(reducedBlock).toContain("html[data-theme='glass']")
+    expect(reducedBlock).toContain("html[data-theme='glass'][data-glass-color-scheme='light']")
+    expect(reducedBlock).toContain('--mp-filter-pill-bg: rgb(var(--mp-surface-rgb));')
   })
 })

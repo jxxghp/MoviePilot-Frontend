@@ -353,6 +353,7 @@ export default {
     active: 'Active',
     inactive: 'Inactive',
     filter: 'Filter',
+    collapse: 'Collapse',
     noMatchingData: 'No matching data',
     tryChangingFilters: 'Try changing filters',
     default: 'Default',
@@ -6243,6 +6244,7 @@ export default {
     genre: 'Genre',
     language: 'Language',
     rating: 'Rating',
+    voteCount: 'Votes',
     sortType: {
       popularityDesc: 'Popularity Descending',
       popularityAsc: 'Popularity Ascending',
