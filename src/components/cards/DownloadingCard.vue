@@ -634,7 +634,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 }
 
 .downloading-card__speed--download .v-icon {
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .downloading-card__speed--download strong {
@@ -643,7 +643,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 }
 
 .downloading-card__speed--upload .v-icon {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .downloading-card__speed--idle {
@@ -705,7 +705,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 
 .downloading-card__delete-action:hover,
 .downloading-card__delete-action:focus-visible {
-  color: rgb(var(--v-theme-error)) !important;
+  color: var(--mp-destructive-fg) !important;
 }
 
 @container (width <= 21rem) {

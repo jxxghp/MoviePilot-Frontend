@@ -144,7 +144,7 @@ onBeforeUnmount(() => {
 }
 
 .service-status-kicker {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.16em;

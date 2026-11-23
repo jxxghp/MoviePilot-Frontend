@@ -1,7 +1,7 @@
-@use "../mixins";
-@use "@configured-variables" as variables;
-@use "vuetify/lib/styles/tools/states" as vuetifyStates;
-@use "../utils";
+@use '../mixins';
+@use '@configured-variables' as variables;
+@use 'vuetify/lib/styles/tools/states' as vuetifyStates;
+@use '../utils';
 
 // Nav items styles (including section title)
 %vertical-nav-item {
@@ -37,7 +37,7 @@
 %vertical-nav-section-title {
   // ℹ️ Setting height will prevent jerking when text & icon is toggled
   block-size: 1.5rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  color: var(--mp-faint);
   font-size: 0.75rem;
   padding-inline: variables.$vertical-nav-horizontal-padding;
   text-transform: uppercase;
@@ -59,7 +59,7 @@
     &::before,
     &::after {
       border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-      content: "";
+      content: '';
     }
 
     &::after {

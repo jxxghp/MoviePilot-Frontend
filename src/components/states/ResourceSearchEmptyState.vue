@@ -55,7 +55,7 @@ withDefaults(defineProps<Props>(), {
   background: rgba(var(--v-theme-primary), 0.1);
   block-size: 76px;
   box-shadow: inset 0 1px 0 rgba(var(--v-theme-on-surface), 0.1);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   inline-size: 76px;
   place-items: center;
 }
@@ -152,5 +152,21 @@ withDefaults(defineProps<Props>(), {
   .resource-search-empty-state {
     animation: none;
   }
+}
+</style>
+
+<style>
+html[data-theme='glass'] .resource-search-empty-state {
+  margin-block: 1.5rem;
+  border: 1px solid var(--mp-reading-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--mp-reading-surface);
+}
+
+html[data-theme='glass'] :where(.v-card, .app-surface, .app-surface-static, .v-dialog) .resource-search-empty-state {
+  margin-block: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 </style>

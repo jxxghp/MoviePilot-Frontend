@@ -204,7 +204,7 @@ onActivated(() => {
 
 .dashboard-stat-addition {
   overflow: hidden;
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -96,11 +96,11 @@ watch(filterParams, () => {
 </script>
 
 <template>
-  <div class="discover-filter-bar">
-    <div v-for="group in filterGroups" :key="group.key" class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ group.label }}</VLabel>
+  <div class="app-filter-bar">
+    <div v-for="group in filterGroups" :key="group.key" class="app-filter-row">
+      <VLabel class="app-filter-label">{{ group.label }}</VLabel>
       <VChipGroup
-        class="discover-filter-chips"
+        class="app-filter-chips"
         :model-value="filterParams[group.key]"
         @update:model-value="updateFilter(group.key, $event)"
       >

@@ -836,13 +836,13 @@ onBeforeMount(() => {
 .site-data-summary-card .text-h5 > .text-base.text-success {
   border-color: rgba(var(--v-theme-success), 0.22);
   background: rgba(var(--v-theme-success), 0.1);
-  color: rgb(var(--v-theme-success)) !important;
+  color: var(--mp-success-fg) !important;
 }
 
 .site-data-summary-card .text-h5 > .text-base.text-error {
   border-color: rgba(var(--v-theme-error), 0.22);
   background: rgba(var(--v-theme-error), 0.1);
-  color: rgb(var(--v-theme-error)) !important;
+  color: var(--mp-destructive-fg) !important;
 }
 
 .site-data-summary-card :deep(.v-avatar) {

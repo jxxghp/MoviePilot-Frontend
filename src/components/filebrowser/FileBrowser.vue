@@ -569,7 +569,7 @@ onUnmounted(cleanupDrag)
 
 .divider-dragging .divider-icon {
   background-color: rgba(var(--v-theme-surface), 0.95);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   opacity: 1;
 }
 

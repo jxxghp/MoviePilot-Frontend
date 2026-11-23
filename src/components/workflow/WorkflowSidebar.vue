@@ -254,7 +254,7 @@ onMounted(() => {
 
   .collapse-btn {
     position: absolute;
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
     inset-block-start: 0;
     inset-inline-end: 0;
   }

@@ -936,7 +936,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 .workflow-task-card__step--failed {
   border-color: var(--mp-destructive-border, rgba(var(--v-theme-error), 0.3));
   background: var(--mp-destructive-soft, rgba(var(--v-theme-error), 0.12));
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .workflow-task-card__step--empty {
@@ -1020,7 +1020,7 @@ const nativeCardMenu = computed<NativeCardMenuBinding>(() => ({
 }
 
 .workflow-task-card__execution-status--error {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
   font-weight: 600;
 }
 

@@ -58,13 +58,68 @@ describe('glass chip colors', () => {
     expect(matchedForegroundOverrides(variant, 'text-success')).toEqual([])
   })
 
-  it.each(['elevated', 'flat'])('keeps readable foregrounds on translucent %s chip fills', variant => {
-    expect(matchedForegroundOverrides(variant, 'bg-success')).not.toHaveLength(0)
+  it.each(['elevated', 'flat'])(
+    'keeps readable on-surface foregrounds on 34%% translucent %s bg-* chips in both light and dark glass',
+    variant => {
+      expect(matchedForegroundOverrides(variant, 'bg-success', 'light')).not.toHaveLength(0)
+      expect(matchedForegroundOverrides(variant, 'bg-success', 'dark')).not.toHaveLength(0)
+      expect(matchedForegroundOverrides(variant, 'bg-success', 'light', 'plain')).toEqual([])
+    },
+  )
+
+  it('does not override solid custom chips without bg-* classes (poster badges, torrent tags, selected filter chips)', () => {
+    expect(matchedForegroundOverrides('elevated', 'media-card-badge media-card-badge--tv', 'light')).toEqual([])
+    expect(matchedForegroundOverrides('flat', 'filter-chip v-chip--selected', 'light')).toEqual([])
+    expect(matchedForegroundOverrides('flat', 'chip-season', 'light')).toEqual([])
   })
 
-  it.each(['tonal', 'elevated', 'flat'])('keeps %s foreground corrections scoped to light glass', variant => {
-    expect(matchedForegroundOverrides(variant, 'bg-success', 'dark')).toEqual([])
-    expect(matchedForegroundOverrides(variant, 'bg-success', 'light', 'plain')).toEqual([])
+  it.each(['primary', 'success', 'info', 'warning', 'error'])(
+    'uses high-contrast on-surface foreground on 46%%-48%% dark glass %s buttons',
+    color => {
+      const fixture = document.implementation.createHTMLDocument('dark glass button colors')
+      fixture.documentElement.dataset.theme = 'glass'
+      fixture.documentElement.dataset.glassColorScheme = 'dark'
+      fixture.body.dataset.theme = 'glass'
+      const button = fixture.createElement('button')
+      button.className = `v-btn v-btn--elevated bg-${color}`
+      fixture.body.append(button)
+
+      expect(foregroundOverrides.filter(rule => button.matches(rule.selector))).not.toHaveLength(0)
+    },
+  )
+
+  it('uses high-contrast on-surface foreground on dark glass active vertical nav links', () => {
+    const fixture = document.implementation.createHTMLDocument('dark glass nav active')
+    fixture.documentElement.dataset.theme = 'glass'
+    fixture.documentElement.dataset.glassColorScheme = 'dark'
+    fixture.body.dataset.theme = 'glass'
+    const nav = fixture.createElement('aside')
+    nav.className = 'layout-vertical-nav'
+    const item = fixture.createElement('li')
+    item.className = 'nav-link'
+    const link = fixture.createElement('a')
+    link.className = 'router-link-exact-active'
+    item.append(link)
+    nav.append(item)
+    fixture.body.append(nav)
+
+    expect(foregroundOverrides.filter(rule => link.matches(rule.selector))).not.toHaveLength(0)
+  })
+
+  it('uses on-surface foreground on dark glass ConfirmDialog tonal cancel buttons and keeps single primary FAB on on-primary', () => {
+    const fixture = document.implementation.createHTMLDocument('dark glass dialog and fab')
+    fixture.documentElement.dataset.theme = 'glass'
+    fixture.documentElement.dataset.glassColorScheme = 'dark'
+    fixture.body.dataset.theme = 'glass'
+    const actions = fixture.createElement('div')
+    actions.className = 'app-confirm-dialog-actions'
+    const cancelBtn = fixture.createElement('button')
+    cancelBtn.className = 'v-btn v-btn--variant-tonal text-secondary'
+    actions.append(cancelBtn)
+    fixture.body.append(actions)
+
+    expect(foregroundOverrides.filter(rule => cancelBtn.matches(rule.selector))).not.toHaveLength(0)
+    expect(css).toContain('.compact-fab-stack:not(:has(> :nth-child(2))) .compact-fab--primary .v-btn.bg-primary')
   })
 
   it.each(['primary', 'secondary', 'success', 'info', 'warning', 'error'])(

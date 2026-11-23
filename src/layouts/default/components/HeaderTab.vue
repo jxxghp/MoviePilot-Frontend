@@ -219,7 +219,7 @@ onUnmounted(() => {
   &::after {
     position: absolute;
     z-index: 1; // Ensure it's above the tabs but below other header elements if needed
-    background: linear-gradient(to left, rgba(var(--v-theme-background), 10.3) 30%, transparent);
+    background: linear-gradient(to left, rgba(var(--v-theme-background), 0.3) 30%, transparent);
     content: '';
     inline-size: 40px; // Width of the fade effect
     inset-block: 0;
@@ -245,7 +245,6 @@ onUnmounted(() => {
 .header-tab-icon {
   color: rgba(var(--v-theme-on-background), 0.6);
   margin-inline-end: 6px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 10%);
   transition: color 0.2s ease;
 }
 
@@ -261,7 +260,6 @@ onUnmounted(() => {
   font-weight: 600;
   padding-block: 6px;
   padding-inline: 14px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 10%);
   transition: all 0.2s ease;
   white-space: nowrap;
 
@@ -279,16 +277,14 @@ onUnmounted(() => {
   }
 
   &.active {
-    color: rgb(var(--v-theme-primary));
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 15%);
+    color: var(--mp-primary-fg);
 
     &::after {
       transform: translateX(-50%) scaleX(1);
     }
 
     .header-tab-icon {
-      color: rgb(var(--v-theme-primary));
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 15%);
+      color: var(--mp-primary-fg);
     }
   }
 

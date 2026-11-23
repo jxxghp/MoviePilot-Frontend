@@ -136,17 +136,17 @@ watch(filterParams, () => {
 </script>
 
 <template>
-  <div class="discover-filter-bar">
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('tmdb.type') }}</VLabel>
-      <VChipGroup v-model="type" class="discover-filter-chips">
+  <div class="app-filter-bar">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.type') }}</VLabel>
+      <VChipGroup v-model="type" class="app-filter-chips">
         <VChip :color="type == 'movies' ? 'primary' : ''" filter tile value="movies">{{ t('mediaType.movie') }}</VChip>
         <VChip :color="type == 'tvs' ? 'primary' : ''" filter tile value="tvs">{{ t('mediaType.tv') }}</VChip>
       </VChipGroup>
     </div>
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('tmdb.sort') }}</VLabel>
-      <VChipGroup v-model="filterParams.sort_by" class="discover-filter-chips">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.sort') }}</VLabel>
+      <VChipGroup v-model="filterParams.sort_by" class="app-filter-chips">
         <VChip
           :color="filterParams.sort_by == key ? 'primary' : ''"
           filter
@@ -159,9 +159,9 @@ watch(filterParams, () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('tmdb.genre') }}</VLabel>
-      <VChipGroup v-model="filterParams.with_genres" class="discover-filter-chips">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.genre') }}</VLabel>
+      <VChipGroup v-model="filterParams.with_genres" class="app-filter-chips">
         <VChip
           :color="filterParams.with_genres == key ? 'primary' : ''"
           filter
@@ -174,9 +174,9 @@ watch(filterParams, () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('tmdb.language') }}</VLabel>
-      <VChipGroup v-model="filterParams.with_original_language" class="discover-filter-chips">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.language') }}</VLabel>
+      <VChipGroup v-model="filterParams.with_original_language" class="app-filter-chips">
         <VChip
           :color="filterParams.with_original_language == key ? 'primary' : ''"
           filter
@@ -189,15 +189,15 @@ watch(filterParams, () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('tmdb.rating') }}</VLabel>
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.rating') }}</VLabel>
       <VSlider
         v-model="filterParams.vote_average"
         thumb-label
         max="10"
         min="0"
         :step="1"
-        class="discover-filter-slider align-center"
+        class="app-filter-slider align-center"
         hide-details
       >
         <template v-slot:append>

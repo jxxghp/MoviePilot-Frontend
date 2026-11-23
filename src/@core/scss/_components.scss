@@ -1,7 +1,7 @@
-@use "mixins";
-@use "vuetify/lib/styles/tools/_elevation" as mixins_elevation;
-@use "@layouts/styles/_placeholders";
-@use "@configured-variables" as variables;
+@use 'mixins';
+@use 'vuetify/lib/styles/tools/_elevation' as mixins_elevation;
+@use '@layouts/styles/_placeholders';
+@use '@configured-variables' as variables;
 
 // 👉 Alert
 .v-alert {
@@ -42,7 +42,9 @@
       margin-inline-start: -0.8rem;
     }
 
-    transition: transform 0.25s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.15s ease;
 
     &:hover {
       z-index: 2;
@@ -156,7 +158,6 @@
       box-shadow: 0 0 0 0.1875rem rgb(var(--v-theme-on-surface-variant));
 
       @each $color-name in variables.$theme-colors-name {
-
         &.bg-#{$color-name} {
           box-shadow: 0 0 0 0.1875rem rgba(var(--v-theme-#{$color-name}), 0.12);
         }
@@ -225,11 +226,11 @@
 
 .v-slider-thumb {
   .v-slider-thumb__label {
-    background: rgb(117, 117, 117);
+    background: rgb(var(--v-theme-primary));
     color: rgb(var(--v-theme-on-primary));
 
     &::before {
-      color: rgb(117, 117, 117);
+      color: rgb(var(--v-theme-primary));
     }
   }
 }

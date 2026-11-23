@@ -24,6 +24,9 @@ html {
   --mp-card: var(--mp-surface);
   // 次级底座采用纯静态吸收色层，严禁叠加第二层背景模糊
   --mp-muted: #f4f5f8;
+  // 独立放置于画布之上的筛选栏、工具条与轻量胶囊共用的高可读静态阅读衬底（零二次模糊采样）
+  --mp-reading-surface: var(--mp-muted);
+  --mp-reading-border: var(--mp-border);
   --mp-popover: rgb(var(--mp-popover-rgb));
   --mp-fg: rgb(var(--v-theme-on-surface, var(--mp-fg-rgb)));
   --mp-muted-fg: rgba(var(--v-theme-on-surface, var(--mp-fg-rgb)), var(--v-medium-emphasis-opacity, 0.72));
@@ -128,6 +131,8 @@ html[data-theme='glass'] {
   --mp-card: var(--glass-surface);
   --mp-faint-alpha: 0.6;
   --mp-muted: rgba(255, 255, 255, 0.055);
+  --mp-reading-surface: rgba(15, 23, 42, 0.58);
+  --mp-reading-border: rgba(255, 255, 255, 0.14);
   --mp-popover: var(--glass-popup-surface, var(--glass-overlay-surface));
   --mp-border: var(--glass-border);
   --mp-list-group-bg: rgba(255, 255, 255, 0.035);
@@ -138,6 +143,8 @@ html[data-theme='glass'] {
 html[data-theme='glass'][data-glass-color-scheme='light'] {
   --mp-faint-alpha: 0.72;
   --mp-muted: rgba(15, 23, 42, 0.055);
+  --mp-reading-surface: rgba(255, 255, 255, 0.78);
+  --mp-reading-border: rgba(255, 255, 255, 0.8);
   --mp-list-group-bg: rgba(15, 23, 42, 0.03);
   --mp-list-row-divider: rgba(15, 23, 42, 0.09);
   --mp-list-row-hover: rgba(15, 23, 42, 0.065);

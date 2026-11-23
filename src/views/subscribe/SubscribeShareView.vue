@@ -131,7 +131,7 @@ const loadingGenerations = new Set<number>()
 
 // 拼装参数
 function getParams() {
-  let params: { [key: string]: any } = {
+  const params: Record<string, string | number | undefined> = {
     page: page.value,
     count: 30,
     name: keyword.value,
@@ -207,12 +207,10 @@ function removeData(id: number) {
 
 <template>
   <!-- 筛选器 -->
-  <div class="px-3 mb-4">
-    <div class="flex justify-start align-center mb-3">
-      <div class="mr-5">
-        <VLabel>{{ t('tmdb.sort') }}</VLabel>
-      </div>
-      <VChipGroup v-model="filterParams.sort_type">
+  <div class="app-filter-bar">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.sort') }}</VLabel>
+      <VChipGroup v-model="filterParams.sort_type" class="app-filter-chips">
         <VChip :color="filterParams.sort_type == 'time' ? 'primary' : ''" filter tile value="time">
           {{ t('tmdb.sortType.time') }}
         </VChip>
@@ -225,11 +223,9 @@ function removeData(id: number) {
       </VChipGroup>
     </div>
 
-    <div class="flex justify-start align-center mb-3">
-      <div class="mr-5">
-        <VLabel>{{ t('tmdb.genre') }}</VLabel>
-      </div>
-      <VChipGroup v-model="filterParams.genre_id">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.genre') }}</VLabel>
+      <VChipGroup v-model="filterParams.genre_id" class="app-filter-chips">
         <VChip :color="filterParams.genre_id == '' ? 'primary' : ''" filter tile value="">
           {{ t('common.all') }}
         </VChip>
@@ -246,17 +242,15 @@ function removeData(id: number) {
       </VChipGroup>
     </div>
 
-    <div class="flex justify-start align-center mb-3">
-      <div class="mr-5">
-        <VLabel>{{ t('tmdb.rating') }}</VLabel>
-      </div>
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('tmdb.rating') }}</VLabel>
       <VSlider
         v-model="filterParams.min_rating"
         thumb-label
         max="10"
         min="0"
         :step="1"
-        class="align-center"
+        class="app-filter-slider align-center"
         hide-details
       >
       </VSlider>

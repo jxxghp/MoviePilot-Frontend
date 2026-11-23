@@ -276,7 +276,7 @@ function getActionLabel(action: WorkflowSummaryAction) {
   border-radius: 50%;
   background: rgba(var(--v-theme-primary), 0.1);
   block-size: 1.875rem;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   inline-size: 1.875rem;
 }
 

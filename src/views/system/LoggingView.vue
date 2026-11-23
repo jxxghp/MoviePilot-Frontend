@@ -926,7 +926,7 @@ onUnmounted(() => {
 }
 
 .logging-stream-action.is-live {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .logging-search :deep(.v-field) {
@@ -977,15 +977,15 @@ onUnmounted(() => {
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--info) {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--warning) {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--error) {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .logging-level-toggle :deep(.logging-level-toggle__button--active) {
@@ -1111,7 +1111,7 @@ onUnmounted(() => {
 }
 
 .logging-record-time {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1213,16 +1213,16 @@ onUnmounted(() => {
 }
 
 .logging-record-level.level-info {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .logging-record-level.level-warning {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .logging-record-level.level-error,
 .logging-record-level.level-critical {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .logging-record-level.level-plain {

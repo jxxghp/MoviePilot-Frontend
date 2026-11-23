@@ -226,7 +226,7 @@ const filteredSites = computed(() => {
 .site-selected {
   border-color: rgba(var(--v-theme-primary), 0.2);
   background-color: rgba(var(--v-theme-primary), 0.08);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .site-hover {

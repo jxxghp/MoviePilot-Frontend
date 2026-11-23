@@ -958,11 +958,11 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-desktop-stat--primary {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .cache-desktop-stat--success {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .cache-desktop-actions {
@@ -1069,11 +1069,11 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-stat--primary {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .cache-mobile-stat--success {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .cache-mobile-filters {

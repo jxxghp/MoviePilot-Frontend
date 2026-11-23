@@ -63,7 +63,7 @@ watch(filterParams, newParams => {
 </script>
 
 <template>
-  <div class="discover-filter-bar extra-source-filters">
+  <div class="app-filter-bar extra-source-filters">
     <FormRender v-for="(element, index) in source.filter_ui" :key="index" :config="element" :model="filterParams" />
   </div>
   <div>

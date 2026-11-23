@@ -665,7 +665,7 @@ onMounted(() => {
 }
 
 .site-resource-filter-input :deep(.v-field__prepend-inner) {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .site-resource-filter-input :deep(.app-responsive-input__meta) {
@@ -719,7 +719,7 @@ onMounted(() => {
 }
 
 .site-resource-sort :deep(.v-field__prepend-inner) {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .site-resource-content {
@@ -847,11 +847,11 @@ onMounted(() => {
 }
 
 .site-resource-metric--success {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .site-resource-metric--info {
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .site-resource-metric__copy {

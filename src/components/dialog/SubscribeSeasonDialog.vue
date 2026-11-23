@@ -844,7 +844,7 @@ onBeforeUnmount(() => {
 .subscribe-season-group-option--active {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.18);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .subscribe-season-group-option--active:hover {
@@ -910,7 +910,7 @@ onBeforeUnmount(() => {
   border-color: rgba(var(--v-theme-primary), 0.45);
   background: rgba(var(--v-theme-surface), 0.96);
   box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.12);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .subscribe-season-group-nav--backward {

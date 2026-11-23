@@ -704,7 +704,7 @@ async function handleResetSettings() {
   &.is-active {
     border-color: rgba(var(--v-theme-primary), 0.38);
     background: rgba(var(--v-theme-primary), 0.12);
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
     font-weight: 600;
   }
 }
@@ -738,7 +738,7 @@ async function handleResetSettings() {
     &:hover {
       border-color: rgba(var(--v-theme-primary), 0.3);
       background: rgba(var(--v-theme-primary), 0.06);
-      color: rgb(var(--v-theme-primary));
+      color: var(--mp-primary-fg);
     }
   }
 }
@@ -760,7 +760,7 @@ async function handleResetSettings() {
 @media (hover: hover) {
   .theme-customizer-glass-tuning-btn:hover .theme-customizer-glass-tuning-btn__icon,
   .theme-customizer-glass-tuning-btn:hover .theme-customizer-glass-tuning-btn__chevron {
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
   }
 }
 
@@ -793,7 +793,7 @@ async function handleResetSettings() {
     border-color: rgb(var(--v-theme-primary));
     background: rgba(var(--v-theme-primary), 0.08);
     box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.12);
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
   }
 }
 

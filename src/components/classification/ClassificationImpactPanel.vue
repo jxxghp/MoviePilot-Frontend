@@ -639,7 +639,7 @@ function changedFieldLabel(field: string): string {
 }
 
 .classification-impact-status {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.875rem;
 }
 
@@ -840,7 +840,7 @@ function changedFieldLabel(field: string): string {
   padding: 3px 7px;
   border-radius: 4px;
   background: rgba(var(--v-theme-primary), 0.1);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.75rem;
 }
 

@@ -875,13 +875,13 @@ onUnmounted(() => {
 }
 
 .manual-review-item__error {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
   font-size: 0.78rem;
   margin-block-start: 0.35rem;
 }
 
 .manual-review-item__retry-hint {
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
   font-size: 0.78rem;
   margin-block-start: 0.35rem;
 }
@@ -934,7 +934,7 @@ onUnmounted(() => {
 }
 
 .queue-overall__value {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 1.05rem;
   font-weight: 700;
 }
@@ -1030,7 +1030,7 @@ onUnmounted(() => {
 }
 
 .media-selector__percent {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .queue-detail {

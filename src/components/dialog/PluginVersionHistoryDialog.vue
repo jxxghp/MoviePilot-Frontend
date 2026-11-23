@@ -489,7 +489,7 @@ watch(
   justify-content: center;
   gap: 0.375rem;
   margin: 0 0 0.75rem;
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
   font-size: 0.8125rem;
   line-height: 1.45;
   text-align: center;

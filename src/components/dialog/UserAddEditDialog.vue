@@ -909,7 +909,7 @@ onMounted(() => {
 }
 
 .permission-category-option.is-partial .permission-category-option__count {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
   background: rgba(var(--v-theme-warning), 0.12);
 }
 
@@ -921,7 +921,7 @@ onMounted(() => {
   flex: 0 0 auto;
   border-radius: var(--app-control-radius, 6px);
   background: rgba(var(--v-theme-primary), 0.1);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .permission-category-option__icon {
@@ -957,7 +957,7 @@ onMounted(() => {
   border-radius: var(--app-control-radius, 6px);
   padding: 0.125rem 0.5rem;
   background: rgba(var(--v-theme-primary), 0.1);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.25rem;

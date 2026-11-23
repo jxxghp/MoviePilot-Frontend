@@ -601,7 +601,7 @@ onMounted(() => {
   align-items: center;
   border-radius: 0.375rem;
   background: rgba(var(--v-theme-info), 0.08);
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
   font-size: 0.875rem;
   gap: 0.5rem;
   min-inline-size: 0;
@@ -656,7 +656,7 @@ onMounted(() => {
 
   &.is-active {
     background: var(--app-grouped-list-active-background);
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
   }
 }
 

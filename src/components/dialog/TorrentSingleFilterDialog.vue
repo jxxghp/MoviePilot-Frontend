@@ -139,7 +139,7 @@ function updateFilter(values: string[]) {
 }
 
 .filter-chip.v-chip--selected {
-  background-color: rgba(var(--v-theme-primary), 0.85) !important;
+  background-color: rgb(var(--v-theme-primary)) !important;
   box-shadow: 0 2px 4px rgba(var(--v-theme-primary), 0.3);
   color: rgb(var(--v-theme-on-primary)) !important;
   font-weight: 600;

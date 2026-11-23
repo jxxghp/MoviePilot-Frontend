@@ -1005,13 +1005,13 @@ onBeforeMount(() => {
 .subscribe-files-stat-card__icon--info {
   border-color: var(--mp-info-border);
   background: var(--mp-info-soft);
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .subscribe-files-stat-card__icon--success {
   border-color: var(--mp-success-border);
   background: var(--mp-success-soft);
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .subscribe-files-stat-card__label {
@@ -1145,7 +1145,7 @@ onBeforeMount(() => {
 .subscribe-files-episode-item--active .subscribe-files-episode-item__label {
   border-color: var(--mp-primary-border);
   background: rgba(var(--v-theme-primary), 0.14);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .subscribe-files-episode-item__title {
@@ -1197,7 +1197,7 @@ onBeforeMount(() => {
 
 .subscribe-files-detail__title span {
   flex: 0 0 auto;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.875rem;
   font-weight: 700;
 }
@@ -1256,7 +1256,7 @@ onBeforeMount(() => {
 .subscribe-files-tab-group__button--active {
   border-color: var(--mp-primary-border) !important;
   background-color: var(--mp-primary-soft) !important;
-  color: rgb(var(--v-theme-primary)) !important;
+  color: var(--mp-primary-fg) !important;
 }
 
 .subscribe-files-detail {
@@ -1303,13 +1303,13 @@ onBeforeMount(() => {
 .subscribe-files-file-card__media--info {
   border-color: var(--mp-info-border);
   background: var(--mp-info-soft);
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .subscribe-files-file-card__media--success {
   border-color: var(--mp-success-border);
   background: var(--mp-success-soft);
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .subscribe-files-file-card__content {
@@ -1384,7 +1384,7 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-path-link {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
@@ -1462,7 +1462,7 @@ onBeforeMount(() => {
   border: 1px solid var(--mp-primary-border);
   border-radius: 0.5rem;
   background: var(--mp-primary-soft);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.8125rem;
   font-weight: 700;
   min-inline-size: 2.5rem;
