@@ -63,7 +63,7 @@ watch(filterParams, newParams => {
 </script>
 
 <template>
-  <div class="px-3">
+  <div class="discover-filter-bar extra-source-filters">
     <FormRender v-for="(element, index) in source.filter_ui" :key="index" :config="element" :model="filterParams" />
   </div>
   <div>
@@ -71,8 +71,9 @@ watch(filterParams, newParams => {
   </div>
 </template>
 
-<style>
-.v-chip--selected {
-  color: rgb(var(--v-theme-primary)) !important;
+<style scoped>
+/* 仅作用于第三方扩展探索源动态渲染的筛选胶囊，避免全局泄漏。 */
+.extra-source-filters :deep(.v-chip--selected) {
+  color: var(--mp-primary-fg) !important;
 }
 </style>

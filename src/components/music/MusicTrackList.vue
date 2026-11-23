@@ -76,7 +76,7 @@ async function playTrack(track: MediaInfo) {
           @click="goTrack(track)"
         >
           <template #prepend>
-            <span class="music-track-number text-caption text-medium-emphasis">
+            <span class="music-track-number num text-caption text-medium-emphasis">
               {{ track.track_number || '-' }}
             </span>
           </template>
@@ -95,7 +95,7 @@ async function playTrack(track: MediaInfo) {
             >
               <VIcon icon="mdi-play" />
             </VBtn>
-            <span class="text-caption text-medium-emphasis">{{ formatMusicDuration(track.duration) }}</span>
+            <span class="num text-caption text-medium-emphasis">{{ formatMusicDuration(track.duration) }}</span>
           </template>
         </VListItem>
       </VList>
@@ -105,7 +105,7 @@ async function playTrack(track: MediaInfo) {
 
 <style scoped>
 .music-track-disc {
-  font-weight: 700;
+  font-weight: 600;
   margin-block-start: 0.75rem;
   text-transform: uppercase;
 }
@@ -116,7 +116,7 @@ async function playTrack(track: MediaInfo) {
 }
 
 .music-track-item--active {
-  background: rgba(var(--v-theme-primary), 0.12);
+  background: var(--mp-primary-soft);
 }
 
 .music-track-number {

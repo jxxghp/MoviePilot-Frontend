@@ -162,7 +162,7 @@ useNativePageHeader({
       </div>
       <div v-if="artist.life_span" class="music-fact">
         <span>{{ t('music.lifeSpan') }}</span>
-        <span class="music-fact-value">{{ artist.life_span }}</span>
+        <span class="music-fact-value num">{{ artist.life_span }}</span>
       </div>
       <div v-if="artist.aliases?.length" class="music-fact">
         <span>{{ t('music.aliases') }}</span>
@@ -170,7 +170,7 @@ useNativePageHeader({
       </div>
       <div class="music-fact music-fact--last">
         <span>{{ sourceLabel }} ID</span>
-        <span class="music-fact-value music-fact-id">{{ artist.media_id }}</span>
+        <span class="music-fact-value music-fact-id num">{{ artist.media_id }}</span>
       </div>
     </template>
 
@@ -237,7 +237,7 @@ useNativePageHeader({
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 0.5rem;
   padding-inline: 1rem;
 }
@@ -259,8 +259,10 @@ useNativePageHeader({
 .music-external-link {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+  border: 1px solid var(--mp-border);
   border-radius: 9999px;
+  background: var(--mp-muted);
+  color: var(--mp-fg);
   font-size: 0.875rem;
   padding-block: 0.25rem;
   padding-inline: 0.75rem;

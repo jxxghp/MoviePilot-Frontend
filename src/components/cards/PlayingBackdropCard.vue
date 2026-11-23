@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MediaServerPlayItem } from '@/api/types'
-import noImage from '@images/no-image.jpeg'
 import { openMediaServerItem } from '@/utils/appDeepLink'
 import { vNativeCardMenu } from '@/native/card'
 import { nativeChromeActive } from '@/native/layout'
@@ -24,6 +23,20 @@ const imageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+// 当前卡片是否存在可用实图地址（缺失封面或加载失败时直接渲染语义降级卡面，不回退暗灰占位图）。
+const hasImageSource = computed(() => Boolean(props.media?.image) && !imageLoadError.value)
+
+// 真实剧照是否已完成加载；仅真实剧照就绪后才启用全铺深色遮罩与白字模式。
+const hasRealImage = computed(() => hasImageSource.value && imageLoaded.value)
+
+watch(
+  () => props.media?.image,
+  () => {
+    imageLoaded.value = false
+    imageLoadError.value = false
+  },
+)
 
 // 卡片内联尺寸，便于仪表盘网格按高度进行虚拟布局。
 const cardStyle = computed(() => ({
@@ -59,7 +72,7 @@ const progressHint = computed(() => {
 // 计算图片代理地址。
 const imageUrl = computed(() => {
   const image = props.media?.image || ''
-  if (!image || imageLoadError.value) return noImage
+  if (!image || imageLoadError.value) return ''
 
   return getProxyImageUrl(image, {
     useCache: globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE,
@@ -77,9 +90,10 @@ function imageLoadHandler() {
 }
 
 /**
- * 标记封面加载失败并切换到默认图。
+ * 标记封面加载失败并切换到语义无图降级态。
  */
 function imageErrorHandler() {
+  imageLoaded.value = false
   imageLoadError.value = true
 }
 
@@ -114,14 +128,13 @@ const nativeCardMenu = computed(() =>
         <VCard
           v-native-card-menu="nativeCardMenu"
           :style="cardStyle"
-          :data-glass-optical-mode="
-            Boolean(props.media?.image) && imageLoaded && !imageLoadError ? 'excluded' : undefined
-          "
+          :data-glass-optical-mode="hasRealImage ? 'excluded' : undefined"
           class="playing-card app-hover-lift-card"
           :class="{
             'app-hover-lift-card--hovering': hover.isHovering && !nativeChromeActive,
             'playing-card--hovering': hover.isHovering,
             'playing-card--loaded': imageLoaded,
+            'playing-card--has-image': hasRealImage,
           }"
           :role="nativeChromeActive ? 'group' : 'button'"
           :aria-label="nativeChromeActive ? props.media?.title : undefined"
@@ -130,8 +143,14 @@ const nativeCardMenu = computed(() =>
           @keyup.enter="goPlay"
           @keyup.space="goPlay"
         >
+          <!-- 无剧照或加载前渲染独立语义降级底面，避免嵌套 VCard 透明规则抹掉卡面对比度。 -->
+          <div v-if="!hasRealImage" class="playing-card__fallback" aria-hidden="true">
+            <VIcon icon="mdi-play-box-outline" size="30" class="playing-card__fallback-icon" />
+          </div>
+
           <!-- 媒体服务器图片统一采用匿名 CORS，避免同一代理资源分裂为两种请求与缓存模式；Safari 普通 dev 可能重复请求，PWA 下由图片缓存路由统一处理。 -->
           <VImg
+            v-if="hasImageSource"
             :src="imageUrl"
             crossorigin="anonymous"
             class="playing-card__image"
@@ -147,8 +166,8 @@ const nativeCardMenu = computed(() =>
             </template>
           </VImg>
 
-          <div class="playing-card__scrim" />
-          <div class="playing-card__bottom-scrim" />
+          <div v-if="hasRealImage" class="playing-card__scrim" />
+          <div v-if="hasRealImage" class="playing-card__bottom-scrim" />
 
           <div class="playing-card__percent num">
             {{ progressLabel }}
@@ -193,13 +212,58 @@ const nativeCardMenu = computed(() =>
 }
 
 .playing-card {
+  --playing-card-fallback-bg: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--mp-primary-soft) 45%, var(--mp-muted)) 0%,
+    var(--mp-muted) 100%
+  );
+  --playing-card-fallback-border: var(--mp-border);
+  --playing-card-fallback-icon-opacity: 0.36;
+  --playing-card-percent-bg: var(--mp-surface);
+  --playing-card-percent-border: var(--mp-border);
+
   position: relative;
   overflow: hidden;
   border: 1px solid var(--mp-border);
   background: var(--mp-card);
-  color: var(--mp-on-media);
+  color: var(--mp-fg);
   cursor: pointer;
   isolation: isolate;
+}
+
+/* 浅色玻璃下补强无图卡面静态托底，防止底层高对比壁纸干扰卡片标题、图标与进度文字。 */
+:global(html[data-theme='glass'][data-glass-color-scheme='light'] .playing-card) {
+  --playing-card-fallback-bg: linear-gradient(
+    145deg,
+    color-mix(in srgb, rgb(var(--v-theme-primary)) 8%, rgba(255, 255, 255, 0.92)) 0%,
+    rgba(248, 250, 252, 0.88) 100%
+  );
+  --playing-card-fallback-border: rgba(15, 23, 42, 0.14);
+  --playing-card-fallback-icon-opacity: 0.48;
+  --playing-card-percent-bg: rgba(255, 255, 255, 0.92);
+  --playing-card-percent-border: rgba(15, 23, 42, 0.14);
+}
+
+.playing-card--has-image {
+  color: var(--mp-on-media);
+}
+
+.playing-card__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--playing-card-fallback-border);
+  border-radius: inherit;
+  background: var(--playing-card-fallback-bg);
+  pointer-events: none;
+}
+
+.playing-card__fallback-icon {
+  position: absolute;
+  color: var(--mp-muted-fg);
+  inset-block-start: 14px;
+  inset-inline-start: 16px;
+  opacity: var(--playing-card-fallback-icon-opacity);
 }
 
 .playing-card__image {
@@ -256,17 +320,16 @@ const nativeCardMenu = computed(() =>
   z-index: 2;
 }
 
+/* 无剧照态采用静态语义胶囊，不在父级玻璃卡内叠第二层 backdrop-filter。 */
 .playing-card__percent {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(248, 250, 252, 0.22);
+  border: 1px solid var(--playing-card-percent-border);
   border-radius: 999px;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  background: rgba(15, 23, 42, 0.56);
+  background: var(--playing-card-percent-bg);
   block-size: 26px;
-  color: var(--mp-on-media);
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   font-weight: 600;
   inline-size: 52px;
@@ -274,15 +337,23 @@ const nativeCardMenu = computed(() =>
   inset-inline-end: 12px;
 }
 
+.playing-card--has-image .playing-card__percent {
+  border-color: rgba(248, 250, 252, 0.22);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  background: rgba(15, 23, 42, 0.56);
+  color: var(--mp-on-media);
+}
+
 .playing-card__play {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--mp-primary-border);
   border-radius: 50%;
-  background: rgba(248, 250, 252, 0.92);
+  background: var(--mp-primary-soft);
   block-size: 40px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
-  color: rgb(11, 15, 20);
+  color: var(--mp-primary-fg);
   inline-size: 40px;
   inset-block-end: 46px;
   inset-inline-end: 18px;
@@ -292,20 +363,33 @@ const nativeCardMenu = computed(() =>
 }
 
 .playing-card--hovering .playing-card__play {
-  background: var(--mp-on-media);
   transform: scale(1.06);
+}
+
+.playing-card--has-image .playing-card__play {
+  border-color: transparent;
+  background: rgba(248, 250, 252, 0.92);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+  color: rgb(11, 15, 20);
+}
+
+.playing-card--has-image.playing-card--hovering .playing-card__play {
+  background: var(--mp-on-media);
 }
 
 .playing-card__content {
   inset-block-end: 18px;
   inset-inline: 16px 66px;
   min-inline-size: 0;
+}
+
+.playing-card--has-image .playing-card__content {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 .playing-card__title {
   overflow: hidden;
-  color: var(--mp-on-media);
+  color: var(--mp-fg);
   font-size: 1.0625rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -314,15 +398,23 @@ const nativeCardMenu = computed(() =>
   white-space: nowrap;
 }
 
+.playing-card--has-image .playing-card__title {
+  color: var(--mp-on-media);
+}
+
 .playing-card__subtitle {
   overflow: hidden;
   margin-block-start: 4px;
-  color: var(--mp-on-media-muted);
+  color: var(--mp-muted-fg);
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.playing-card--has-image .playing-card__subtitle {
+  color: var(--mp-on-media-muted);
 }
 
 .playing-card__meta {
@@ -331,11 +423,15 @@ const nativeCardMenu = computed(() =>
   align-items: center;
   justify-content: space-between;
   margin-block-start: 7px;
-  color: var(--mp-on-media-muted);
+  color: var(--mp-muted-fg);
   font-size: 0.72rem;
   gap: 10px;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.playing-card--has-image .playing-card__meta {
+  color: var(--mp-on-media-muted);
 }
 
 .playing-card__server {
@@ -353,16 +449,24 @@ const nativeCardMenu = computed(() =>
 .playing-card__progress-track {
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 24%);
+  background: var(--mp-input);
   block-size: 5px;
+}
+
+.playing-card--has-image .playing-card__progress-track {
+  background: rgba(255, 255, 255, 24%);
 }
 
 .playing-card__progress-bar {
   border-radius: inherit;
-  background: linear-gradient(90deg, rgb(var(--v-theme-success)) 0%, rgba(255, 255, 255, 92%) 100%);
+  background: rgb(var(--v-theme-success));
   block-size: 100%;
   min-inline-size: 8px;
   transition: inline-size 0.25s ease;
+}
+
+.playing-card--has-image .playing-card__progress-bar {
+  background: linear-gradient(90deg, rgb(var(--v-theme-success)) 0%, rgba(255, 255, 255, 92%) 100%);
 }
 
 @media (max-width: 600px) {

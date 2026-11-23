@@ -344,7 +344,7 @@ onActivated(async () => {
 }
 
 .recommend-content {
-  padding-block: 0;
+  padding-block: 0 var(--mp-bottom-clearance);
 }
 
 /* Fade transition for content groups */
@@ -370,7 +370,7 @@ onActivated(async () => {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: rgba(var(--v-theme-on-surface), 0.6);
+  color: var(--mp-muted-fg);
   text-align: center;
 }
 
