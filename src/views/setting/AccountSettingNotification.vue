@@ -1,15 +1,12 @@
 <script lang="ts" setup>
-import type { NativeStandaloneMenuBinding } from '@/native/standalone'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
-import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
+import type { NotificationSwitchConf } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { notificationSwitchDict } from '@/api/constants'
 import { useTheme } from 'vuetify'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import { useModuleCatalog } from '@/composables/useModuleCatalog'
 
 // 国际化
 const { t } = useI18n()
@@ -20,9 +17,6 @@ const props = defineProps({
     default: true,
   },
 })
-
-// 通知渠道排序按需加载，避免通知设置 chunk 直接包含拖拽库。
-const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const NotificationTemplateEditorDialog = defineAsyncComponent(
   () => import('@/components/dialog/NotificationTemplateEditorDialog.vue'),
 )
@@ -77,31 +71,6 @@ function getTemplateAccentStyle(item: (typeof templateTypes.value)[number]) {
 const { global: globalTheme } = useTheme()
 const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 
-// 所有消息渠道
-const notifications = ref<NotificationConf[]>([])
-
-const { moduleOptions, loadModuleCatalog } = useModuleCatalog()
-const notificationModuleOptions = moduleOptions('notification')
-
-// 通知渠道允许多个同类型配置，菜单只按模块目录控制可见性。
-const availableNotificationOptions = computed(() => [
-  ...notificationModuleOptions.value,
-  { value: 'custom', title: t('setting.system.custom') },
-])
-
-type NotificationConfigInput = Partial<NotificationConf> & {
-  id?: unknown
-}
-
-interface NotificationConfigResponse {
-  value?: NotificationConfigInput[] | null
-}
-
-type NotificationLoadState = 'idle' | 'loading' | 'ready' | 'error'
-
-const notificationLoadState = ref<NotificationLoadState>('idle')
-const notificationSaveLoading = ref(false)
-
 // 提示框
 const $toast = useToast()
 
@@ -113,38 +82,47 @@ const notificationSwitchs = ref<NotificationSwitchConf[]>([
   {
     type: '资源下载',
     action: 'all',
+    missing_user: 'admin',
   },
   {
     type: '整理入库',
     action: 'all',
+    missing_user: 'admin',
   },
   {
     type: '订阅',
     action: 'all',
+    missing_user: 'admin',
   },
   {
     type: '站点',
     action: 'admin',
+    missing_user: 'admin',
   },
   {
     type: '媒体服务器',
     action: 'admin',
+    missing_user: 'admin',
   },
   {
     type: '手动处理',
     action: 'admin',
+    missing_user: 'admin',
   },
   {
     type: '插件',
     action: 'admin',
+    missing_user: 'admin',
   },
   {
     type: '智能体',
     action: 'admin',
+    missing_user: 'admin',
   },
   {
     type: '其它',
     action: 'admin',
+    missing_user: 'admin',
   },
 ])
 
@@ -158,74 +136,6 @@ let editorDialogController: ReturnType<typeof openSharedDialog> | null = null
 let templateRequestId = 0
 let editorGeneration = 0
 let disposed = false
-
-/** 创建仅用于新建渠道的稳定身份；保存后以后端归一化身份为准。 */
-function createNotificationId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `notification-${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-/** 为旧配置建立与后端一致的可重复身份，避免在保存前退回到显示名称作为列表 key。 */
-function createLegacyNotificationId(notification: NotificationConfigInput, index: number) {
-  const type = typeof notification.type === 'string' ? notification.type : 'notification'
-  const name = typeof notification.name === 'string' ? notification.name.trim() : ''
-  return `legacy-${type}-${name || String(index)}`
-}
-
-/** 统一通知配置的身份、名称和可选字段，供 GET、编辑和保存共用。 */
-function normalizeNotification(notification: NotificationConfigInput, index: number): NotificationConf {
-  const rawId = notification.id
-  const id =
-    typeof rawId === 'string' && rawId.trim()
-      ? rawId.trim()
-      : typeof rawId === 'number'
-        ? String(rawId)
-        : createLegacyNotificationId(notification, index)
-  const name = typeof notification.name === 'string' ? notification.name.trim() : ''
-  const type = typeof notification.type === 'string' ? notification.type : ''
-  const config = notification.config && typeof notification.config === 'object' ? notification.config : {}
-
-  return {
-    ...notification,
-    id,
-    name,
-    type,
-    config,
-    enabled: Boolean(notification.enabled),
-  }
-}
-
-/** 将后端尚未创建的空配置与已有渠道统一为可编辑列表。 */
-function normalizeNotificationList(value?: NotificationConfigInput[] | null) {
-  return (value ?? []).map((notification, index) => normalizeNotification(notification, index))
-}
-
-function notificationNameKey(name: string) {
-  return name.trim().toLowerCase()
-}
-
-/** 检查名称是否为空或与另一个渠道重复，名称比较不区分大小写。 */
-function validateNotificationNames(value: NotificationConf[]) {
-  const names = new Set<string>()
-  for (const notification of value) {
-    const name = notification.name.trim()
-    if (!name) {
-      $toast.error(t('notification.nameRequired'))
-      return false
-    }
-    const key = notificationNameKey(name)
-    if (names.has(key)) {
-      $toast.error(`${t('notification.channel')}【${name}】${t('common.exists')}`)
-      return false
-    }
-    names.add(key)
-  }
-  return true
-}
-
-const canSaveNotifications = computed(() => notificationLoadState.value === 'ready' && !notificationSaveLoading.value)
 
 // 关闭通知模板共享弹窗，并同步本页的弹窗占用状态。
 function closeTemplateEditorDialog() {
@@ -274,44 +184,6 @@ watch(editorTheme, theme => {
 
   editorDialogController?.updateProps({ editorTheme: theme })
 })
-
-/** 根据原渠道类型创建本地待保存项，名称去重继续由原页面负责。 */
-function addNotification(notification: string) {
-  const prefix = t('setting.notification.channel')
-  let index = notifications.value.length + 1
-  let name = `${prefix}${index}`
-  while (notifications.value.some(item => notificationNameKey(item.name) === notificationNameKey(name))) {
-    index += 1
-    name = `${prefix}${index}`
-  }
-  notifications.value.push({
-    id: createNotificationId(),
-    name: name,
-    type: notification,
-    enabled: false,
-    config: {},
-  })
-}
-
-// 移除通知渠道
-function removeNotification(notification: NotificationConf) {
-  const index = notifications.value.findIndex(item => item.id === notification.id)
-  if (index > -1) notifications.value.splice(index, 1)
-}
-
-// 调用API查询通知渠道设置
-async function loadNotificationSetting() {
-  notificationLoadState.value = 'loading'
-  try {
-    const result = await api.get<NotificationConfigResponse>('system/setting/Notifications')
-    notifications.value = normalizeNotificationList(result.value)
-    notificationLoadState.value = 'ready'
-  } catch (error) {
-    console.error(error)
-    // 读取失败时保留当前可见配置，并锁住保存，避免用不完整列表覆盖服务端数据。
-    notificationLoadState.value = 'error'
-  }
-}
 
 async function openEditor(type: NotificationTemplateType) {
   const requestId = ++templateRequestId
@@ -369,27 +241,6 @@ async function loadNotificationTime() {
   }
 }
 
-// 调用API保存通知设置
-async function saveNotificationSetting() {
-  if (!canSaveNotifications.value || !validateNotificationNames(notifications.value)) return
-
-  notificationSaveLoading.value = true
-  try {
-    const payload = notifications.value.map((notification, index) => normalizeNotification(notification, index))
-    notifications.value = payload
-    const result = await api.post<NotificationConfigResponse>('notification/config', payload, { feedback: 'silent' })
-    if (result?.value) {
-      notifications.value = normalizeNotificationList(result.value)
-    }
-    $toast.success(t('setting.notification.saveSuccess'))
-  } catch (error) {
-    console.error(error)
-    $toast.error(t('setting.notification.saveFailed'))
-  } finally {
-    notificationSaveLoading.value = false
-  }
-}
-
 // 调用API保存通知发送时间设置
 async function saveNotificationTime() {
   try {
@@ -401,32 +252,15 @@ async function saveNotificationTime() {
   }
 }
 
-// 通知渠道设置变化时赋值
-function changNotificationSetting(notification: NotificationConf, id: string) {
-  const normalizedNotification = normalizeNotification(notification, notifications.value.length)
-  const index = notifications.value.findIndex(item => item.id === id)
-  if (index !== -1) {
-    if (!normalizedNotification.name) {
-      $toast.error(t('notification.nameRequired'))
-      return
-    }
-    const duplicate = notifications.value.some(
-      item => item.id !== id && notificationNameKey(item.name) === notificationNameKey(normalizedNotification.name),
-    )
-    if (duplicate) {
-      $toast.error(`${t('notification.channel')}【${normalizedNotification.name}】${t('common.exists')}`)
-      return
-    }
-    notifications.value[index] = normalizedNotification
-  }
-}
-
 // 加载消息类型开关
 async function loadNotificationSwitchs() {
   try {
     const result = await api.get<{ value?: NotificationSwitchConf[] }>('system/setting/NotificationSwitchs')
     if (result.value && result.value.length > 0) {
-      const savedSwitchs = result.value
+      const savedSwitchs: NotificationSwitchConf[] = result.value.map(item => ({
+        ...item,
+        missing_user: item.missing_user ?? 'admin',
+      }))
       // 合并默认值中存在但后端数据中缺失的类型（如新增的类型）
       const defaults = notificationSwitchs.value
       for (const def of defaults) {
@@ -459,13 +293,7 @@ function getNotificationSwitchText(type: string | undefined) {
 }
 
 async function loadPageData() {
-  await Promise.all([
-    loadModuleCatalog(),
-    loadNotificationSetting(),
-    loadNotificationSwitchs(),
-    loadNotificationTime(),
-    loadTemplateConfigs(),
-  ])
+  await Promise.all([loadNotificationSwitchs(), loadNotificationTime(), loadTemplateConfigs()])
 }
 
 onBeforeUnmount(() => {
@@ -481,78 +309,9 @@ onMounted(() => {
 useSilentSettingRefresh(loadPageData, {
   active: computed(() => props.active && !editorDialogOpen.value),
 })
-/** 通知渠道严格复用原可用列表，不额外开放已被业务过滤的渠道。 */
-const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
-  key: 'add-notification',
-  title: t('setting.notification.channel'),
-  items: action =>
-    availableNotificationOptions.value.map(item =>
-      action(item.value, { title: item.title, invoke: () => addNotification(item.value) }),
-    ),
-}))
 </script>
 
 <template>
-  <VRow>
-    <VCol cols="12">
-      <VCard>
-        <VCardItem>
-          <VCardTitle>{{ t('setting.notification.channels') }}</VCardTitle>
-          <VCardSubtitle>{{ t('setting.notification.channelsDesc') }}</VCardSubtitle>
-        </VCardItem>
-        <VCardText>
-          <VAlert v-if="notificationLoadState === 'error'" type="error" variant="tonal" class="mb-4">
-            {{ t('setting.notification.channelsLoadFailed') }}
-          </VAlert>
-          <Draggable
-            v-model="notifications"
-            handle=".cursor-move"
-            item-key="id"
-            tag="div"
-            :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
-          >
-            <template #item="{ element }">
-              <NotificationChannelCard
-                :notification="element"
-                :notifications="notifications"
-                @change="changNotificationSetting"
-                @close="removeNotification(element)"
-              />
-            </template>
-          </Draggable>
-        </VCardText>
-        <VCardText>
-          <VForm @submit.prevent="() => {}">
-            <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn
-                type="submit"
-                :loading="notificationSaveLoading"
-                :disabled="!canSaveNotifications"
-                @click="saveNotificationSetting"
-                prepend-icon="mdi-content-save"
-              >
-                {{ t('common.save') }}
-              </VBtn>
-              <VBtn color="success" variant="tonal">
-                <VIcon icon="mdi-plus" />
-                <VMenu :activator="'parent'" :close-on-content-click="true" :native-menu="nativeAddNotificationMenu">
-                  <VList>
-                    <VListItem
-                      v-for="item in availableNotificationOptions"
-                      :key="item.value"
-                      @click="addNotification(item.value)"
-                    >
-                      <VListItemTitle>{{ item.title }}</VListItemTitle>
-                    </VListItem>
-                  </VList>
-                </VMenu>
-              </VBtn>
-            </div>
-          </VForm>
-        </VCardText>
-      </VCard>
-    </VCol>
-  </VRow>
   <VRow>
     <VCol cols="12">
       <VCard>
@@ -596,6 +355,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
             <tr>
               <th scope="col">{{ t('setting.notification.messageType') }}</th>
               <th scope="col">{{ t('setting.notification.scopeRange') }}</th>
+              <th scope="col">{{ t('setting.notification.missingUser') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -610,6 +370,21 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   <VRadio value="user,admin" :label="t('setting.notification.userAndAdmin')" />
                   <VRadio value="all" :label="t('setting.notification.allUsers')" />
                 </VRadioGroup>
+              </td>
+              <td>
+                <VSelect
+                  v-model="item.missing_user"
+                  :items="[
+                    { value: 'admin', title: t('setting.notification.missingUserAdmin') },
+                    { value: 'skip', title: t('setting.notification.missingUserSkip') },
+                  ]"
+                  :disabled="!(item.action ?? '').split(',').includes('user')"
+                  :aria-label="t('setting.notification.missingUser') + ' · ' + getNotificationSwitchText(item.type)"
+                  :mobile-layout="false"
+                  density="compact"
+                  hide-details
+                  class="notification-policy-select"
+                />
               </td>
             </tr>
           </tbody>
@@ -667,6 +442,10 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
   </VRow>
 </template>
 <style scoped>
+.notification-policy-select {
+  min-inline-size: 12rem;
+}
+
 /* 模板入口保持设置页的紧凑密度，卡片壳层复用全局 app-card-shell。 */
 .notification-template-grid {
   display: grid;

@@ -8,6 +8,11 @@ import { clearCachedMediaSubscribeStatuses } from '@/utils/mediaStatusCache'
 import { invalidateSharedData } from '@/utils/sharedDataCache'
 import { revokeNativeNotificationBinding } from '@/native/notifications'
 import { endNativeWidgetSession } from '@/native/widgets'
+import {
+  BROWSER_PUSH_REVOKE_WARNING_EVENT,
+  notifyBrowserPushLogin,
+  revokeBrowserPushBinding,
+} from '@/utils/browserPush'
 
 export const useAuthStore = defineStore('auth', {
   state: (): authState => ({
@@ -44,6 +49,7 @@ export const useAuthStore = defineStore('auth', {
     },
     /** 接受既有认证接口结果，不创建另一套容器认证。 */
     login(payload: authState) {
+      notifyBrowserPushLogin()
       this.setToken(payload.token)
       this.setRemember(payload.remember)
     },
@@ -63,6 +69,9 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       // 撤销需要当前认证；重启和认证失效只调用 resetSession，不能借此解绑设备。
       revokeNativeNotificationBinding(this.token)
+      void revokeBrowserPushBinding(this.token, String(useUserStore().userID)).then(confirmed => {
+        if (!confirmed) window.dispatchEvent(new Event(BROWSER_PUSH_REVOKE_WARNING_EVENT))
+      })
       this.resetSession()
     },
   },

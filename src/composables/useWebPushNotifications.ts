@@ -1,10 +1,22 @@
-import { onScopeDispose, toValue, watch, type InjectionKey, type MaybeRefOrGetter } from 'vue'
+import { onScopeDispose, ref, toValue, watch, type InjectionKey, type MaybeRefOrGetter } from 'vue'
 import api, { isApiBusinessFailure } from '@/api'
 import { urlBase64ToUint8Array } from '@/@core/utils/navigator'
+import {
+  BROWSER_PUSH_LOGIN_EVENT,
+  BROWSER_PUSH_OWNER_KEY,
+  claimBrowserPushOwner,
+  finishBrowserPushRotation,
+  ownsBrowserPush,
+  readBrowserPushOwner,
+  sendBrowserPushSubscription,
+  withBrowserPushLock,
+  type BrowserPushOwner,
+  type BrowserPushSession,
+} from '@/utils/browserPush'
 
 const SUBSCRIPTION_REFRESH_INTERVAL_MS = 5 * 60 * 1000
+
 const WEBPUSH_PUBLIC_KEY_ENDPOINT = '/message/webpush/public-key'
-const WEBPUSH_SUBSCRIBE_ENDPOINT = '/message/webpush/subscribe'
 
 /** 后端返回的 Web Push VAPID 公钥载荷。 */
 interface WebPushPublicKeyPayload {
@@ -13,13 +25,13 @@ interface WebPushPublicKeyPayload {
 
 type ApplicationServerKey = ReturnType<typeof urlBase64ToUint8Array>
 
+/** 用户点击通知设置时调用，返回真实权限或未完成登记的 null。 */
 export type WebPushPermissionRequester = () => Promise<NotificationPermission | null>
-
-/** App 向设置弹窗提供用户手势授权入口，保持权限请求与订阅生命周期由同一实例管理。 */
+/** App 和设置弹窗共用一个订阅生命周期，避免后台重复申请权限。 */
 export const WEB_PUSH_PERMISSION_REQUEST_KEY: InjectionKey<WebPushPermissionRequester> =
   Symbol('web-push-permission-request')
 
-/** 订阅失败后重新读取系统权限，浏览器弹窗可能已在异步期间将其改为拒绝。 */
+/** 浏览器授权弹窗可在 await 期间修改权限，不能复用调用前收窄的类型。 */
 function currentNotificationPermission(): NotificationPermission {
   return Notification.permission
 }
@@ -47,12 +59,32 @@ function isInvalidStateError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'InvalidStateError'
 }
 
-/** 在管理员会话内恢复浏览器订阅，补齐后端重启后丢失的内存登记并跟踪服务端公钥轮换。 */
-export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>) {
+/** 当前网页登录账号恢复订阅，每次异步恢复均复核共享浏览器通知的账号和代次。 */
+export function useWebPushNotifications(session: MaybeRefOrGetter<BrowserPushSession | null>) {
   let pending: AbortController | null = null
   let activeRegistration: ServiceWorkerRegistration | null = null
-  let activeApplicationServerKey: ApplicationServerKey | null = null
   let disposed = false
+  let loginRequested = false
+  const loginVersion = ref(0)
+
+  function currentOwner(): BrowserPushOwner | null {
+    const current = toValue(session)
+    const owner = readBrowserPushOwner()
+    return current && owner?.account === current.account ? owner : null
+  }
+
+  function valid(current: BrowserPushSession, owner: BrowserPushOwner, controller: AbortController): boolean {
+    const latest = toValue(session)
+    return (
+      !disposed &&
+      !controller.signal.aborted &&
+      latest?.account === current.account &&
+      latest.token === current.token &&
+      ownsBrowserPush(owner)
+    )
+  }
+
+  let activeApplicationServerKey: ApplicationServerKey | null = null
 
   /** 从后端拉取当前实例的 VAPID 公钥并更新内存缓存，避免在前端静态写死密钥。 */
   async function fetchApplicationServerKey(signal: AbortSignal): Promise<ApplicationServerKey | null> {
@@ -73,6 +105,7 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
         activeApplicationServerKey = null
         return null
       }
+      if (signal.aborted) return null
       activeApplicationServerKey = keyBytes
       return keyBytes
     } catch (error) {
@@ -81,140 +114,148 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
     }
   }
 
-  /** 将当前浏览器订阅同步到后端。 */
-  async function registerSubscription(subscription: PushSubscription, signal: AbortSignal): Promise<void> {
-    await api.post(WEBPUSH_SUBSCRIBE_ENDPOINT, subscription.toJSON(), {
-      feedback: 'silent',
-      skipNavigationCancellation: true,
-      signal,
-      timeout: 10_000,
-    })
-  }
-
-  /** 复用浏览器已有订阅；公钥变化或无订阅且已授权时自动重建，不在后台弹出权限请求。 */
+  /** 切号先取消旧端点，迟到的旧账号请求只能登记已经失效的旧订阅。 */
   async function syncSubscription(): Promise<boolean> {
-    const currentSession = toValue(session)
-    if (disposed || !currentSession || pending || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return false
-    }
-
+    const current = toValue(session)
+    const owner = currentOwner()
+    if (disposed || !current || pending || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
     const controller = new AbortController()
     pending = controller
     try {
-      // ready 在没有活动 worker 时可能永不完成；安装完成后由 controllerchange 或定时检查补登记。
-      const registration = await navigator.serviceWorker.getRegistration()
-      if (controller.signal.aborted || currentSession !== toValue(session)) return false
-      activeRegistration = registration?.active ? registration : null
-      if (!registration?.active) return false
-
-      const applicationServerKey = await fetchApplicationServerKey(controller.signal)
-      if (controller.signal.aborted || currentSession !== toValue(session) || !applicationServerKey) return false
-
-      let subscription = await registration.pushManager.getSubscription()
-      if (controller.signal.aborted || currentSession !== toValue(session)) return false
-
-      if (subscription && isSubscriptionKeyMismatched(subscription, applicationServerKey)) {
-        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
-        if (typeof subscription.unsubscribe === 'function') await subscription.unsubscribe()
-        if (controller.signal.aborted || currentSession !== toValue(session)) return false
-        subscription = null
-      }
-
-      if (!subscription) {
-        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey,
-        })
-      }
-      if (controller.signal.aborted || currentSession !== toValue(session)) return false
-
-      await registerSubscription(subscription, controller.signal)
-      return true
-    } catch (error) {
-      if (!controller.signal.aborted) console.warn('WebPush subscription failed:', error)
+      return await withBrowserPushLock(async () => {
+        if (!owner) {
+          const registration = await navigator.serviceWorker.getRegistration()
+          const latest = toValue(session)
+          if (
+            !disposed &&
+            !controller.signal.aborted &&
+            latest?.token === current.token &&
+            latest.account === current.account
+          )
+            activeRegistration = registration?.active ? registration : null
+          return false
+        }
+        if (!valid(current, owner, controller)) return false
+        const registration = await navigator.serviceWorker.getRegistration()
+        if (!valid(current, owner, controller)) return false
+        activeRegistration = registration?.active ? registration : null
+        if (!activeRegistration) return false
+        const applicationServerKey = await fetchApplicationServerKey(controller.signal)
+        if (!valid(current, owner, controller) || !applicationServerKey) return false
+        let subscription = await activeRegistration.pushManager.getSubscription()
+        if (!valid(current, owner, controller)) return false
+        const rotateOwner = readBrowserPushOwner()?.rotate
+        const rotateKey = subscription && isSubscriptionKeyMismatched(subscription, applicationServerKey)
+        if (rotateKey && !rotateOwner && (typeof Notification === 'undefined' || Notification.permission !== 'granted'))
+          return false
+        if (rotateOwner || rotateKey) {
+          if (subscription && !(await subscription.unsubscribe())) return false
+          if (!valid(current, owner, controller) || (rotateOwner && !finishBrowserPushRotation(owner))) return false
+          subscription = null
+        }
+        if (!subscription) {
+          if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
+          subscription = await activeRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
+        }
+        if (!valid(current, owner, controller)) return false
+        await sendBrowserPushSubscription('subscribe', current.token, subscription.toJSON(), controller.signal)
+        return valid(current, owner, controller)
+      })
+    } catch {
+      if (!controller.signal.aborted) console.warn('浏览器通知暂未完成登记，将在恢复连接后重试')
       return false
     } finally {
       if (pending === controller) pending = null
     }
   }
 
-  /** 由用户点击直接发起订阅，避免 iOS 在异步查询或权限弹窗后丢失用户激活。 */
+  /** 同步发起 subscribe 保留用户手势，切号准备尚未完成时先取消旧端点。 */
   async function requestPermissionAndSync(): Promise<NotificationPermission | null> {
-    const currentSession = toValue(session)
-    if (
-      disposed ||
-      !currentSession ||
-      !('serviceWorker' in navigator) ||
-      !('PushManager' in window) ||
-      typeof Notification === 'undefined'
-    ) {
-      return null
-    }
-
+    const current = toValue(session)
+    if (disposed || !current || !activeRegistration?.active || typeof Notification === 'undefined') return null
     if (Notification.permission === 'denied') return 'denied'
-    if (!activeRegistration?.active) return null
-
-    // 已预取公钥时必须在首次 await 之前调用 subscribe；浏览器会在此调用中请求通知权限。
+    const owner = currentOwner() ?? claimBrowserPushOwner(current.account)
+    if (!owner) return null
+    if (owner.rotate) {
+      pending?.abort()
+      pending = null
+      return (await syncSubscription()) ? 'granted' : null
+    }
     pending?.abort()
     const controller = new AbortController()
     pending = controller
     try {
       const registration = activeRegistration
       let applicationServerKey = activeApplicationServerKey
-      let subscribePromise: Promise<PushSubscription>
-      if (applicationServerKey) {
-        subscribePromise = registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey,
-        })
-      } else {
+      if (!applicationServerKey) {
         applicationServerKey = await fetchApplicationServerKey(controller.signal)
-        if (controller.signal.aborted || currentSession !== toValue(session) || !applicationServerKey) return null
-        subscribePromise = registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey,
-        })
+        if (!valid(current, owner, controller) || !applicationServerKey) return null
       }
-
       let subscription: PushSubscription
       try {
-        subscription = await subscribePromise
-      } catch (subscribeError) {
-        if (!isInvalidStateError(subscribeError)) throw subscribeError
+        subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
+      } catch (error) {
+        if (!isInvalidStateError(error)) throw error
         const existing = await registration.pushManager.getSubscription()
-        if (existing && typeof existing.unsubscribe === 'function') await existing.unsubscribe()
-        if (controller.signal.aborted || currentSession !== toValue(session)) return null
-        const latestKey = (await fetchApplicationServerKey(controller.signal)) ?? applicationServerKey
-        if (controller.signal.aborted || currentSession !== toValue(session) || !latestKey) return null
+        if (!valid(current, owner, controller)) return null
+        if (existing && !(await existing.unsubscribe())) return null
+        if (!valid(current, owner, controller)) return null
+        const latestKey = await fetchApplicationServerKey(controller.signal)
+        if (!valid(current, owner, controller) || !latestKey) return null
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: latestKey,
         })
       }
-      if (controller.signal.aborted || currentSession !== toValue(session)) return null
-
-      await registerSubscription(subscription, controller.signal)
-      return 'granted'
-    } catch (error) {
-      if (!controller.signal.aborted) console.warn('WebPush permission request failed:', error)
+      if (!valid(current, owner, controller)) return null
+      return await withBrowserPushLock(async () => {
+        if (!valid(current, owner, controller)) return null
+        await sendBrowserPushSubscription('subscribe', current.token, subscription.toJSON(), controller.signal)
+        return valid(current, owner, controller) ? 'granted' : null
+      })
+    } catch {
+      if (!controller.signal.aborted) console.warn('浏览器通知授权或登记尚未完成，请稍后重试')
       return currentNotificationPermission() === 'denied' ? 'denied' : null
     } finally {
       if (pending === controller) pending = null
     }
   }
 
-  /** 页面恢复可见时重新登记，覆盖移动端挂起和离线期间的后端升级。 */
+  function invalidatePending() {
+    activeApplicationServerKey = null
+    pending?.abort()
+    pending = null
+  }
+
+  function handleLogin() {
+    loginRequested = true
+    loginVersion.value += 1
+  }
+
+  function handleStorage(event: StorageEvent) {
+    if (event.key !== null && event.key !== BROWSER_PUSH_OWNER_KEY) return
+    invalidatePending()
+    if (currentOwner()) void syncSubscription()
+  }
+
   function handleVisibilityChange() {
     if (document.visibilityState === 'visible') void syncSubscription()
   }
 
+  window.addEventListener(BROWSER_PUSH_LOGIN_EVENT, handleLogin)
   watch(
-    () => toValue(session),
     () => {
-      pending?.abort()
-      pending = null
-      activeApplicationServerKey = null
+      const current = toValue(session)
+      return current ? `${current.account}:${current.token}:${loginVersion.value}` : null
+    },
+    (_value, previous) => {
+      invalidatePending()
+      const current = toValue(session)
+      if (!current) return
+      const previousAccount = previous?.slice(0, previous.indexOf(':'))
+      if (loginRequested || !readBrowserPushOwner() || (previousAccount && previousAccount !== current.account))
+        claimBrowserPushOwner(current.account)
+      loginRequested = false
       void syncSubscription()
     },
     { immediate: true },
@@ -223,17 +264,19 @@ export function useWebPushNotifications(session: MaybeRefOrGetter<string | null>
   document.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('online', syncSubscription)
   window.addEventListener('pageshow', syncSubscription)
+  window.addEventListener('storage', handleStorage)
   navigator.serviceWorker?.addEventListener('controllerchange', syncSubscription)
 
   onScopeDispose(() => {
     disposed = true
-    pending?.abort()
+    invalidatePending()
     window.clearInterval(interval)
+    window.removeEventListener(BROWSER_PUSH_LOGIN_EVENT, handleLogin)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
     window.removeEventListener('online', syncSubscription)
     window.removeEventListener('pageshow', syncSubscription)
+    window.removeEventListener('storage', handleStorage)
     navigator.serviceWorker?.removeEventListener('controllerchange', syncSubscription)
   })
-
   return { requestPermissionAndSync }
 }

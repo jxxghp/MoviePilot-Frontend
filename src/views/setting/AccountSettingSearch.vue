@@ -30,12 +30,11 @@ const allSites = ref<Site[]>([])
 // 选中订阅站点
 const selectedSites = ref<number[]>([])
 
-// 系统设置
+/** 搜索与下载页面保留的系统设置，自动下载授权由各渠道规则管理。 */
 interface SearchSystemSettings {
   Basic: {
     SEARCH_MULTIPLE_NAME: boolean
     DOWNLOAD_SUBTITLE: boolean
-    AUTO_DOWNLOAD_USER: string | string[] | null
     TORRENT_TAG: string
   }
 }
@@ -44,7 +43,6 @@ const SystemSettings = ref<SearchSystemSettings>({
   Basic: {
     SEARCH_MULTIPLE_NAME: false,
     DOWNLOAD_SUBTITLE: false,
-    AUTO_DOWNLOAD_USER: null,
     TORRENT_TAG: 'MOVIEPILOT',
   },
 })
@@ -245,16 +243,6 @@ useSilentSettingRefresh(() => loadPageData(true), {
                 :hint="t('setting.search.downloadLabelHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-tag"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VCombobox
-                v-model="SystemSettings.Basic.AUTO_DOWNLOAD_USER"
-                :label="t('setting.search.downloadUser')"
-                :placeholder="t('setting.search.downloadUserPlaceholder')"
-                :hint="t('setting.search.downloadUserHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account"
               />
             </VCol>
             <VCol cols="12" md="6">

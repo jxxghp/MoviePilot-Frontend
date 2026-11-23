@@ -260,10 +260,10 @@ export function getSettingTabs(t: Composer['t']): NavMenuTabItem[] {
       description: t('settingTabs.subscribe.description'),
     },
     {
-      title: t('settingTabs.notification.title'),
-      icon: 'mdi-bell',
-      tab: 'notification',
-      description: t('settingTabs.notification.description'),
+      title: t('settingTabs.messaging.title'),
+      icon: 'mdi-message-processing-outline',
+      tab: 'messaging',
+      description: t('settingTabs.messaging.description'),
     },
   ]
 }

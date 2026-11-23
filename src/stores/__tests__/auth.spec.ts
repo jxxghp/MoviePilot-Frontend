@@ -3,6 +3,8 @@ import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { useUserStore } from '@/stores/user'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
+import { BROWSER_PUSH_REVOKE_WARNING_EVENT, claimBrowserPushOwner } from '@/utils/browserPush'
 
 describe('auth store', () => {
   beforeEach(() => {
@@ -133,6 +135,43 @@ describe('auth store', () => {
     } finally {
       window.removeEventListener('moviepilot:widget-logout', listener)
       delete window.MoviePilotNative
+    }
+  })
+
+  it('浏览器撤销失败不会阻塞退出，并发送不含认证信息的可见警告信号', async () => {
+    const unsubscribe = vi.fn().mockResolvedValue(true)
+    const fetch = vi.fn().mockRejectedValue(new Error('offline'))
+    vi.stubGlobal('fetch', fetch)
+    vi.stubGlobal('navigator', {
+      serviceWorker: {
+        getRegistration: async () => ({
+          pushManager: {
+            getSubscription: async () => ({
+              toJSON: () => ({ endpoint: 'https://push.invalid/device', keys: { p256dh: 'key', auth: 'auth' } }),
+              unsubscribe,
+            }),
+          },
+        }),
+      },
+    })
+    const auth = useAuthStore()
+    auth.setToken('old-token')
+    useUserStore().setUserID(42)
+    claimBrowserPushOwner('42')
+    const warning = vi.fn((event: Event) => {
+      expect(auth.token).toBeNull()
+      expect(event).not.toBeInstanceOf(CustomEvent)
+    })
+    window.addEventListener(BROWSER_PUSH_REVOKE_WARNING_EVENT, warning)
+    try {
+      auth.logout()
+      expect(auth.token).toBeNull()
+      await flushPromises()
+      expect(unsubscribe).toHaveBeenCalledOnce()
+      expect(warning).toHaveBeenCalledOnce()
+      expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer old-token')
+    } finally {
+      window.removeEventListener(BROWSER_PUSH_REVOKE_WARNING_EVENT, warning)
     }
   })
 })

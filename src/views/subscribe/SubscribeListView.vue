@@ -209,9 +209,11 @@ const orderConfig = ref<{ id: number }[]>([])
 // 显示的订阅列表
 const displayList = ref<Subscribe[]>([])
 
-// 当前用户有权看到的订阅：普通用户只看自己的订阅，管理员看全部
+// 以服务端确认的归属为准。连接旧版后端时沿用用户名筛选。
 const permittedSubscribes = computed(() =>
-  superUser ? dataList.value : dataList.value.filter(data => data.username === userName),
+  superUser
+    ? dataList.value
+    : dataList.value.filter(data => data.ownership_pending === false || data.username === userName),
 )
 
 // 来源判断基于有权看到的全部订阅而不是筛选结果，避免搜索或切换状态筛选时标识忽隐忽现

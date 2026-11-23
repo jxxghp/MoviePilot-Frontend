@@ -202,6 +202,10 @@ export interface Subscribe {
   // 最后更新时间
   last_update: string
   // 订阅用户
+  /** 旧记录需管理员核对，旧版后端不提供此字段。 */
+  ownership_pending?: boolean
+  /** 本次归属确认使用的旧记录版本。 */
+  ownership_revision?: string | null
   username: string
   // 订阅站点
   sites: number[]
@@ -2335,6 +2339,8 @@ export interface NotificationSwitchConf {
   type: string
   // 通知范围 all/user/admin
   action: string
+  /** 找不到操作用户时跳过个人通知，或兼容旧版回退管理员。 */
+  missing_user?: 'admin' | 'skip'
 }
 
 // 存储配置

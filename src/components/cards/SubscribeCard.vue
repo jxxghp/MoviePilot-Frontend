@@ -37,6 +37,7 @@ const BACKGROUND_EXECUTION_SOURCES = new Set(['new', 'fallback'])
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
 const SubscribeActivityDialog = defineAsyncComponent(() => import('../dialog/SubscribeActivityDialog.vue'))
+const SubscribeOwnershipDialog = defineAsyncComponent(() => import('../dialog/SubscribeOwnershipDialog.vue'))
 const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/SubscribeShareDialog.vue'))
 
 // 显示器宽度
@@ -549,7 +550,23 @@ function viewSubscribeLogs() {
   openSharedDialog(SubscribeActivityDialog, { subscription: props.media }, {}, { closeOn: ['close'] })
 }
 
+/** 活动订阅的复核在共享弹窗中完成。 */
+function reviewOwnership() {
+  if (!props.media?.ownership_revision) return
+  openSharedDialog(
+    SubscribeOwnershipDialog,
+    { subscription: props.media, kind: 'active' },
+    { saved: () => emit('save') },
+  )
+}
+
 const dropdownItems = computed(() => [
+  {
+    title: t('subscriptionOwnership.title'),
+    value: 13,
+    show: !!props.media?.ownership_revision,
+    props: { prependIcon: 'mdi-account-check-outline', click: reviewOwnership, color: '' },
+  },
   {
     title: t('common.edit'),
     value: 1,

@@ -8,6 +8,9 @@ import {
   CHANNEL_SCOPES,
   DEFAULT_CHANNEL_SCOPES,
   createChannelAuthorization,
+  batchChannelAuthorizations,
+  deleteChannelAuthorization,
+  type ChannelMemberBatchAction,
   getChannelAuthorizations,
   updateChannelAuthorization,
   type AuthorizationChannel,
@@ -38,6 +41,10 @@ const loading = ref(false)
 const error = ref('')
 const tab = ref<'pending' | 'approved' | 'inactive'>('pending')
 const keyword = ref('')
+const selectedIds = ref<string[]>([])
+/** 确认框冻结本次选择，避免刷新或筛选悄悄扩大操作范围。 */
+const actionDialog = ref<{ action: ChannelMemberBatchAction; members: ChannelMember[]; bulk: boolean } | null>(null)
+const actionScopes = ref<ChannelScope[]>([...DEFAULT_CHANNEL_SCOPES])
 const editing = ref(false)
 const selected = ref<ChannelMember | null>(null)
 const adminConfirmed = ref(false)
@@ -67,6 +74,84 @@ const filteredMembers = computed(() => {
     )
   })
 })
+const selectedMembers = computed(() => filteredMembers.value.filter(member => selectedIds.value.includes(member.id)))
+const allSelected = computed(
+  () => filteredMembers.value.length > 0 && selectedMembers.value.length === filteredMembers.value.length,
+)
+const batchActions = computed<ChannelMemberBatchAction[]>(() =>
+  tab.value === 'pending'
+    ? ['approve', 'reject', 'delete']
+    : tab.value === 'approved'
+      ? ['disable', 'delete']
+      : ['delete'],
+)
+
+/** 仅选择当前状态和搜索结果内可见的记录，避免隐藏选择误操作。 */
+function selectAll(value: boolean) {
+  selectedIds.value = value ? filteredMembers.value.map(member => member.id) : []
+}
+watch([tab, keyword], () => {
+  selectedIds.value = []
+})
+
+/** 批量操作先确认；单条已授权删除也必须二次确认。 */
+function prepareAction(action: ChannelMemberBatchAction, records: ChannelMember[], bulk: boolean) {
+  if (saving.value || loading.value || !records.length || records.length > 100) return
+  error.value = ''
+  const snapshot = records.map(member => ({ ...member, scopes: [...member.scopes] }))
+  if (!bulk && action === 'delete' && snapshot[0].status !== 'approved') {
+    void performAction(action, snapshot, false, false)
+    return
+  }
+  actionScopes.value = [...DEFAULT_CHANNEL_SCOPES]
+  actionDialog.value = { action, members: snapshot, bulk }
+}
+
+/** 取消确认时清理错误提示，不应用本次权限草稿。 */
+function cancelAction() {
+  if (saving.value) return
+  actionDialog.value = null
+  error.value = ''
+}
+
+/** 后台原子提交后才移除或替换列表；失败保留确认框及权限输入。 */
+async function performAction(
+  action: ChannelMemberBatchAction,
+  records: ChannelMember[],
+  bulk: boolean,
+  confirmed: boolean,
+) {
+  if (saving.value) return
+  const current = generation
+  saving.value = true
+  error.value = ''
+  try {
+    if (!bulk && action === 'delete') {
+      await deleteChannelAuthorization(records[0], confirmed)
+      if (disposed || !visible.value || current !== generation) return
+      members.value = members.value.filter(member => member.id !== records[0].id)
+    } else {
+      const result = await batchChannelAuthorizations({
+        action,
+        members: records.map(member => ({ id: member.id, expected_updated_at: member.updated_at })),
+        ...(action === 'approve' ? { scopes: [...actionScopes.value] } : {}),
+        confirm_approved: confirmed,
+      })
+      if (disposed || !visible.value || current !== generation) return
+      const deleted = new Set(result.deleted_ids)
+      members.value = members.value.filter(member => !deleted.has(member.id))
+      result.members.forEach(acceptSaved)
+    }
+    selectedIds.value = []
+    actionDialog.value = null
+  } catch (cause) {
+    if (!disposed && current === generation)
+      error.value = getApiErrorMessage(cause) ?? t('channelAuthorization.saveFailed')
+  } finally {
+    if (!disposed) saving.value = false
+  }
+}
+
 const channelOptions = computed(() =>
   channels.value.map(channel => ({
     title: `${channel.name} · ${channel.channel}`,
@@ -95,6 +180,7 @@ async function load() {
   const current = ++generation
   loading.value = true
   error.value = ''
+  selectedIds.value = []
   try {
     const result = await getChannelAuthorizations(controller.signal)
     if (disposed || !visible.value || current !== generation) return
@@ -214,7 +300,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <VDialog v-model="visible" max-width="58rem" :fullscreen="!display.mdAndUp.value" :persistent="saving" scrollable>
+  <VDialog
+    v-model="visible"
+    :retain-focus="!actionDialog"
+    max-width="58rem"
+    :fullscreen="!display.mdAndUp.value"
+    :persistent="saving"
+    scrollable
+  >
     <VCard class="channel-authorization-dialog">
       <VCardItem class="py-3" data-native-sheet-actions>
         <template #prepend
@@ -327,13 +420,14 @@ onBeforeUnmount(() => {
           </VForm>
         </template>
         <template v-else>
-          <VTabs v-model="tab" color="primary" class="mb-4"
+          <VTabs v-model="tab" :disabled="saving" color="primary" class="mb-4"
             ><VTab v-for="status in ['pending', 'approved', 'inactive'] as const" :key="status" :value="status"
               >{{ t(`channelAuthorization.tabs.${status}`) }} ({{ count(status) }})</VTab
             ></VTabs
           >
           <VTextField
             v-model="keyword"
+            :disabled="saving"
             :aria-label="t('channelAuthorization.search')"
             :placeholder="t('channelAuthorization.search')"
             prepend-inner-icon="mdi-magnify"
@@ -342,6 +436,45 @@ onBeforeUnmount(() => {
             density="compact"
             class="mb-4"
           />
+          <div v-if="filteredMembers.length" class="d-flex align-center flex-wrap ga-2 mb-3">
+            <VCheckbox
+              :model-value="allSelected"
+              :indeterminate="selectedMembers.length > 0 && !allSelected"
+              :label="t('channelAuthorization.selectAll')"
+              :disabled="saving || loading"
+              :mobile-layout="false"
+              hide-details
+              density="compact"
+              class="flex-grow-0"
+              @update:model-value="value => selectAll(!!value)"
+            />
+            <span class="text-caption text-medium-emphasis">{{
+              t('channelAuthorization.selectedCount', { count: selectedMembers.length })
+            }}</span>
+            <VSpacer />
+            <VMenu>
+              <template #activator="{ props: menuProps }">
+                <VBtn
+                  v-bind="menuProps"
+                  variant="tonal"
+                  prepend-icon="mdi-checkbox-multiple-marked-outline"
+                  :disabled="saving || loading || !selectedMembers.length || selectedMembers.length > 100"
+                  >{{ t('channelAuthorization.batch') }}</VBtn
+                >
+              </template>
+              <VList>
+                <VListItem
+                  v-for="action in batchActions"
+                  :key="action"
+                  :title="t('channelAuthorization.batchActions.' + action)"
+                  @click="prepareAction(action, selectedMembers, true)"
+                />
+              </VList>
+            </VMenu>
+            <span v-if="selectedMembers.length > 100" class="text-caption text-warning">{{
+              t('channelAuthorization.batchLimit')
+            }}</span>
+          </div>
           <VProgressLinear v-if="loading" indeterminate color="primary" :aria-label="t('common.loading')" />
           <div v-else-if="filteredMembers.length === 0 && !error" class="authorization-empty text-medium-emphasis">
             <VIcon icon="mdi-account-check-outline" size="42" class="mb-3" />
@@ -351,6 +484,16 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-for="member in filteredMembers" :key="member.id" class="authorization-member">
+            <VCheckbox
+              v-model="selectedIds"
+              :value="member.id"
+              :mobile-layout="false"
+              :aria-label="t('channelAuthorization.selectMember', { name: member.display_name || member.sender_id })"
+              :disabled="saving || loading"
+              hide-details
+              density="compact"
+              class="flex-grow-0"
+            />
             <div class="authorization-member-info">
               <div class="d-flex align-center flex-wrap ga-2">
                 <span class="text-subtitle-1 font-weight-medium">{{ member.display_name || member.sender_id }}</span
@@ -418,6 +561,15 @@ onBeforeUnmount(() => {
                 @click="changeStatus(member, 'disabled')"
                 >{{ t('channelAuthorization.disable') }}</VBtn
               >
+              <VBtn
+                icon="mdi-delete-outline"
+                variant="text"
+                size="small"
+                color="error"
+                :disabled="saving || loading"
+                :aria-label="t('channelAuthorization.delete') + ' ' + (member.display_name || member.sender_id)"
+                @click="prepareAction('delete', [member], false)"
+              />
             </div>
           </div>
         </template>
@@ -458,6 +610,87 @@ onBeforeUnmount(() => {
           ></template
         ></VCardActions
       >
+    </VCard>
+  </VDialog>
+  <VDialog
+    v-if="actionDialog"
+    :model-value="true"
+    :persistent="saving"
+    max-width="36rem"
+    scrollable
+    @update:model-value="value => !value && !saving && (actionDialog = null)"
+  >
+    <VCard
+      :title="
+        actionDialog.bulk
+          ? t('channelAuthorization.batchActions.' + actionDialog.action)
+          : t('channelAuthorization.confirmDeleteTitle')
+      "
+    >
+      <VCardText class="d-flex flex-column ga-4">
+        <VAlert v-if="error" type="error" variant="tonal">{{ error }}</VAlert>
+        <div>
+          {{
+            t('channelAuthorization.batchHint', {
+              count: actionDialog.members.length,
+              action: actionDialog.bulk
+                ? t('channelAuthorization.batchActions.' + actionDialog.action)
+                : t('channelAuthorization.delete'),
+            })
+          }}
+        </div>
+        <div v-if="!actionDialog.bulk">
+          <div class="text-subtitle-2">
+            {{ actionDialog.members[0].display_name || actionDialog.members[0].sender_id }}
+          </div>
+          <div class="text-caption text-medium-emphasis authorization-sender">
+            {{ actionDialog.members[0].source }} · {{ actionDialog.members[0].sender_id }}
+          </div>
+        </div>
+        <template v-if="actionDialog.action === 'approve'">
+          <div class="text-body-2 text-medium-emphasis">{{ t('channelAuthorization.batchApproveHint') }}</div>
+          <div class="text-subtitle-2">{{ t('channelAuthorization.capabilities') }}</div>
+          <div class="authorization-scopes">
+            <VCheckbox
+              v-for="scope in CHANNEL_SCOPES"
+              :key="scope"
+              v-model="actionScopes"
+              :value="scope"
+              :mobile-layout="false"
+              :disabled="saving"
+              :label="t('channelAuthorization.scopes.' + scope)"
+              hide-details
+            />
+          </div>
+        </template>
+        <template v-if="actionDialog.action === 'delete'">
+          <VAlert
+            v-if="actionDialog.members.some(member => member.status === 'approved')"
+            type="warning"
+            variant="tonal"
+            >{{ t('channelAuthorization.approvedDeleteWarning') }}</VAlert
+          >
+          <div class="text-body-2 text-medium-emphasis">{{ t('channelAuthorization.deleteHint') }}</div>
+        </template>
+      </VCardText>
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
+        <VBtn variant="text" :disabled="saving" @click="cancelAction">{{ t('common.cancel') }}</VBtn>
+        <VBtn
+          variant="flat"
+          :color="actionDialog.action === 'delete' ? 'error' : 'primary'"
+          :loading="saving"
+          @click="
+            performAction(
+              actionDialog.action,
+              actionDialog.members,
+              actionDialog.bulk,
+              actionDialog.action === 'delete' && actionDialog.members.some(member => member.status === 'approved'),
+            )
+          "
+          >{{ t('common.confirm') }}</VBtn
+        >
+      </VCardActions>
     </VCard>
   </VDialog>
 </template>

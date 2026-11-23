@@ -59,7 +59,7 @@ describe('NotificationChannelInfoDialog', () => {
       global: { stubs: { VDialogCloseBtn: true } },
     })
     expect(screen.queryByLabelText('管理员')).not.toBeInTheDocument()
-    expect(screen.getByText('用户和管理员权限请在用户管理 → 渠道授权中设置。')).toBeInTheDocument()
+    expect(screen.queryByText('用户和管理员权限请在用户管理 → 渠道授权中设置。')).not.toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: '确认' }))
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ config: { TELEGRAM_CHAT_ID: '-100-delivery', TELEGRAM_TOPIC_ID: 7 } }),

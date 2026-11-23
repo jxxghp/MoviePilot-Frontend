@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { usePreferredReducedMotion } from '@vueuse/core'
 import { useTheme } from 'vuetify'
+import { useToast } from 'vue-toastification'
+import { BROWSER_PUSH_REVOKE_WARNING_EVENT } from '@/utils/browserPush'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
 import api from '@/api'
 import { useAuthStore, useGlobalSettingsStore, useUserStore } from '@/stores'
@@ -149,9 +151,15 @@ const authStore = useAuthStore()
 const userStore = useUserStore()
 const isLogin = computed(() => authStore.token)
 const { requestPermissionAndSync } = useWebPushNotifications(() =>
-  authStore.token && userStore.superUser ? `${userStore.userID}:${authStore.token}` : null,
+  authStore.token && userStore.userID > 0 ? { account: String(userStore.userID), token: authStore.token } : null,
 )
 provide(WEB_PUSH_PERMISSION_REQUEST_KEY, requestPermissionAndSync)
+const browserPushToast = useToast()
+const { t: translateBrowserPush } = useI18n()
+function showBrowserPushRevocationWarning() {
+  browserPushToast.warning(translateBrowserPush('notification.webpush.revocationUnconfirmed'))
+}
+window.addEventListener(BROWSER_PUSH_REVOKE_WARNING_EVENT, showBrowserPushRevocationWarning)
 const route = useRoute()
 const router = useRouter()
 const { initializePWA } = usePWA()
@@ -1028,6 +1036,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener(BROWSER_PUSH_REVOKE_WARNING_EVENT, showBrowserPushRevocationWarning)
   // 清除背景轮换定时器
   stopBackgroundLoading()
   clearBackgroundRotationGrace()
