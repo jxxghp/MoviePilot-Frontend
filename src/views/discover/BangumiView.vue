@@ -51,10 +51,10 @@ watch([filterParams], () => {
 </script>
 
 <template>
-  <div class="discover-filter-bar">
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('bangumi.category') }}</VLabel>
-      <VChipGroup v-model="filterParams.cat" class="discover-filter-chips">
+  <div class="app-filter-bar">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('bangumi.category') }}</VLabel>
+      <VChipGroup v-model="filterParams.cat" class="app-filter-chips">
         <VChip
           :color="filterParams.cat == key ? 'primary' : ''"
           filter
@@ -67,9 +67,9 @@ watch([filterParams], () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('bangumi.sort') }}</VLabel>
-      <VChipGroup v-model="filterParams.sort" class="discover-filter-chips">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('bangumi.sort') }}</VLabel>
+      <VChipGroup v-model="filterParams.sort" class="app-filter-chips">
         <VChip
           :color="filterParams.sort == key ? 'primary' : ''"
           filter
@@ -82,9 +82,9 @@ watch([filterParams], () => {
         </VChip>
       </VChipGroup>
     </div>
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('bangumi.year') }}</VLabel>
-      <VChipGroup v-model="filterParams.year" class="discover-filter-chips">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('bangumi.year') }}</VLabel>
+      <VChipGroup v-model="filterParams.year" class="app-filter-chips">
         <VChip
           :color="filterParams.year == key ? 'primary' : ''"
           filter

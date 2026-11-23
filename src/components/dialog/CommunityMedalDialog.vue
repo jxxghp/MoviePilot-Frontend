@@ -565,7 +565,7 @@ async function save() {
 
   &__error {
     margin: 4px 0 0;
-    color: rgb(var(--v-theme-error));
+    color: var(--mp-destructive-fg);
     font-size: 0.8125rem;
   }
 
@@ -617,7 +617,7 @@ async function save() {
     block-size: 40px;
     border: 1px solid rgba(var(--v-theme-on-background), 0.14);
     border-radius: 50%;
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
     place-items: center;
   }
 

@@ -158,7 +158,7 @@ function handleNavScroll(evt: Event) {
   }
 
   .runtime-version--degraded {
-    color: rgb(var(--v-theme-warning)) !important;
+    color: var(--mp-warning-fg) !important;
   }
 
   .nav-items {

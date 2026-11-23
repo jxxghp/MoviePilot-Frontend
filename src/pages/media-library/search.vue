@@ -251,7 +251,7 @@ useNativePageHeader({ title: () => t('dialog.searchBar.mediaLibrary') })
 </script>
 
 <template>
-  <main class="library-search-page">
+  <main class="library-search-page app-surface">
     <header class="library-search-header">
       <form class="library-search-form" role="search" @submit.prevent="submitSearch">
         <VTextField
@@ -336,9 +336,11 @@ useNativePageHeader({ title: () => t('dialog.searchBar.mediaLibrary') })
 <style scoped>
 .library-search-page {
   max-inline-size: 48rem;
+  margin-block: 0.5rem 1.5rem;
   margin-inline: auto;
-  padding: 1rem;
-  color: rgb(var(--v-theme-on-background));
+  padding: 1.25rem;
+  border-radius: var(--app-surface-radius);
+  color: var(--mp-fg);
 }
 
 .library-search-header {

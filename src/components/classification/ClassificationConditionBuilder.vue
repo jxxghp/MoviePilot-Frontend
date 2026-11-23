@@ -947,7 +947,7 @@ function removeChild(index: number): void {
   align-items: flex-start;
   gap: 6px;
   margin: 10px 0 0;
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
   font-size: 0.8125rem;
 }
 

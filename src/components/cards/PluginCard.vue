@@ -1571,6 +1571,6 @@ a.plugin-card__author-name:focus-visible {
 
 .plugin-card__runtime-state--error {
   background: rgba(var(--v-theme-surface), 82%);
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 </style>

@@ -433,7 +433,8 @@ function getTextColorForHex(backgroundColor: string) {
   })
   const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
   const whiteContrast = 1.05 / (luminance + 0.05)
-  const darkContrast = (luminance + 0.05) / 0.075
+  // #18181B 的相对亮度约为 0.0091，按 WCAG 公式分母为 0.0591。
+  const darkContrast = (luminance + 0.05) / 0.0591
 
   return darkContrast > whiteContrast ? '#18181B' : '#FFFFFF'
 }

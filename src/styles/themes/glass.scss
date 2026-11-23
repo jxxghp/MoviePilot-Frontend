@@ -658,6 +658,11 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-nav-active-shadow) !important;
   }
 
+  // 深色半透主色导航（22%~48%）统一使用高对比中性前景，避免浅色 on-primary 在琥珀/青绿等主题色下翻成黑字糊底。
+  &:not([data-glass-color-scheme='light']) .layout-vertical-nav .nav-link > .router-link-exact-active {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
   // 水平导航的基础样式会在滚动时被组件覆盖，需要显式恢复玻璃顶栏材质。
   .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
     border-color: var(--glass-border-raised) !important;
@@ -940,7 +945,7 @@ html[data-theme='glass'] {
   }
 
   .ace_editor .ace_cursor {
-    color: rgb(var(--v-theme-primary)) !important;
+    color: var(--mp-primary-fg) !important;
   }
 
   .ace_editor.ace_focus {
@@ -964,6 +969,11 @@ html[data-theme='glass'] {
     color: var(--app-confirm-dialog-action-color) !important;
   }
 
+  // 深色玻璃下确认弹窗的 tonal 取消按钮不带 bg-*，显式固定中性高对比前景，避免 7/12 浅亮主色将 on-primary 翻成深黑字糊底。
+  &:not([data-glass-color-scheme='light']) .app-confirm-dialog-actions .v-btn.v-btn--variant-tonal {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
   .v-btn:not(.v-btn--variant-text, .v-btn--variant-plain) {
     border: 1px solid var(--glass-border);
     -webkit-backdrop-filter: var(--glass-control-backdrop-filter);
@@ -973,29 +983,55 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-control-shadow) !important;
   }
 
+  // 深色半透语义按钮（46%~48%）叠暗色吸收基底，避免亮壁纸穿透；前景仅在深色玻璃下切为中性高对比，浅色玻璃维持近实心 + on-* 契约。
   .v-btn.bg-primary {
     border-color: rgba(var(--v-theme-primary), 56%);
-    background-color: rgba(var(--v-theme-primary), 46%) !important;
+    background-color: rgba(var(--glass-material-rgb), 56%) !important;
+    background-image: linear-gradient(rgba(var(--v-theme-primary), 46%), rgba(var(--v-theme-primary), 46%)) !important;
   }
 
   .v-btn.bg-success {
     border-color: rgba(var(--v-theme-success), 56%);
-    background-color: rgba(var(--v-theme-success), 46%) !important;
+    background-color: rgba(var(--glass-material-rgb), 56%) !important;
+    background-image: linear-gradient(rgba(var(--v-theme-success), 46%), rgba(var(--v-theme-success), 46%)) !important;
   }
 
   .v-btn.bg-info {
     border-color: rgba(var(--v-theme-info), 56%);
-    background-color: rgba(var(--v-theme-info), 46%) !important;
+    background-color: rgba(var(--glass-material-rgb), 56%) !important;
+    background-image: linear-gradient(rgba(var(--v-theme-info), 46%), rgba(var(--v-theme-info), 46%)) !important;
   }
 
   .v-btn.bg-warning {
     border-color: rgba(var(--v-theme-warning), 58%);
-    background-color: rgba(var(--v-theme-warning), 48%) !important;
+    background-color: rgba(var(--glass-material-rgb), 56%) !important;
+    background-image: linear-gradient(rgba(var(--v-theme-warning), 48%), rgba(var(--v-theme-warning), 48%)) !important;
   }
 
   .v-btn.bg-error {
     border-color: rgba(var(--v-theme-error), 56%);
-    background-color: rgba(var(--v-theme-error), 46%) !important;
+    background-color: rgba(var(--glass-material-rgb), 56%) !important;
+    background-image: linear-gradient(rgba(var(--v-theme-error), 46%), rgba(var(--v-theme-error), 46%)) !important;
+  }
+
+  &:not([data-glass-color-scheme='light']) .v-btn:is(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error) {
+    color: rgb(var(--v-theme-on-surface)) !important;
+  }
+
+  // 桌面端单主 FAB 沿用近实心主色（common.scss），前景保持配对的 on-primary，不落入半透按钮的 on-surface 覆写。
+  @media (hover: hover) and (pointer: fine) {
+    &:not([data-glass-color-scheme='light'])
+      .compact-fab-stack:not(:has(> :nth-child(2)))
+      .compact-fab--primary
+      .v-btn.bg-primary {
+      background-image: none !important;
+      color: rgb(var(--v-theme-on-primary)) !important;
+    }
+  }
+
+  // 玻璃态下滑动条未填充轨道维持可见对比度，避免融进深浅阅读衬底。
+  .v-slider-track__background {
+    opacity: 0.28;
   }
 
   :where(.v-btn, .v-card--link, [role='button']):focus-visible {
@@ -1018,9 +1054,11 @@ html[data-theme='glass'] {
     background-clip: padding-box;
   }
 
-  // Tailwind 的 bg-* 通过 --tw-bg-opacity 输出颜色；只调透明度即可保留每个业务色相。
+  // 半透有色玻璃 Chip（34% 语义填充或 Tailwind bg-*）在深浅玻璃下统一配中性高对比前景，不伤及未带 bg-* 的海报深色角标与筛选选中态。
   .v-chip[class*='bg-'] {
     --tw-bg-opacity: var(--glass-chip-tint-opacity) !important;
+
+    color: rgb(var(--v-theme-on-surface)) !important;
   }
 
   // Vuetify 语义色使用同一套有色玻璃透明度。
@@ -1348,18 +1386,6 @@ html[data-theme='glass'] {
     --slider-shadow-bleed-start: 48px;
     --slider-shadow-bleed-end: 96px;
     --slider-shadow-bleed-inline: 32px;
-  }
-
-  // 发现页筛选栏直接浮于全局壁纸上，采用静态可读托底（不叠加 backdrop-filter），防止高反差暗岩或亮空吞字。
-  .discover-filter-bar {
-    border-color: rgba(255, 255, 255, 0.14);
-    background: rgba(15, 23, 42, 0.54);
-  }
-
-  &[data-glass-color-scheme='light'] .discover-filter-bar {
-    border-color: rgba(255, 255, 255, 0.76);
-    background: rgba(255, 255, 255, 0.74);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
   }
 
   :where(.v-card, .v-sheet)
@@ -2074,11 +2100,11 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   --app-grouped-list-hover-background: var(--mp-list-row-hover);
   --glass-nav-active-background: linear-gradient(
     90deg,
-    rgba(var(--v-theme-primary), 78%),
-    rgba(var(--v-theme-primary), 92%)
+    rgba(var(--v-theme-primary), 94%),
+    rgba(var(--v-theme-primary), 98%)
   );
-  --glass-nav-active-border: 1px solid rgba(var(--v-theme-primary), 62%);
-  --glass-nav-active-shadow: 0 6px 16px rgba(var(--v-theme-primary), 20%), inset 0 1px 0 rgba(255, 255, 255, 38%);
+  --glass-nav-active-border: 1px solid rgba(var(--v-theme-primary), 82%);
+  --glass-nav-active-shadow: 0 6px 16px rgba(var(--v-theme-primary), 20%), inset 0 1px 0 rgba(255, 255, 255, 16%);
   --glass-navbar-frosted-background:
     linear-gradient(rgba(255, 255, 255, 34%), rgba(255, 255, 255, 34%)), var(--glass-v3-card-background);
 
@@ -2249,83 +2275,83 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     );
   }
 
-  // 浅色玻璃下实心有色按钮与主 FAB 提升透光语义饱和度并保留高对比 on-* 前景，与非玻璃浅色主题区分度一致。
+  // 浅色玻璃下实心有色按钮与主 FAB 保持近实心饱和度（95%~96%）与克制镜面高光，确保 on-* 前景在全部 12 主题色下达到清晰对比度。
   .v-btn.bg-primary {
-    border-color: rgba(var(--v-theme-primary), 62%) !important;
-    background-color: rgba(var(--v-theme-primary), 84%) !important;
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    border-color: rgba(var(--v-theme-primary), 82%) !important;
+    background-color: rgba(var(--v-theme-primary), 95%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 10%), transparent 46%) !important;
     color: rgb(var(--v-theme-on-primary, 255, 255, 255)) !important;
   }
 
   .v-btn.bg-secondary {
-    border-color: rgba(var(--v-theme-secondary), 62%) !important;
-    background-color: rgba(var(--v-theme-secondary), 84%) !important;
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    border-color: rgba(var(--v-theme-secondary), 82%) !important;
+    background-color: rgba(var(--v-theme-secondary), 95%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 10%), transparent 46%) !important;
     color: rgb(var(--v-theme-on-secondary, 255, 255, 255)) !important;
   }
 
   .v-btn.bg-success {
-    border-color: rgba(var(--v-theme-success), 62%) !important;
-    background-color: rgba(var(--v-theme-success), 84%) !important;
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    border-color: rgba(var(--v-theme-success), 82%) !important;
+    background-color: rgba(var(--v-theme-success), 95%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 10%), transparent 46%) !important;
     color: rgb(var(--v-theme-on-success, 255, 255, 255)) !important;
   }
 
   .v-btn.bg-info {
-    border-color: rgba(var(--v-theme-info), 62%) !important;
-    background-color: rgba(var(--v-theme-info), 84%) !important;
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    border-color: rgba(var(--v-theme-info), 82%) !important;
+    background-color: rgba(var(--v-theme-info), 95%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 10%), transparent 46%) !important;
     color: rgb(var(--v-theme-on-info, 255, 255, 255)) !important;
   }
 
   .v-btn.bg-warning {
-    border-color: rgba(var(--v-theme-warning), 64%) !important;
-    background-color: rgba(var(--v-theme-warning), 86%) !important;
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    border-color: rgba(var(--v-theme-warning), 84%) !important;
+    background-color: rgba(var(--v-theme-warning), 96%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 10%), transparent 46%) !important;
     color: rgb(var(--v-theme-on-warning, 255, 255, 255)) !important;
   }
 
   .v-btn.bg-error {
-    border-color: rgba(var(--v-theme-error), 62%) !important;
-    background-color: rgba(var(--v-theme-error), 84%) !important;
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 24%), transparent 48%) !important;
+    border-color: rgba(var(--v-theme-error), 82%) !important;
+    background-color: rgba(var(--v-theme-error), 95%) !important;
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 10%), transparent 46%) !important;
     color: rgb(var(--v-theme-on-error, 255, 255, 255)) !important;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .v-btn.bg-primary:hover {
-      border-color: rgba(var(--v-theme-primary), 76%) !important;
-      background-color: rgba(var(--v-theme-primary), 92%) !important;
+      border-color: rgba(var(--v-theme-primary), 92%) !important;
+      background-color: rgba(var(--v-theme-primary), 98%) !important;
     }
 
     .v-btn.bg-secondary:hover {
-      border-color: rgba(var(--v-theme-secondary), 76%) !important;
-      background-color: rgba(var(--v-theme-secondary), 92%) !important;
+      border-color: rgba(var(--v-theme-secondary), 92%) !important;
+      background-color: rgba(var(--v-theme-secondary), 98%) !important;
     }
 
     .v-btn.bg-success:hover {
-      border-color: rgba(var(--v-theme-success), 76%) !important;
-      background-color: rgba(var(--v-theme-success), 92%) !important;
+      border-color: rgba(var(--v-theme-success), 92%) !important;
+      background-color: rgba(var(--v-theme-success), 98%) !important;
     }
 
     .v-btn.bg-info:hover {
-      border-color: rgba(var(--v-theme-info), 76%) !important;
-      background-color: rgba(var(--v-theme-info), 92%) !important;
+      border-color: rgba(var(--v-theme-info), 92%) !important;
+      background-color: rgba(var(--v-theme-info), 98%) !important;
     }
 
     .v-btn.bg-warning:hover {
-      border-color: rgba(var(--v-theme-warning), 78%) !important;
-      background-color: rgba(var(--v-theme-warning), 93%) !important;
+      border-color: rgba(var(--v-theme-warning), 94%) !important;
+      background-color: rgba(var(--v-theme-warning), 98%) !important;
     }
 
     .v-btn.bg-error:hover {
-      border-color: rgba(var(--v-theme-error), 76%) !important;
-      background-color: rgba(var(--v-theme-error), 92%) !important;
+      border-color: rgba(var(--v-theme-error), 92%) !important;
+      background-color: rgba(var(--v-theme-error), 98%) !important;
     }
   }
 
   .app-confirm-dialog-actions .v-btn.v-btn--variant-tonal {
-    color: rgb(var(--v-theme-secondary)) !important;
+    color: var(--mp-muted-fg) !important;
   }
 
   .layout-vertical-nav .nav-link > .router-link-exact-active {
@@ -2336,25 +2362,10 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     background: rgba(var(--v-theme-primary), 14%) !important;
   }
 
-  // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景，压在海报或剧照上的深色角标与语义种子胶囊保留各自前景色。
-  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat):not(
-      .media-card-badge,
-      .poster-card-chip,
-      .cache-mobile-card__type,
-      .chip-season,
-      .chip-web-source,
-      .chip-edition,
-      .chip-resolution,
-      .chip-codec,
-      .chip-team,
-      .chip-label,
-      .chip-hr,
-      .chip-expire,
-      .chip-free,
-      .chip-discount,
-      .chip-bonus
-    ) {
-    color: rgb(var(--v-theme-on-surface)) !important;
+  // 浅色玻璃下滑动条未填充轨道使用清晰深墨轨，避免在亮白壁纸高光上隐身。
+  .v-slider-track__background {
+    background-color: rgba(24, 24, 27, 0.24) !important;
+    opacity: 1 !important;
   }
 
   .v-btn.theme-horizontal-nav__item.v-btn--variant-tonal {

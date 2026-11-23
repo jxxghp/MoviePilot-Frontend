@@ -406,12 +406,12 @@ const { loading: schedulerLoading } = useDataRefresh(
 
 .mobile-scheduler-status--running {
   background: rgba(var(--v-theme-success), 0.14);
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .mobile-scheduler-status--stopped {
   background: rgba(var(--v-theme-error), 0.12);
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .mobile-scheduler-run-btn {

@@ -142,6 +142,23 @@ watch(displayCover, () => {
   padding-block-start: 1rem;
 }
 
+.music-detail-glass .music-header {
+  padding: 1.25rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--app-surface-radius);
+  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
+  backdrop-filter: var(--glass-surface-backdrop-filter);
+  background-color: var(--glass-surface);
+  background-image: var(--glass-sheen);
+  box-shadow: var(--glass-shadow);
+}
+
+/* 外层头部已采样玻璃背景，内部无图占位卡不再二次叠加 backdrop-filter。 */
+.music-detail-glass .music-header .music-poster-placeholder {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 .music-poster {
   overflow: hidden;
   flex: 0 0 auto;

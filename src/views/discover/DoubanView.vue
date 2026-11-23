@@ -174,10 +174,10 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
 </script>
 
 <template>
-  <div class="discover-filter-bar">
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('douban.type') }}</VLabel>
-      <VChipGroup v-model="type" class="discover-filter-chips">
+  <div class="app-filter-bar">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('douban.type') }}</VLabel>
+      <VChipGroup v-model="type" class="app-filter-chips">
         <VChip :color="type == 'movies' ? 'primary' : ''" filter tile value="movies">{{ t('mediaType.movie') }}</VChip>
         <VChip :color="type == 'tvs' ? 'primary' : ''" filter tile value="tvs">{{ t('mediaType.tv') }}</VChip>
         <VChip data-testid="douban-type-music" :color="type == 'music' ? 'primary' : ''" filter tile value="music">
@@ -185,9 +185,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
         </VChip>
       </VChipGroup>
     </div>
-    <div v-if="!isMusic" class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('douban.sort') }}</VLabel>
-      <VChipGroup v-model="filterParams.sort" class="discover-filter-chips">
+    <div v-if="!isMusic" class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('douban.sort') }}</VLabel>
+      <VChipGroup v-model="filterParams.sort" class="app-filter-chips">
         <VChip
           :color="filterParams.sort == key ? 'primary' : ''"
           filter
@@ -200,9 +200,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
         </VChip>
       </VChipGroup>
     </div>
-    <div v-if="!isMusic" class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('douban.genre') }}</VLabel>
-      <VChipGroup v-model="doubanCategory" class="discover-filter-chips">
+    <div v-if="!isMusic" class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('douban.genre') }}</VLabel>
+      <VChipGroup v-model="doubanCategory" class="app-filter-chips">
         <VChip
           :color="doubanCategory == key ? 'primary' : ''"
           filter
@@ -215,9 +215,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
         </VChip>
       </VChipGroup>
     </div>
-    <div v-if="!isMusic" class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('douban.zone') }}</VLabel>
-      <VChipGroup v-model="doubanZone" class="discover-filter-chips">
+    <div v-if="!isMusic" class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('douban.zone') }}</VLabel>
+      <VChipGroup v-model="doubanZone" class="app-filter-chips">
         <VChip
           :color="doubanZone == key ? 'primary' : ''"
           filter
@@ -230,9 +230,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
         </VChip>
       </VChipGroup>
     </div>
-    <div v-if="!isMusic" class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('douban.year') }}</VLabel>
-      <VChipGroup v-model="doubanYear" class="discover-filter-chips">
+    <div v-if="!isMusic" class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('douban.year') }}</VLabel>
+      <VChipGroup v-model="doubanYear" class="app-filter-chips">
         <VChip
           :color="doubanYear == key ? 'primary' : ''"
           filter
@@ -246,9 +246,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
       </VChipGroup>
     </div>
     <template v-else>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('douban.genre') }}</VLabel>
-        <VChipGroup v-model="musicCategory" mandatory class="discover-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('douban.genre') }}</VLabel>
+        <VChipGroup v-model="musicCategory" mandatory class="app-filter-chips">
           <VChip
             v-for="(value, key) in musicCategoryDict"
             :key="key"
@@ -261,9 +261,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
           </VChip>
         </VChipGroup>
       </div>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('douban.zone') }}</VLabel>
-        <VChipGroup v-model="musicZone" class="discover-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('douban.zone') }}</VLabel>
+        <VChipGroup v-model="musicZone" class="app-filter-chips">
           <VChip
             v-for="(value, key) in musicZoneDict"
             :key="key"
@@ -276,9 +276,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
           </VChip>
         </VChipGroup>
       </div>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('douban.sort') }}</VLabel>
-        <VChipGroup v-model="musicSort" mandatory class="discover-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('douban.sort') }}</VLabel>
+        <VChipGroup v-model="musicSort" mandatory class="app-filter-chips">
           <VChip
             v-for="(value, key) in musicSortDict"
             :key="key"
@@ -291,9 +291,9 @@ watch([type, filterParams, coverFilter, musicCategory, musicZone, musicSort], ()
           </VChip>
         </VChipGroup>
       </div>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('music.filter.cover') }}</VLabel>
-        <VChipGroup v-model="coverFilter" mandatory class="discover-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('music.filter.cover') }}</VLabel>
+        <VChipGroup v-model="coverFilter" mandatory class="app-filter-chips">
           <VChip :color="coverFilter === 'all' ? 'primary' : ''" value="all" filter tile>{{
             t('music.filter.all')
           }}</VChip>

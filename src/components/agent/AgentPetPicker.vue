@@ -309,7 +309,7 @@ onMounted(loadData)
 
 .agent-pet-option.is-selected .agent-pet-option__preview {
   background: rgba(var(--v-theme-primary), 0.08);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .agent-pet-option__robot {
@@ -318,7 +318,7 @@ onMounted(loadData)
 
 .agent-pet-option__check {
   position: absolute;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   inset-block-start: 0.5rem;
   inset-inline-end: 0.5rem;
 }

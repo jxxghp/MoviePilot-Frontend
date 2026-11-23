@@ -193,7 +193,7 @@ function evidenceUrl(repository: string, kind: 'commits' | 'prs'): string | null
   }
 
   &__emblem {
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
   }
 
   &__body {

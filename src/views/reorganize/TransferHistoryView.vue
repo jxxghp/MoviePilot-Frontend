@@ -2473,8 +2473,10 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
       </VBtn>
     </div>
 
-    <div v-else-if="!desktopEmpty" class="transfer-history-desktop-summary num">
-      {{ t('transferHistory.desktop.summary', { count: totalItems, pages: totalPage }) }}
+    <div v-else-if="!desktopEmpty" class="transfer-history-desktop-summary">
+      <span class="mp-canvas-pill num">
+        {{ t('transferHistory.desktop.summary', { count: totalItems, pages: totalPage }) }}
+      </span>
     </div>
 
     <!-- 仅替换桌面呈现；保留 Vuetify 的虚拟测高、排序、分组和分页数据契约。 -->
@@ -3176,13 +3178,37 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
   gap: 4px;
   min-inline-size: 0;
 }
+// 玻璃主题下顶栏右侧裸放图标按钮补充轻量阅读底色，避免高反差壁纸干扰识别。
+html[data-theme='glass'] .transfer-history-desktop-tools > .v-btn.v-btn--icon {
+  border: 1px solid var(--mp-reading-border);
+  background: var(--mp-reading-surface) !important;
+}
 .transfer-history-desktop-search {
   inline-size: clamp(12rem, 24vw, 24rem);
   flex: 0 1 auto;
   margin-inline-end: 8px;
 }
-// 与导航栏全局搜索使用相同的胶囊圆角和轻背景，不呈现描边输入框。
-.transfer-history-desktop-search .v-field,
+// 搜索框独立位于主卡上方，直接复用阅读衬底，避免在玻璃壁纸上失真发灰。
+.transfer-history-desktop-search .v-field {
+  border: 1px solid var(--mp-reading-border) !important;
+  border-radius: var(--app-vuetify-rounded-pill);
+  background: var(--mp-reading-surface) !important;
+  box-shadow: none !important;
+  min-block-size: 42px;
+}
+html[data-theme='glass'] .transfer-history-desktop-tools .transfer-history-desktop-search .v-field {
+  border: 1px solid var(--mp-reading-border) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background-color: var(--mp-reading-surface) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+html[data-theme='glass'] .transfer-history-desktop-tools .transfer-history-desktop-search .v-field__prepend-inner,
+html[data-theme='glass'] .transfer-history-desktop-tools .transfer-history-desktop-search input::placeholder {
+  color: var(--mp-muted-fg) !important;
+  opacity: 1;
+}
 .transfer-history-desktop-pagination .transfer-history-pagination__size .v-field {
   border: 0 !important;
   border-radius: var(--app-vuetify-rounded-pill);
@@ -3926,7 +3952,7 @@ html[data-theme='glass'][data-glass-color-scheme='light'] .transfer-history-desk
 .transfer-history-mobile-record__mode {
   border-color: rgb(var(--v-theme-primary)) !important;
   border-radius: 999px !important;
-  color: rgb(var(--v-theme-primary)) !important;
+  color: var(--mp-primary-fg) !important;
   font-weight: 650;
 }
 

@@ -690,19 +690,19 @@ watch([searchFilter, statusFilter, typeFilter], () => {
 }
 
 .cache-panel-stat--primary {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .cache-panel-stat--success {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .cache-panel-stat--warning {
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .cache-panel-stat--info {
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .cache-panel-actions {

@@ -1084,25 +1084,25 @@ onBeforeUnmount(() => {
 .activity-icon--primary {
   border-color: var(--mp-primary-border);
   background: var(--mp-primary-soft);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .activity-icon--info {
   border-color: var(--mp-info-border);
   background: var(--mp-info-soft);
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .activity-icon--success {
   border-color: var(--mp-success-border);
   background: var(--mp-success-soft);
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .activity-icon--warning {
   border-color: var(--mp-warning-border);
   background: var(--mp-warning-soft);
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .activity-row time {
@@ -1152,19 +1152,19 @@ onBeforeUnmount(() => {
 .activity-status--warning {
   border-color: var(--mp-warning-border);
   background: var(--mp-warning-soft);
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .activity-status--error {
   border-color: var(--mp-destructive-border);
   background: var(--mp-destructive-soft);
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .activity-status--success {
   border-color: var(--mp-success-border);
   background: var(--mp-success-soft);
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .activity-summary {
@@ -1185,7 +1185,7 @@ onBeforeUnmount(() => {
 
 .activity-details-label {
   flex: 0 0 auto;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
@@ -1197,7 +1197,7 @@ onBeforeUnmount(() => {
 }
 
 .activity-event--open .activity-chevron {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .activity-event--compact .activity-row {
@@ -1287,7 +1287,7 @@ onBeforeUnmount(() => {
   border-radius: 0.5rem;
   background: var(--mp-info-soft);
   block-size: 2.125rem;
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
   inline-size: 2.125rem;
   place-items: center;
 }
@@ -1295,7 +1295,7 @@ onBeforeUnmount(() => {
 .activity-stage-icon--success {
   border-color: var(--mp-success-border);
   background: var(--mp-success-soft);
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .activity-stage-body {
@@ -1388,7 +1388,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--mp-primary-border);
   border-radius: 9999px;
   background: var(--mp-primary-soft);
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.75rem;
   font-weight: 500;
   white-space: nowrap;
@@ -1516,7 +1516,7 @@ onBeforeUnmount(() => {
 }
 
 .activity-success {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .activity-empty {

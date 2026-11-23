@@ -1883,11 +1883,13 @@ useNativePageHeader({
 
     <!-- 搜索结果 -->
     <div v-if="isRefreshed && hasData" class="search-results-container">
-      <VTabs v-if="hasMusicCandidates && !progressActive" v-model="musicResultMode" class="mb-3" density="compact">
-        <VTab value="all">{{ t('torrent.musicMatch.all') }}</VTab>
-        <VTab value="exact">{{ t('torrent.musicMatch.exact') }}</VTab>
-        <VTab value="candidate">{{ t('torrent.musicMatch.candidate') }}</VTab>
-      </VTabs>
+      <div v-if="hasMusicCandidates && !progressActive" class="app-filter-bar app-filter-bar--compact mb-3">
+        <VTabs v-model="musicResultMode" density="compact">
+          <VTab value="all">{{ t('torrent.musicMatch.all') }}</VTab>
+          <VTab value="exact">{{ t('torrent.musicMatch.exact') }}</VTab>
+          <VTab value="candidate">{{ t('torrent.musicMatch.candidate') }}</VTab>
+        </VTabs>
+      </div>
       <!-- 筛选栏 -->
       <TorrentFilterBar
         v-if="!progressActive && !isSubtitleSearch"

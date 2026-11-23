@@ -664,7 +664,7 @@ window.addEventListener(SYSTEM_UPDATE_MENU_EVENT, handleMenuUpdate)
   padding: 3px 7px;
   border: 1px solid rgba(var(--v-theme-primary), 0.28);
   border-radius: 999px;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;

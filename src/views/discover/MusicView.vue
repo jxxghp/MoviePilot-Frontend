@@ -101,10 +101,10 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
 </script>
 
 <template>
-  <div class="discover-filter-bar music-explore-filters">
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('music.filter.mode') }}</VLabel>
-      <VChipGroup v-model="mode" mandatory class="discover-filter-chips music-filter-chips">
+  <div class="app-filter-bar music-explore-filters">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('music.filter.mode') }}</VLabel>
+      <VChipGroup v-model="mode" mandatory class="app-filter-chips music-filter-chips">
         <VChip
           v-for="(label, value) in modeOptions"
           :key="value"
@@ -119,9 +119,9 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
     </div>
 
     <template v-if="mode === 'chart'">
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('music.filter.entity') }}</VLabel>
-        <VChipGroup v-model="entity" mandatory class="discover-filter-chips music-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('music.filter.entity') }}</VLabel>
+        <VChipGroup v-model="entity" mandatory class="app-filter-chips music-filter-chips">
           <VChip
             v-for="(label, value) in entityOptions"
             :key="value"
@@ -134,9 +134,9 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
           </VChip>
         </VChipGroup>
       </div>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('music.filter.period') }}</VLabel>
-        <VChipGroup v-model="rangeName" mandatory class="discover-filter-chips music-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('music.filter.period') }}</VLabel>
+        <VChipGroup v-model="rangeName" mandatory class="app-filter-chips music-filter-chips">
           <VChip
             v-for="(label, value) in rangeOptions"
             :key="value"
@@ -149,9 +149,9 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
           </VChip>
         </VChipGroup>
       </div>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('music.filter.sort') }}</VLabel>
-        <VChipGroup v-model="sortBy" mandatory class="discover-filter-chips music-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('music.filter.sort') }}</VLabel>
+        <VChipGroup v-model="sortBy" mandatory class="app-filter-chips music-filter-chips">
           <VChip
             v-for="(label, value) in sortOptions"
             :key="value"
@@ -167,9 +167,9 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
     </template>
 
     <template v-else>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('music.filter.sort') }}</VLabel>
-        <VChipGroup v-model="freshSort" mandatory class="discover-filter-chips music-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('music.filter.sort') }}</VLabel>
+        <VChipGroup v-model="freshSort" mandatory class="app-filter-chips music-filter-chips">
           <VChip
             v-for="(label, value) in freshSortOptions"
             :key="value"
@@ -182,9 +182,9 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
           </VChip>
         </VChipGroup>
       </div>
-      <div class="discover-filter-row">
-        <VLabel class="discover-filter-label">{{ t('music.filter.scope') }}</VLabel>
-        <VChipGroup v-model="freshScope" mandatory class="discover-filter-chips music-filter-chips">
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('music.filter.scope') }}</VLabel>
+        <VChipGroup v-model="freshScope" mandatory class="app-filter-chips music-filter-chips">
           <VChip
             v-for="(label, value) in freshScopeOptions"
             :key="value"
@@ -208,9 +208,9 @@ watch([mode, entity, rangeName, sortBy, freshSort, freshDays, freshScope, coverF
       </div>
     </template>
 
-    <div class="discover-filter-row">
-      <VLabel class="discover-filter-label">{{ t('music.filter.cover') }}</VLabel>
-      <VChipGroup v-model="coverFilter" mandatory class="discover-filter-chips music-filter-chips">
+    <div class="app-filter-row">
+      <VLabel class="app-filter-label">{{ t('music.filter.cover') }}</VLabel>
+      <VChipGroup v-model="coverFilter" mandatory class="app-filter-chips music-filter-chips">
         <VChip :color="coverFilter === 'all' ? 'primary' : ''" value="all" filter tile>{{
           t('music.filter.all')
         }}</VChip>

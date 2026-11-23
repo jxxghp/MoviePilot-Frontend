@@ -3588,7 +3588,7 @@ onBeforeUnmount(() => {
   &[aria-pressed='true'] {
     border-color: rgba(var(--v-theme-primary), 0.18);
     background: rgba(var(--v-theme-primary), 0.1);
-    color: rgb(var(--v-theme-primary));
+    color: var(--mp-primary-fg);
     outline: none;
   }
 

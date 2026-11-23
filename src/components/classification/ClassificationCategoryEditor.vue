@@ -732,7 +732,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
 
 .classification-category-error {
   margin: 0;
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -813,7 +813,7 @@ function updateFallback(mediaType: ClassificationMediaType, categoryId: string |
   align-items: flex-start;
   gap: 6px;
   margin: 2px 0 0;
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }

@@ -805,25 +805,44 @@ html[data-theme] {
     color: var(--mp-info-fg) !important;
   }
 
-  .v-chip.v-chip--variant-tonal.text-primary,
+  .v-chip.v-chip--variant-tonal.text-primary {
+    border: 1px solid var(--mp-primary-border) !important;
+    background-color: var(--mp-primary-soft) !important;
+    color: var(--mp-primary-fg) !important;
+  }
+
   .v-chip.v-chip--variant-outlined.text-primary {
     color: var(--mp-primary-fg) !important;
   }
 
   .v-chip.v-chip--variant-tonal.text-error {
+    border: 1px solid var(--mp-destructive-border) !important;
+    background-color: var(--mp-destructive-soft) !important;
     color: var(--mp-destructive-fg) !important;
   }
 
   .v-chip.v-chip--variant-tonal.text-success {
+    border: 1px solid var(--mp-success-border) !important;
+    background-color: var(--mp-success-soft) !important;
     color: var(--mp-success-fg) !important;
   }
 
   .v-chip.v-chip--variant-tonal.text-warning {
+    border: 1px solid var(--mp-warning-border) !important;
+    background-color: var(--mp-warning-soft) !important;
     color: var(--mp-warning-fg) !important;
   }
 
   .v-chip.v-chip--variant-tonal.text-info {
+    border: 1px solid var(--mp-info-border) !important;
+    background-color: var(--mp-info-soft) !important;
     color: var(--mp-info-fg) !important;
+  }
+
+  // 已改用语义柔底 --mp-*-soft 时关闭 Vuetify 原生 currentColor underlay，避免双重叠加变浑。
+  .v-chip.v-chip--variant-tonal:is(.text-primary, .text-error, .text-success, .text-warning, .text-info)
+    .v-chip__underlay {
+    opacity: 0 !important;
   }
 
   .v-tab.v-tab--selected.text-primary {
@@ -1266,7 +1285,7 @@ html:where([data-glass-color-scheme='dark'], [data-theme='plain'][data-glass-col
 
   .mp-setting-card__action--danger:hover {
     background-color: var(--mp-destructive-soft, rgba(var(--v-theme-error), 0.12)) !important;
-    color: rgb(var(--v-theme-error)) !important;
+    color: var(--mp-destructive-fg) !important;
   }
 }
 
@@ -1288,25 +1307,25 @@ html:where([data-glass-color-scheme='dark'], [data-theme='plain'][data-glass-col
 .mp-setting-card__badge--success {
   border-color: var(--mp-success-border, rgba(var(--v-theme-success), 0.28));
   background: var(--mp-success-soft, rgba(var(--v-theme-success), 0.12));
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .mp-setting-card__badge--primary {
   border-color: var(--mp-primary-border, rgba(var(--v-theme-primary), 0.28));
   background: var(--mp-primary-soft, rgba(var(--v-theme-primary), 0.12));
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg);
 }
 
 .mp-setting-card__badge--warning {
   border-color: var(--mp-warning-border, rgba(var(--v-theme-warning), 0.3));
   background: var(--mp-warning-soft, rgba(var(--v-theme-warning), 0.12));
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg);
 }
 
 .mp-setting-card__badge--error {
   border-color: var(--mp-destructive-border, rgba(var(--v-theme-error), 0.3));
   background: var(--mp-destructive-soft, rgba(var(--v-theme-error), 0.12));
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg);
 }
 
 .mp-setting-card__badge--accent {
@@ -1338,7 +1357,7 @@ html:where([data-glass-color-scheme='dark'], [data-theme='glass']:not([data-glas
 }
 
 .mp-setting-card__status--active {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .mp-setting-card__status--inactive {
@@ -1412,11 +1431,11 @@ html:where([data-glass-color-scheme='dark'], [data-theme='glass']:not([data-glas
 }
 
 .mp-setting-card__stat--up .v-icon {
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg);
 }
 
 .mp-setting-card__stat--down .v-icon {
-  color: rgb(var(--v-theme-success));
+  color: var(--mp-success-fg);
 }
 
 .mp-setting-card__chips {
@@ -2085,7 +2104,7 @@ html .app-table-flush-top > .v-card > .v-table {
   }
 
   .compact-fab-stack:not(:has(> :nth-child(2))) .compact-fab--primary .v-btn {
-    background-color: rgba(var(--v-theme-primary), 0.82) !important;
+    background-color: rgba(var(--v-theme-primary), 0.94) !important;
     color: rgb(var(--v-theme-on-primary)) !important;
   }
 
@@ -2360,29 +2379,38 @@ html .app-table-flush-top > .v-card > .v-table {
   padding: 0;
 }
 
-// 发现页各来源筛选栏共享静态分组衬底与紧凑行距，不吸顶也不叠加二层背景模糊。
-.discover-filter-bar {
+// 筛选栏与独立画布控件共享静态阅读衬底与紧凑行距，不吸顶也不叠加二层背景模糊。
+.app-filter-bar {
   margin-block-end: 0.75rem;
   margin-inline: 0.5rem;
   padding-block: 0.625rem;
   padding-inline: 0.875rem;
-  border: 1px solid var(--mp-border);
+  border: 1px solid var(--mp-reading-border);
   border-radius: var(--app-theme-surface-radius);
-  background: var(--mp-muted);
+  background: var(--mp-reading-surface);
 }
 
-.discover-filter-row {
+.app-filter-bar--compact {
+  display: inline-flex;
+  align-items: center;
+  max-inline-size: 100%;
+  margin-inline: 0;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
+}
+
+.app-filter-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   min-inline-size: 0;
 }
 
-.discover-filter-row + .discover-filter-row {
+.app-filter-row + .app-filter-row {
   margin-block-start: 0.125rem;
 }
 
-.discover-filter-label {
+.app-filter-label {
   flex: 0 0 auto;
   min-inline-size: 2.5rem;
   color: var(--mp-muted-fg);
@@ -2391,31 +2419,53 @@ html .app-table-flush-top > .v-card > .v-table {
   opacity: 1;
 }
 
-.discover-filter-chips {
+.app-filter-chips {
   flex: 1 1 0%;
   min-inline-size: 0;
 }
 
-.discover-filter-chips .v-slide-group__content {
+.app-filter-chips .v-slide-group__content {
   padding-block: 0.125rem;
 }
 
-.discover-filter-slider {
+.app-filter-slider {
   flex: 1 1 0%;
   min-inline-size: 0;
 }
 
+// 直接放置于壁纸画布上的紧凑读数与状态胶囊（零 backdrop-filter 开销），保证高反差壁纸下依然清晰可读。
+.mp-canvas-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-block: 0.1875rem;
+  padding-inline: 0.625rem;
+  border: 1px solid var(--mp-reading-border);
+  border-radius: 9999px;
+  background: var(--mp-reading-surface);
+  color: var(--mp-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
 @media (width <= 600px) {
-  .discover-filter-bar {
+  .app-filter-bar {
     padding-block: 0.5rem;
     padding-inline: 0.75rem;
   }
 
-  .discover-filter-row {
+  .app-filter-bar--compact {
+    padding-block: 0.2rem;
+    padding-inline: 0.375rem;
+  }
+
+  .app-filter-row {
     gap: 0.5rem;
   }
 
-  .discover-filter-label {
+  .app-filter-label {
     min-inline-size: 2.25rem;
   }
 }
