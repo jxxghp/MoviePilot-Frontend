@@ -199,10 +199,10 @@ html[data-theme='glass'] {
   --app-grouped-list-background: var(--glass-surface);
   --app-grouped-list-backdrop-filter: var(--glass-surface-backdrop-filter);
   --app-grouped-list-border: 1px solid var(--glass-border);
-  --app-grouped-list-separator-color: rgba(255, 255, 255, 10%);
+  --app-grouped-list-separator-color: var(--mp-list-row-divider);
   --app-grouped-list-header-color: rgba(var(--v-theme-on-surface), 68%);
   --app-grouped-list-chevron-color: rgba(var(--v-theme-on-surface), 56%);
-  --app-grouped-list-hover-background: rgba(255, 255, 255, 8%);
+  --app-grouped-list-hover-background: var(--mp-list-row-hover);
   --app-grouped-list-active-background: rgba(var(--v-theme-primary), 16%);
   --mp-motion-duration-page: 180ms;
   --mp-motion-duration-overlay: 180ms;
@@ -2070,8 +2070,8 @@ html[data-theme='glass'][data-glass-color-scheme='light'][data-glass-appearance]
   --glass-control-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 78%), inset 0 -1px 0 rgba(15, 23, 42, 8%);
   --glass-control-shadow-active: inset 0 1px 0 rgba(15, 23, 42, 8%), inset 0 -1px 0 rgba(255, 255, 255, 40%);
   --glass-overlay-scrim: rgba(15, 23, 42, 14%);
-  --app-grouped-list-separator-color: rgba(60, 60, 67, 11%);
-  --app-grouped-list-hover-background: rgba(60, 60, 67, 6%);
+  --app-grouped-list-separator-color: var(--mp-list-row-divider);
+  --app-grouped-list-hover-background: var(--mp-list-row-hover);
   --glass-nav-active-background: linear-gradient(
     90deg,
     rgba(var(--v-theme-primary), 78%),

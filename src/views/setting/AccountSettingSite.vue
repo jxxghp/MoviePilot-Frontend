@@ -36,7 +36,27 @@ const isPasswordVisible = ref(false)
 const isCookieCloudAuthHeaderVisible = ref(false)
 
 // 站点设置默认值
-const siteSetting = ref<any>({
+interface SiteSettingState {
+  CookieCloud: {
+    COOKIECLOUD_HOST: string
+    COOKIECLOUD_KEY: string
+    COOKIECLOUD_PASSWORD: string
+    COOKIECLOUD_AUTH_HEADER: string
+    COOKIECLOUD_INTERVAL: number
+    COOKIECLOUD_ENABLE_LOCAL: boolean
+    COOKIECLOUD_BLACKLIST: string
+  }
+  Site: {
+    SITEDATA_REFRESH_INTERVAL: number
+    SITE_MESSAGE: boolean
+    SEARCH_RESOURCE_PAGES: number
+    BROWSER_EMULATION: string
+    OCR_HOST: string
+    FLARESOLVERR_URL: string
+  }
+}
+
+const siteSetting = ref<SiteSettingState>({
   CookieCloud: {
     COOKIECLOUD_HOST: '',
     COOKIECLOUD_KEY: '',
@@ -120,9 +140,9 @@ async function syncCookieCloud() {
 /** 共享初次配置读取，重新进入面板时合并刷新请求。 */
 async function loadSiteSettings(refresh = false) {
   try {
-    const result: { [key: string]: any } = await getSharedConfiguration('system/env', refresh)
+    const result = await getSharedConfiguration<Record<string, unknown>>('system/env', refresh)
     // 将API返回的值赋值给SystemSettings
-    for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof typeof siteSetting.value>) {
+    for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof SiteSettingState>) {
       Object.keys(siteSetting.value[sectionKey]).forEach((key: string) => {
         if (Object.prototype.hasOwnProperty.call(result, key)) {
           Reflect.set(siteSetting.value[sectionKey], key, result[key])
@@ -135,7 +155,7 @@ async function loadSiteSettings(refresh = false) {
 }
 
 // 调用API保存设置
-async function saveSiteSetting(value: { [key: string]: any }) {
+async function saveSiteSetting(value: Record<string, unknown>) {
   try {
     await api.post('system/env', value, { feedback: 'silent' })
     $toast.success(t('setting.site.saveSuccess'))
