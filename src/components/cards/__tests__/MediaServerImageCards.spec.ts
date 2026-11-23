@@ -138,6 +138,45 @@ describe.each([
   })
 })
 
+describe('PlayingBackdropCard no-image fallback', () => {
+  it('renders semantic card fallback without scrims when cover image is absent or fails', async () => {
+    const { container } = await renderWithProviders(PlayingBackdropCard, {
+      global: { stubs: { VImg: VImgStub } },
+      props: { media: { ...media, image: '' } },
+    })
+
+    const card = container.querySelector('.playing-card')!
+    expect(card).not.toHaveClass('playing-card--has-image')
+    expect(container.querySelector('.playing-card__fallback')).toBeInTheDocument()
+    expect(container.querySelector('.playing-card__scrim')).not.toBeInTheDocument()
+    expect(container.querySelector('img')).not.toBeInTheDocument()
+  })
+
+  it('switches cleanly between real-image scrim mode and semantic fallback on load/error', async () => {
+    const { container } = await renderWithProviders(PlayingBackdropCard, {
+      global: { stubs: { VImg: VImgStub } },
+      props: { media },
+    })
+
+    const card = container.querySelector('.playing-card')!
+    const image = container.querySelector('img')!
+    expect(card).not.toHaveClass('playing-card--has-image')
+    expect(container.querySelector('.playing-card__fallback')).toBeInTheDocument()
+
+    image.dispatchEvent(new Event('load'))
+    await nextTick()
+    expect(card).toHaveClass('playing-card--has-image')
+    expect(container.querySelector('.playing-card__scrim')).toBeInTheDocument()
+    expect(container.querySelector('.playing-card__fallback')).not.toBeInTheDocument()
+
+    image.dispatchEvent(new Event('error'))
+    await nextTick()
+    expect(card).not.toHaveClass('playing-card--has-image')
+    expect(container.querySelector('.playing-card__fallback')).toBeInTheDocument()
+    expect(container.querySelector('.playing-card__scrim')).not.toBeInTheDocument()
+  })
+})
+
 describe.each([
   ['PosterCard', PosterCard],
   ['BackdropCard', BackdropCard],

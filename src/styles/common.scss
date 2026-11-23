@@ -2354,6 +2354,66 @@ html .app-table-flush-top > .v-card > .v-table {
   padding: 0;
 }
 
+// 发现页各来源筛选栏共享静态分组衬底与紧凑行距，不吸顶也不叠加二层背景模糊。
+.discover-filter-bar {
+  margin-block-end: 0.75rem;
+  margin-inline: 0.5rem;
+  padding-block: 0.625rem;
+  padding-inline: 0.875rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-theme-surface-radius);
+  background: var(--mp-muted);
+}
+
+.discover-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.discover-filter-row + .discover-filter-row {
+  margin-block-start: 0.125rem;
+}
+
+.discover-filter-label {
+  flex: 0 0 auto;
+  min-inline-size: 2.5rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 1;
+}
+
+.discover-filter-chips {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+}
+
+.discover-filter-chips .v-slide-group__content {
+  padding-block: 0.125rem;
+}
+
+.discover-filter-slider {
+  flex: 1 1 0%;
+  min-inline-size: 0;
+}
+
+@media (width <= 600px) {
+  .discover-filter-bar {
+    padding-block: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .discover-filter-row {
+    gap: 0.5rem;
+  }
+
+  .discover-filter-label {
+    min-inline-size: 2.25rem;
+  }
+}
+
 .v-menu .v-overlay__content {
   box-shadow: none;
 }

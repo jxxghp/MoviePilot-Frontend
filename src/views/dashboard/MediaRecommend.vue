@@ -52,6 +52,8 @@ const selectedSource = computed(
 )
 
 const activeMedia = computed(() => mediaItems.value[activeIndex.value])
+// 仅在真实推荐剧照可见时切换为深色沉浸态并退出玻璃光学采样，空态和加载态遵循当前主题语义表面。
+const hasMedia = computed(() => !loading.value && mediaItems.value.length > 0)
 
 /** 根据推荐来源返回便于快速识别的媒体类别图标。 */
 function getSourceIcon(source?: RecommendViewSource) {
@@ -264,8 +266,9 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 <template>
   <VCard
+    :data-glass-optical-mode="hasMedia ? 'excluded' : undefined"
     class="dashboard-recommend dashboard-grid-adaptive-size dashboard-grid-fill dashboard-grid-no-drag"
-    :class="{ 'is-loading': loading }"
+    :class="{ 'is-loading': loading, 'dashboard-recommend--has-media': hasMedia }"
     @mouseenter="isHovered = true"
     @mouseleave="isHovered = false"
     @focusin="isFocusWithin = true"
@@ -338,7 +341,7 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
         @keydown.enter="goToMediaDetail"
       >
         <h2 class="dashboard-recommend-title">{{ activeMedia?.title }}</h2>
-        <div class="dashboard-recommend-meta">{{ activeMedia ? getMediaMeta(activeMedia) : '' }}</div>
+        <div class="dashboard-recommend-meta num">{{ activeMedia ? getMediaMeta(activeMedia) : '' }}</div>
         <p v-if="activeMedia?.overview" class="dashboard-recommend-overview">{{ activeMedia.overview }}</p>
       </div>
 
@@ -417,9 +420,13 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
   aspect-ratio: 2 / 1;
   block-size: auto;
   min-block-size: 0;
-  background: rgb(8, 18, 28);
-  color: white;
+  color: var(--mp-fg);
   isolation: isolate;
+}
+
+.dashboard-recommend--has-media {
+  background: rgb(8, 18, 28);
+  color: var(--mp-on-media);
 }
 
 .dashboard-recommend-window,
@@ -509,15 +516,15 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .dashboard-recommend-content:focus-visible {
   border-radius: 10px;
-  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.48);
+  box-shadow: 0 0 0 3px var(--mp-ring);
 }
 
 .dashboard-recommend-title {
   margin: 0;
-  color: rgb(255, 255, 255);
+  color: var(--mp-on-media);
   font-size: clamp(1.6rem, 2.5vw, 2.45rem);
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.15;
   text-shadow:
     0 3px 20px rgba(0, 0, 0, 0.82),
@@ -526,7 +533,7 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .dashboard-recommend-meta {
   margin-block-start: 0.55rem;
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--mp-on-media-muted);
   font-size: 0.86rem;
 }
 
@@ -534,7 +541,7 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
   display: -webkit-box;
   overflow: hidden;
   margin: 0.75rem 0 0;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--mp-on-media-muted);
   font-size: 0.85rem;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -605,7 +612,7 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
   block-size: 100%;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--mp-muted-fg);
   flex-direction: column;
   gap: 0.75rem;
 }

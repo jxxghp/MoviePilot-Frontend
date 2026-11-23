@@ -1450,6 +1450,18 @@ html[data-theme='glass'] {
     --slider-shadow-bleed-inline: 32px;
   }
 
+  // 发现页筛选栏直接浮于全局壁纸上，采用静态可读托底（不叠加 backdrop-filter），防止高反差暗岩或亮空吞字。
+  .discover-filter-bar {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(15, 23, 42, 0.54);
+  }
+
+  &[data-glass-color-scheme='light'] .discover-filter-bar {
+    border-color: rgba(255, 255, 255, 0.76);
+    background: rgba(255, 255, 255, 0.74);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+
   :where(.v-card, .v-sheet)
     :where(.app-surface, .v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel, .v-stepper):not(.app-card-shell) {
     border-color: transparent !important;

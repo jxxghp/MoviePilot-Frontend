@@ -549,19 +549,9 @@
       "count": 1
     }
   },
-  "src/views/discover/MediaCardSlideView.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/views/discover/PersonCardListView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "src/views/discover/PersonDetailView.vue": {
-    "no-useless-assignment": {
-      "count": 1
     }
   },
   "src/views/setting/AccountSettingDirectory.vue": {
