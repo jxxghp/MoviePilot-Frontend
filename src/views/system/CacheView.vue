@@ -120,7 +120,7 @@ const mobileVisibleCount = ref(MOBILE_CACHE_PAGE_SIZE)
 let reidentifyDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 const tableStyle = computed(() => {
-  return appMode ? '' : 'height: calc(100vh - 21rem - env(safe-area-inset-bottom))'
+  return appMode.value ? '' : 'height: calc(100vh - 21rem - env(safe-area-inset-bottom))'
 })
 
 // 移动端虚拟列表数据
@@ -330,7 +330,11 @@ async function performReidentify(
   try {
     loading.value = true
     reidentifyDialogController?.updateProps({ loading: true })
-    const params: any = {}
+    const params: {
+      media_source?: MediaDataSource
+      media_id?: string
+      music_type?: Exclude<MusicEntityType, 'artist'>
+    } = {}
     if (payload.mediaSource && payload.mediaId) {
       params.media_source = payload.mediaSource
       params.media_id = payload.mediaId
@@ -373,17 +377,17 @@ function getMediaTypeColor(type: string): string {
   }
 }
 
-/** 获取移动端类型角标使用的 MediaCard 同款颜色类。 */
+/** 获取移动端类型角标对应的语义样式类，避免硬编码色值。 */
 function getMobileMediaTypeChipClass(type: string): string {
   switch (type) {
     case 'movie':
     case t('setting.cache.mediaType.movie'):
-      return 'border-blue-500 bg-blue-600'
+      return 'cache-mobile-card__type--movie'
     case 'tv':
     case t('setting.cache.mediaType.tv'):
-      return 'bg-indigo-500 border-indigo-600'
+      return 'cache-mobile-card__type--tv'
     default:
-      return 'border-purple-600 bg-purple-600'
+      return 'cache-mobile-card__type--other'
   }
 }
 
@@ -448,7 +452,7 @@ watch([titleFilter, siteFilter], () => {
 
       <template v-else>
         <div v-if="hasMoreCache" class="d-flex align-center justify-space-between pa-2 gap-2">
-          <span class="text-caption">{{ t('common.loadedCount', { count: cacheData.data.length }) }}</span>
+          <span class="text-caption num">{{ t('common.loadedCount', { count: cacheData.data.length }) }}</span>
           <VBtn variant="text" :loading="loading" :disabled="loading" @click="loadCacheData(true)">{{
             t('common.loadMore')
           }}</VBtn>
@@ -458,7 +462,7 @@ watch([titleFilter, siteFilter], () => {
             <div class="cache-mobile-stat cache-mobile-stat--primary">
               <VIcon icon="mdi-database" size="32" />
               <div>
-                <strong>{{ cacheData.count }}</strong>
+                <strong class="num">{{ cacheData.count }}</strong>
                 <span>{{ t('setting.cache.totalCount') }}</span>
               </div>
             </div>
@@ -466,7 +470,7 @@ watch([titleFilter, siteFilter], () => {
             <div class="cache-mobile-stat cache-mobile-stat--success">
               <VIcon icon="mdi-web" size="32" />
               <div>
-                <strong>{{ cacheData.sites }}</strong>
+                <strong class="num">{{ cacheData.sites }}</strong>
                 <span>{{ t('setting.cache.siteCount') }}</span>
               </div>
             </div>
@@ -548,10 +552,10 @@ watch([titleFilter, siteFilter], () => {
                   <div class="cache-mobile-card__poster rounded-md">
                     <VChip
                       v-if="item.media_type"
-                      variant="elevated"
+                      variant="flat"
                       size="small"
                       :class="getMobileMediaTypeChipClass(item.media_type)"
-                      class="cache-mobile-card__type bg-opacity-80 text-white font-bold"
+                      class="cache-mobile-card__type"
                     >
                       {{
                         item.media_type === 'movie'
@@ -586,12 +590,12 @@ watch([titleFilter, siteFilter], () => {
 
                     <div class="cache-mobile-card__main">
                       {{ getMobileMediaTitle(item) }}
-                      <span v-if="getMobileMediaMeta(item)">{{ getMobileMediaMeta(item) }}</span>
+                      <span v-if="getMobileMediaMeta(item)" class="num">{{ getMobileMediaMeta(item) }}</span>
                     </div>
 
                     <div class="cache-mobile-card__meta">
-                      <span>{{ getMobileResourceMeta(item) }}</span>
-                      <strong>{{ formatFileSize(item.size) }}</strong>
+                      <span class="num">{{ getMobileResourceMeta(item) }}</span>
+                      <strong class="num">{{ formatFileSize(item.size) }}</strong>
                     </div>
                   </div>
 
@@ -648,7 +652,7 @@ watch([titleFilter, siteFilter], () => {
               <div class="cache-desktop-stat cache-desktop-stat--primary">
                 <VIcon icon="mdi-database-outline" size="22" />
                 <div>
-                  <strong>{{ cacheData.count }}</strong>
+                  <strong class="num">{{ cacheData.count }}</strong>
                   <span>{{ t('setting.cache.totalCount') }}</span>
                 </div>
               </div>
@@ -656,7 +660,7 @@ watch([titleFilter, siteFilter], () => {
               <div class="cache-desktop-stat cache-desktop-stat--success">
                 <VIcon icon="mdi-web" size="22" />
                 <div>
-                  <strong>{{ cacheData.sites }}</strong>
+                  <strong class="num">{{ cacheData.sites }}</strong>
                   <span>{{ t('setting.cache.siteCount') }}</span>
                 </div>
               </div>
@@ -761,7 +765,7 @@ watch([titleFilter, siteFilter], () => {
                   cover
                   class="w-12 my-1 ms-auto rounded-md"
                 />
-                <VIcon v-else size="x-large" color="grey-lighten-1">
+                <VIcon v-else size="x-large" color="medium-emphasis">
                   {{ item.media_type === 'movie' ? 'mdi-movie-open' : 'mdi-television-play' }}
                 </VIcon>
               </div>
@@ -773,7 +777,7 @@ watch([titleFilter, siteFilter], () => {
                 <div class="text-subtitle-2 font-weight-bold">
                   {{ item.title }}
                 </div>
-                <div v-if="item.description" class="text-caption text-grey">
+                <div v-if="item.description" class="text-caption text-medium-emphasis">
                   {{ item.description }}
                 </div>
                 <div v-if="item.season_episode || item.resource_term" class="text-caption text-primary mt-1">
@@ -784,12 +788,12 @@ watch([titleFilter, siteFilter], () => {
 
             <!-- 大小列 -->
             <template #item.size="{ item }">
-              {{ formatFileSize(item.size) }}
+              <span class="num">{{ formatFileSize(item.size) }}</span>
             </template>
 
             <!-- 发布时间列 -->
             <template #item.pubdate="{ item }">
-              {{ formatDateDifference(item.pubdate || '') }}
+              <span class="num">{{ formatDateDifference(item.pubdate || '') }}</span>
             </template>
 
             <!-- 识别结果列 -->
@@ -797,15 +801,22 @@ watch([titleFilter, siteFilter], () => {
               <div v-if="item.media_name" class="d-flex flex-column">
                 <div class="text-subtitle-2">
                   {{ item.media_name }}
-                  <span v-if="item.media_year" class="text-caption text-grey"> ({{ item.media_year }}) </span>
+                  <span v-if="item.media_year" class="text-caption text-medium-emphasis num">
+                    ({{ item.media_year }})
+                  </span>
                 </div>
                 <div>
-                  <VChip v-if="item.media_type" :color="getMediaTypeColor(item.media_type)" size="x-small">
+                  <VChip
+                    v-if="item.media_type"
+                    :color="getMediaTypeColor(item.media_type)"
+                    variant="tonal"
+                    size="x-small"
+                  >
                     {{ item.media_type }}
                   </VChip>
                 </div>
               </div>
-              <div v-else class="text-caption text-grey">
+              <div v-else class="text-caption text-medium-emphasis">
                 {{ t('setting.cache.unrecognized') }}
               </div>
             </template>
@@ -839,7 +850,7 @@ watch([titleFilter, siteFilter], () => {
             <template #no-data>
               <div class="text-center pa-4">
                 <VIcon size="64" class="mb-4"> mdi-database-off </VIcon>
-                <div class="text-body-2 text-grey">
+                <div class="text-body-2 text-medium-emphasis">
                   {{ t('setting.cache.noData') }}
                 </div>
               </div>
@@ -868,18 +879,17 @@ watch([titleFilter, siteFilter], () => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-block-end: var(--app-surface-border);
+  border-block-end: 1px solid var(--mp-border);
   padding-block: 12px;
   padding-inline: 20px;
 }
 
 .cache-manager__switcher {
   overflow: hidden;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-control-radius);
-  backdrop-filter: var(--app-grouped-list-backdrop-filter);
-  background: var(--app-grouped-list-background);
-  box-shadow: var(--app-surface-shadow);
+  background: var(--mp-muted);
+  box-shadow: none;
 }
 
 .cache-manager__switcher :deep(.v-btn) {
@@ -919,10 +929,10 @@ watch([titleFilter, siteFilter], () => {
 .cache-desktop-stat {
   display: flex;
   align-items: center;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  background: var(--app-grouped-list-background);
-  box-shadow: var(--app-surface-shadow);
+  background: var(--mp-muted);
+  box-shadow: none;
   gap: 10px;
   min-block-size: 58px;
   min-inline-size: 126px;
@@ -936,13 +946,13 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-desktop-stat strong {
-  color: rgba(var(--v-theme-on-surface), 0.9);
+  color: var(--mp-fg);
   font-size: 18px;
   line-height: 1.15;
 }
 
 .cache-desktop-stat span {
-  color: rgba(var(--v-theme-on-surface), 0.58);
+  color: var(--mp-muted-fg);
   font-size: 12px;
   margin-block-start: 3px;
 }
@@ -966,14 +976,14 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-desktop-filters :deep(.v-field) {
   border-radius: var(--app-field-radius);
-  background: var(--app-grouped-list-background);
+  background: var(--mp-input);
 }
 
 .cache-desktop-page :deep(.v-data-table) {
   overflow: hidden;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  box-shadow: var(--app-surface-shadow);
+  box-shadow: none;
 }
 
 @media (width <= 959.98px) {
@@ -1007,10 +1017,9 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-page {
-  --cache-mobile-control-bg: var(--app-grouped-list-background);
+  --cache-mobile-control-bg: var(--mp-input);
   --cache-mobile-page-bg: transparent;
-  --cache-mobile-surface-bg: var(--app-grouped-list-background);
-  --cache-mobile-surface-blur: var(--app-grouped-list-backdrop-filter);
+  --cache-mobile-surface-bg: var(--mp-muted);
 
   display: flex;
   flex: 1 1 auto;
@@ -1035,18 +1044,17 @@ watch([titleFilter, siteFilter], () => {
   display: flex;
   align-items: center;
   padding: 18px;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  backdrop-filter: var(--cache-mobile-surface-blur);
   background: var(--cache-mobile-surface-bg);
-  box-shadow: var(--app-surface-shadow);
+  box-shadow: none;
   gap: 14px;
   min-block-size: 92px;
 }
 
 .cache-mobile-stat strong {
   display: block;
-  color: rgba(var(--v-theme-on-surface), 0.82);
+  color: var(--mp-fg);
   font-size: 28px;
   font-weight: 800;
   line-height: 1.05;
@@ -1054,7 +1062,7 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-mobile-stat span {
   display: block;
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  color: var(--mp-muted-fg);
   font-size: 14px;
   font-weight: 600;
   margin-block-start: 8px;
@@ -1076,9 +1084,8 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-mobile-filter :deep(.v-field) {
   border-radius: var(--app-field-radius);
-  backdrop-filter: var(--cache-mobile-surface-blur);
   background: var(--cache-mobile-control-bg);
-  box-shadow: var(--app-surface-shadow);
+  box-shadow: none;
 }
 
 .cache-mobile-filter :deep(.v-field__outline) {
@@ -1122,11 +1129,10 @@ watch([titleFilter, siteFilter], () => {
   overflow: visible;
   align-items: start;
   padding: 14px;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  backdrop-filter: var(--cache-mobile-surface-blur);
   background: var(--cache-mobile-surface-bg);
-  box-shadow: var(--app-surface-shadow);
+  box-shadow: none;
   gap: 14px;
   grid-template-columns: 72px minmax(0, 1fr);
 }
@@ -1139,16 +1145,30 @@ watch([titleFilter, siteFilter], () => {
   justify-content: center;
   background: rgba(var(--v-theme-on-surface), 0.06);
   block-size: 104px;
-  color: rgba(var(--v-theme-on-surface), 0.34);
+  color: var(--mp-muted-fg);
   inline-size: 72px;
 }
 
 .cache-mobile-card__type {
   position: absolute;
   z-index: 1;
+  color: #fff !important;
+  font-weight: 600;
   inset-block-end: 5px;
   inset-inline-start: 50%;
   transform: translateX(-50%);
+}
+
+.cache-mobile-card__type--movie {
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 88%, transparent) !important;
+}
+
+.cache-mobile-card__type--tv {
+  background: color-mix(in srgb, rgb(var(--v-theme-info)) 88%, transparent) !important;
+}
+
+.cache-mobile-card__type--other {
+  background: color-mix(in srgb, rgb(var(--v-theme-secondary)) 88%, transparent) !important;
 }
 
 .cache-mobile-card__content {

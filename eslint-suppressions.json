@@ -598,22 +598,6 @@
       "count": 1
     }
   },
-  "src/views/system/CacheView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
-  "src/views/system/LoggingView.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-control-regex": {
-      "count": 1
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 8
-    }
-  },
   "src/views/system/ModuleTestView.vue": {
     "vue/no-unused-vars": {
       "count": 1

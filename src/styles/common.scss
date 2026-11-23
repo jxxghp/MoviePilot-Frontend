@@ -2417,3 +2417,79 @@ html .app-table-flush-top > .v-card > .v-table {
 .v-menu .v-overlay__content {
   box-shadow: none;
 }
+
+// 种子促销条与资源属性标签共用语义柔和胶囊，避免高饱和纯色块在深浅平面与玻璃卡面上割裂抢眼。
+.torrent-promo {
+  border-inline-start: 1px solid var(--mp-border);
+  border-block-end: 1px solid var(--mp-border);
+  background-color: var(--mp-muted);
+  color: var(--mp-fg);
+}
+
+.torrent-promo--free {
+  border-color: var(--mp-success-border);
+  background-color: var(--mp-success-soft);
+  color: var(--mp-success-fg);
+}
+
+.torrent-promo--discount {
+  border-color: var(--mp-warning-border);
+  background-color: var(--mp-warning-soft);
+  color: var(--mp-warning-fg);
+}
+
+.torrent-promo--bonus {
+  border-color: var(--mp-primary-border);
+  background-color: var(--mp-primary-soft);
+  color: var(--mp-primary-fg);
+}
+
+.v-chip:where(
+  .chip-season,
+  .chip-web-source,
+  .chip-edition,
+  .chip-resolution,
+  .chip-codec,
+  .chip-team,
+  .chip-label,
+  .chip-hr,
+  .chip-expire,
+  .chip-free,
+  .chip-discount,
+  .chip-bonus
+) {
+  border: 1px solid var(--mp-border) !important;
+  background-color: var(--mp-muted) !important;
+  box-shadow: none !important;
+  color: var(--mp-muted-fg) !important;
+}
+
+.v-chip:where(.chip-season, .chip-edition, .chip-bonus) {
+  border-color: var(--mp-primary-border) !important;
+  background-color: var(--mp-primary-soft) !important;
+  color: var(--mp-primary-fg) !important;
+}
+
+.v-chip:where(.chip-web-source, .chip-resolution) {
+  border-color: var(--mp-info-border) !important;
+  background-color: var(--mp-info-soft) !important;
+  color: var(--mp-info-fg) !important;
+}
+
+.v-chip:where(.chip-codec, .chip-expire, .chip-discount) {
+  border-color: var(--mp-warning-border) !important;
+  background-color: var(--mp-warning-soft) !important;
+  color: var(--mp-warning-fg) !important;
+}
+
+.v-chip:where(.chip-team, .chip-free) {
+  border-color: var(--mp-success-border) !important;
+  background-color: var(--mp-success-soft) !important;
+  color: var(--mp-success-fg) !important;
+}
+
+.v-chip.chip-hr {
+  border-color: var(--mp-destructive-border) !important;
+  background-color: var(--mp-destructive-soft) !important;
+  color: var(--mp-destructive-fg) !important;
+}

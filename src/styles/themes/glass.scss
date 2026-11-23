@@ -385,10 +385,6 @@ html[data-theme='glass'] {
     }
 
     .logging-dialog-card .logging-view {
-      --logging-record-bg-even: transparent;
-      --logging-record-bg-odd: transparent;
-      --logging-shadow: none;
-      --logging-shell-backdrop-filter: none;
       --logging-shell-background: transparent;
     }
   }
@@ -1052,79 +1048,13 @@ html[data-theme='glass'] {
     background-color: rgba(var(--v-theme-error), 34%) !important;
   }
 
-  // 种子卡片沿用组件既有的业务色，只降低不透明度并补上透光与镜面材质。
-  .v-chip.chip-season {
-    --glass-chip-tint: 63, 81, 181;
-  }
-
-  .v-chip.chip-web-source {
-    --glass-chip-tint: 128, 0, 255;
-  }
-
-  .v-chip.chip-edition {
-    --glass-chip-tint: 244, 67, 54;
-  }
-
-  .v-chip.chip-resolution {
-    --glass-chip-tint: 123, 31, 162;
-  }
-
-  .v-chip.chip-codec {
-    --glass-chip-tint: 255, 152, 0;
-  }
-
-  .v-chip.chip-team {
-    --glass-chip-tint: 0, 137, 123;
-  }
-
-  .v-chip.chip-label {
-    --glass-chip-tint: 92, 107, 192;
-  }
-
-  .v-chip.chip-hr {
-    --glass-chip-tint: 33, 33, 33;
-  }
-
-  .v-chip.chip-expire {
-    --glass-chip-tint: 126, 87, 194;
-  }
-
-  .v-chip.chip-free {
-    --glass-chip-tint: 76, 175, 80;
-  }
-
-  .v-chip.chip-discount {
-    --glass-chip-tint: 255, 87, 34;
-  }
-
-  .v-chip.chip-bonus {
-    --glass-chip-tint: 156, 39, 176;
-  }
-
-  .v-chip:where(
-    .chip-season,
-    .chip-web-source,
-    .chip-edition,
-    .chip-resolution,
-    .chip-codec,
-    .chip-team,
-    .chip-label,
-    .chip-hr,
-    .chip-expire,
-    .chip-free,
-    .chip-discount,
-    .chip-bonus
-  ) {
-    background-color: rgba(var(--glass-chip-tint), var(--glass-chip-tint-opacity)) !important;
-  }
-
   .v-table {
     .v-table__wrapper > table > thead {
-      background-color: rgba(255, 255, 255, 6%);
+      background-color: var(--mp-muted);
     }
 
     .v-table__wrapper > table > tbody > tr:hover > td {
-      background-color: rgba(255, 255, 255, 6%);
+      background-color: var(--mp-list-row-hover);
     }
   }
 
@@ -1378,44 +1308,14 @@ html[data-theme='glass'] {
     }
   }
 
-  // 文件地址栏与下方内容卡属于同一工作表面，不使用更强的 raised 材质。
-  .file-browser-toolbar.v-toolbar {
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
-    backdrop-filter: var(--glass-surface-backdrop-filter) !important;
-  }
-
-  // 文件整理、日历和缓存使用自定义容器，需要同时覆盖桌面与移动端表面。
-  .transfer-history-mobile-page {
-    --transfer-history-mobile-search-bg: var(--glass-surface-soft);
-    --transfer-history-mobile-muted-bg: var(--glass-surface-soft);
-    --transfer-history-mobile-border: var(--glass-border);
-    --transfer-history-mobile-surface-blur: var(--glass-surface-backdrop-filter);
-  }
-
-  .transfer-history-mobile-record,
+  // 日历自定义容器接入统一玻璃表面材质。
   .calendar-event-card,
   .mobile-calendar-filter-card,
-  .mobile-calendar-event-card,
-  .cache-desktop-stat,
-  .cache-mobile-stat,
-  .cache-mobile-card,
-  .cache-panel-stat,
-  .recognition-cache-mobile-item {
+  .mobile-calendar-event-card {
     border: 1px solid var(--glass-border);
     -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
     backdrop-filter: var(--glass-surface-backdrop-filter);
     background: var(--glass-surface);
-  }
-
-  // 日志和定时服务的自定义表面通过变量接入主题，避免组件局部样式覆盖玻璃材质。
-  .logging-view,
-  .logging-view.is-dark-theme {
-    --logging-border: var(--glass-border);
-    --logging-record-bg-even: rgba(255, 255, 255, 6%);
-    --logging-record-bg-odd: rgba(255, 255, 255, 3%);
-    --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 10%);
-    --logging-shell-backdrop-filter: var(--glass-surface-backdrop-filter);
-    --logging-shell-background: var(--glass-surface-soft);
   }
 
   .mobile-scheduler-view {
@@ -2517,27 +2417,20 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
       inset 0 1px 2px rgba(15, 23, 42, 0.03);
   }
 
-  // 浅色玻璃下表格、代码编辑器、日志行与权限面板改用冷灰吸收层，避免白底叠白雾失去轮廓。
+  // 浅色玻璃下表格、代码编辑器与权限面板改用冷灰吸收层，避免白底叠白雾失去轮廓。
   .v-table {
     .v-table__wrapper > table > thead {
-      background-color: rgba(15, 23, 42, 4.5%);
+      background-color: var(--mp-muted);
     }
 
     .v-table__wrapper > table > tbody > tr:hover > td {
-      background-color: rgba(15, 23, 42, 4%);
+      background-color: var(--mp-list-row-hover);
     }
   }
 
   .ace_editor .ace_marker-layer .ace_active-line,
   .ace_editor .ace_marker-layer .ace_selection {
     background: rgba(var(--v-theme-primary), 12%) !important;
-  }
-
-  .logging-view,
-  .logging-view.is-dark-theme {
-    --logging-record-bg-even: rgba(15, 23, 42, 3.8%);
-    --logging-record-bg-odd: rgba(15, 23, 42, 1.6%);
-    --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 65%);
   }
 
   .user-permission-editor {

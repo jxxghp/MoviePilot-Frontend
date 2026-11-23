@@ -260,7 +260,7 @@ describe('TorrentItem display and interactions', () => {
     ]) {
       expect(screen.getByText(text)).toBeInTheDocument()
     }
-    expect(container.querySelector('.discount-banner')).toHaveClass('bg-orange')
+    expect(container.querySelector('.discount-banner')).toHaveClass('torrent-promo--discount')
     expect(container.querySelector('.torrent-item [title="列表测试站"]')).toBeInTheDocument()
     await waitFor(() => expect(container.querySelector<HTMLImageElement>('img')?.src).toContain('site-101.png'))
   })
@@ -282,8 +282,8 @@ describe('TorrentItem display and interactions', () => {
   })
 
   it.each([
-    ['free', 0, 1, 'bg-success'],
-    ['upload bonus', 1, 2, 'bg-purple'],
+    ['free', 0, 1, 'torrent-promo--free'],
+    ['upload bonus', 1, 2, 'torrent-promo--bonus'],
     ['unclassified promotion', 2, 1, null],
   ] as const)('projects the %s promotion style', async (_case, downloadFactor, uploadFactor, expectedClass) => {
     const { container } = await renderItem(
@@ -299,7 +299,7 @@ describe('TorrentItem display and interactions', () => {
 
     expect(banner).toBeInTheDocument()
     if (expectedClass) expect(banner).toHaveClass(expectedClass)
-    else expect(banner).not.toHaveClass('bg-success', 'bg-orange', 'bg-purple')
+    else expect(banner).not.toHaveClass('torrent-promo--free', 'torrent-promo--discount', 'torrent-promo--bonus')
   })
 
   it('opens the download dialog with the current Context and marks the item after success', async () => {

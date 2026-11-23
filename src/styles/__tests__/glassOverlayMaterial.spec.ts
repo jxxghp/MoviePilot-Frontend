@@ -253,6 +253,7 @@ describe('glass overlay material styles', () => {
 
   it('renders colored chips as shadowless glass without flattening their variants', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const commonStyles = readFileSync(resolve(cwd(), 'src/styles/common.scss'), 'utf8')
 
     expect(styles).toContain('--glass-chip-backdrop-filter')
     expect(styles).toContain('--glass-chip-sheen')
@@ -263,10 +264,11 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(
       /\.v-chip\[class\*='bg-'\]\s*\{[\s\S]*?--tw-bg-opacity:\s*var\(--glass-chip-tint-opacity\)\s*!important;/,
     )
-    expect(styles).toContain('.v-chip.chip-resolution')
-    expect(styles).toContain(
-      'background-color: rgba(var(--glass-chip-tint), var(--glass-chip-tint-opacity)) !important',
-    )
+    // 种子属性与促销标签已统一迁回 common.scss 由语义柔和令牌驱动，不再在 glass.scss 写死 --glass-chip-tint 私有覆盖。
+    expect(styles).not.toContain('.v-chip.chip-resolution')
+    expect(styles).not.toContain('--glass-chip-tint:')
+    expect(commonStyles).toContain('.v-chip:where(.chip-web-source, .chip-resolution)')
+    expect(commonStyles).toContain('var(--mp-info-soft)')
     expect(styles).not.toContain('.v-chip::after')
     expect(styles).not.toContain(".v-chip:not([class*='border-'])")
     expect(styles).not.toContain('.v-chip--variant-tonal > .v-chip__underlay')
@@ -607,9 +609,7 @@ describe('glass overlay material styles', () => {
       /\.layout-wrapper:not\(\.layout-fixed-shell-backplate-active\) \.layout-vertical-nav::before,[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
     )
     expect(styles).not.toContain('.settings-section-card.app-grouped-list')
-    expect(styles).toMatch(
-      /\.file-browser-toolbar\.v-toolbar\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-surface-backdrop-filter\)\s*!important;/,
-    )
+    expect(styles).not.toContain('.file-browser-toolbar.v-toolbar')
     expect(styles).not.toMatch(
       /\[data-glass-scroll-presentation='native'\][\s\S]*?:where\([\s\S]*?--glass-native-surface-backdrop-filter/,
     )

@@ -87,14 +87,14 @@ function handleDetail(item: Context) {
                 <VAvatar v-else size="16" class="text-caption bg-surface-variant">
                   {{ item.torrent_info?.site_name?.substring(0, 1) }}
                 </VAvatar>
-                <span class="text-body-2 font-weight-bold">{{ item.torrent_info.site_name }}</span>
+                <span class="text-body-2 font-weight-semibold">{{ item.torrent_info.site_name }}</span>
                 <MusicMatchBadge :context="item" />
 
                 <VChip
                   v-if="item.meta_info?.season_episode"
-                  class="chip-season rounded-sm ml-1"
+                  class="chip-season num rounded-sm ml-1"
                   size="x-small"
-                  variant="elevated"
+                  variant="flat"
                 >
                   {{ item.meta_info.season_episode }}
                 </VChip>
@@ -103,7 +103,7 @@ function handleDetail(item: Context) {
                   v-if="getTorrentPromotionKind(item.torrent_info)"
                   :class="getPromotionChipClass(item.torrent_info)"
                   size="x-small"
-                  variant="elevated"
+                  variant="flat"
                   class="rounded-sm ml-1"
                 >
                   {{ item.torrent_info?.volume_factor }}
@@ -112,11 +112,11 @@ function handleDetail(item: Context) {
             </template>
 
             <template v-slot:append>
-              <div class="d-flex align-center gap-2">
-                <span class="text-caption font-weight-bold text-primary">
+              <div class="d-flex align-center gap-2 num">
+                <span class="text-caption font-weight-semibold text-primary">
                   {{ formatFileSize(item.torrent_info?.size) }}
                 </span>
-                <span class="d-flex align-center text-caption font-weight-bold">
+                <span class="d-flex align-center text-caption font-weight-semibold">
                   <VIcon size="small" color="success" icon="mdi-arrow-up" class="mr-1"></VIcon>
                   {{ item.torrent_info?.seeders }}
                 </span>
@@ -142,25 +142,5 @@ function handleDetail(item: Context) {
 .more-sources-content {
   max-block-size: 60vh;
   overflow-y: auto;
-}
-
-.chip-season {
-  background-color: #3f51b5;
-  color: white;
-}
-
-.chip-free {
-  background-color: #4caf50;
-  color: white;
-}
-
-.chip-discount {
-  background-color: #ff5722;
-  color: white;
-}
-
-.chip-bonus {
-  background-color: #9c27b0;
-  color: white;
 }
 </style>

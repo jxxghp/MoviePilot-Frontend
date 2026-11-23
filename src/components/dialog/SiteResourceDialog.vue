@@ -399,7 +399,7 @@ onMounted(() => {
           >
             <VIcon icon="mdi-magnify" />
           </VBtn>
-          <div class="site-resource-summary__count text-body-2 font-weight-medium">
+          <div class="site-resource-summary__count num text-body-2 font-weight-medium">
             {{ resultSummaryText }}
           </div>
           <VSelect
