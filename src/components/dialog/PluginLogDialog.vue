@@ -19,8 +19,8 @@ const userStore = useUserStore()
 /** 仅在智能助手入口已启用且当前为系统管理员（read_log 仅管理员可用）时显示诊断按钮。 */
 const canDiagnose = computed(
   () =>
-    globalSettingsStore.get('AI_AGENT_ENABLE') === true &&
-    globalSettingsStore.get('AI_AGENT_HIDE_ENTRY') !== true &&
+    globalSettingsStore.data?.AI_AGENT_ENABLE === true &&
+    globalSettingsStore.data?.AI_AGENT_HIDE_ENTRY !== true &&
     userStore.superUser === true,
 )
 
