@@ -1128,7 +1128,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
     </div>
     <div v-if="selectMode" class="file-list__selection">
       <VBtn variant="text" @click="toggleSelectAll">{{ t('file.selectAll') }}</VBtn>
-      <span>{{ t('file.selectedItems', { count: selected.length }) }}</span>
+      <span class="num">{{ t('file.selectedItems', { count: selected.length }) }}</span>
       <div class="file-list__batch">
         <IconBtn :disabled="!selected.length" :aria-label="t('file.scrape')" @click="showBatchScrape"
           ><VIcon icon="mdi-auto-fix"
@@ -1266,12 +1266,12 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
                   }}</small>
                 </div>
               </div>
-              <span class="file-row__size">{{
+              <span class="file-row__size num">{{
                 typeof item.size === 'number' && Number.isFinite(item.size) && item.size >= 0
                   ? formatBytes(item.size)
                   : ''
               }}</span>
-              <span class="file-row__time" :title="item.modify_time ? formatTime(item.modify_time) : undefined">{{
+              <span class="file-row__time num" :title="item.modify_time ? formatTime(item.modify_time) : undefined">{{
                 display.mdAndUp.value && item.modify_time ? formatTime(item.modify_time) : formatDate(item.modify_time)
               }}</span>
               <template #append>
@@ -1314,7 +1314,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <p>{{ t(filter ? 'file.noFiles' : 'file.emptyDirectory') }}</p>
         </div>
         <div v-if="hasMoreFiles" class="d-flex align-center justify-space-between pa-2 gap-2">
-          <span class="text-caption"
+          <span class="text-caption num"
             >{{ t('common.loadedCount', { count: items.length }) }} · {{ t('file.partialListing') }}</span
           >
           <VBtn variant="text" :loading="loadingMoreFiles" @click="loadMoreFiles">{{ t('common.loadMore') }}</VBtn>
@@ -1398,7 +1398,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   padding-inline: 0.75rem;
   border-radius: var(--app-search-input-radius);
   background: var(--app-search-input-background);
-  color: rgba(var(--v-theme-on-surface), 0.45);
+  color: var(--mp-muted-fg);
 }
 .file-list__search input {
   flex: 1;
@@ -1407,11 +1407,11 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   border: 0;
   outline: none;
   background: transparent;
-  color: rgba(var(--v-theme-on-surface), 0.87);
+  color: var(--mp-fg);
   font-size: 0.8125rem;
 }
 .file-list__search input::placeholder {
-  color: rgba(var(--v-theme-on-surface), 0.38);
+  color: var(--mp-muted-fg);
 }
 .file-list__search:focus-within {
   box-shadow: inset 0 0 0 1px rgb(var(--v-theme-primary)) !important;
@@ -1457,7 +1457,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   gap: 1rem;
   font-size: 0.75rem;
   // 表头不铺底色，只用分隔线与弱化文字区分；玻璃主题下整条底色会显得过曝。
-  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  border-block-end: 1px solid var(--mp-list-row-divider);
 }
 .file-list__sort {
   display: inline-flex;
@@ -1466,7 +1466,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   padding: 0;
   border: 0;
   background: none;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   cursor: pointer;
   font: inherit;
   font-weight: 500;
@@ -1476,7 +1476,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .file-list__sort:hover,
 .file-list__sort:focus-visible,
 .file-list__sort--active {
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  color: var(--mp-fg);
 }
 // 非当前列的箭头只在悬停时提示可排序。
 .file-list__sort-icon {
@@ -1503,7 +1503,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .file-row {
   min-block-size: 3.625rem;
   padding-inline: 1rem 0.5rem;
-  border-block-end: 1px solid var(--app-grouped-list-separator-color);
+  border-block-end: 1px solid var(--mp-list-row-divider);
   border-radius: 0;
   display: grid;
   align-items: center;
@@ -1545,7 +1545,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 @media (hover: hover) and (pointer: fine) {
   .file-row:hover:not(.file-row--active) {
     border-radius: 12px;
-    background: rgba(var(--v-theme-on-surface), 4%);
+    background: var(--mp-list-row-hover);
   }
 }
 .file-row__name {
@@ -1586,12 +1586,12 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .file-row__size,
 .file-row__time {
   font-size: 0.875rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
 }
 .file-list__inspector {
   flex: 0 0 32%;
   min-inline-size: 16rem;
-  border-inline-start: 1px solid var(--app-grouped-list-separator-color);
+  border-inline-start: 1px solid var(--mp-list-row-divider);
 }
 .file-list__content--file .file-list__inspector {
   flex: 1;
@@ -1605,7 +1605,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
 }
 @container file-list (width < 900px) {
   .file-list__content--detail .file-row :deep(.v-list-item__content) {
@@ -1689,7 +1689,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
   }
   .file-row__meta {
     margin-block-start: 0.125rem;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    color: var(--mp-muted-fg);
     font-size: 0.6875rem;
     font-variant-numeric: tabular-nums;
     line-height: 1.3;

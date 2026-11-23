@@ -132,10 +132,11 @@ describe('glass chip colors', () => {
     expect(mutedRules[glassMutedIndex].selector).toContain('[data-theme=')
   })
 
-  it('defines cool-slate light glass overrides for tables, ace selection, logging stripes, and frosted overlays', () => {
+  it('defines cool-slate light glass overrides for chips, permission editor, and tokenized tables', () => {
     expect(css).toContain('--glass-chip-base-opacity: 16%')
-    expect(css).toContain('--logging-record-bg-even: rgba(15, 23, 42, 3.8%)')
     expect(css).toContain('--permission-editor-muted-border: 1px solid rgba(60, 60, 67, 12%)')
-    expect(css).toContain('background-color: rgba(15, 23, 42, 0.045)')
+    expect(css).toContain('background-color: var(--mp-muted)')
+    expect(css).toContain('background-color: var(--mp-list-row-hover)')
+    expect(css).not.toContain('--logging-record-bg-even')
   })
 })

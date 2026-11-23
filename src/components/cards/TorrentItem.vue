@@ -69,9 +69,13 @@ async function getSiteIcon(site: number | undefined) {
   }
 }
 
-/** 为已确认的促销选择样式，未知倍率不落入免费颜色。 */
+/** 为已确认的促销选择语义柔和胶囊类，未知倍率不落入免费颜色。 */
 function getPromotionClass(kind?: TorrentPromotionKind) {
-  return kind ? { free: 'bg-success', discount: 'bg-orange', bonus: 'bg-purple', other: '' }[kind] : ''
+  return kind
+    ? { free: 'torrent-promo--free', discount: 'torrent-promo--discount', bonus: 'torrent-promo--bonus', other: '' }[
+        kind
+      ]
+    : ''
 }
 
 /** 待确认音乐只提交资源本身，避免继承缓存中的目标媒体身份。 */
@@ -132,7 +136,7 @@ watch(
       <!-- 优惠标签 -->
       <div
         v-if="promotionKind"
-        class="discount-banner text-white px-2 py-1 text-sm font-weight-bold rounded-bl-lg"
+        class="discount-banner torrent-promo px-2 py-1 text-xs font-weight-semibold rounded-bl-lg"
         :class="getPromotionClass(promotionKind)"
       >
         {{ torrent?.volume_factor }}
@@ -151,7 +155,7 @@ watch(
           <VAvatar
             v-else
             size="32"
-            class="mb-1 text-caption bg-primary-lighten-4 text-primary font-weight-bold site-icon"
+            class="mb-1 text-caption bg-primary-lighten-4 text-primary font-weight-semibold site-icon"
           >
             {{ torrent?.site_name?.substring(0, 1) }}
           </VAvatar>
@@ -160,12 +164,12 @@ watch(
 
       <VListItemTitle class="whitespace-normal">
         <div class="d-flex flex-row flex-wrap align-center mb-2">
-          <span class="text-h6 font-weight-bold me-2 torrent-heading">{{ getTorrentTitle(props.torrent) }}</span>
+          <span class="text-h6 font-weight-semibold me-2 torrent-heading">{{ getTorrentTitle(props.torrent) }}</span>
           <MusicMatchBadge :context="props.torrent" />
           <VChip
             v-if="meta?.season_episode"
-            class="chip-season rounded-sm font-weight-bold"
-            variant="elevated"
+            class="chip-season num rounded-sm font-weight-semibold"
+            variant="flat"
             size="small"
           >
             {{ meta?.season_episode }}
@@ -185,33 +189,33 @@ watch(
 
         <!-- 发布时间 -->
         <div v-if="torrent?.pubdate" class="d-flex align-center mb-2">
-          <VIcon size="small" color="grey" icon="mdi-clock-outline" class="me-1"></VIcon>
-          <span class="text-sm text-medium-emphasis">{{ formatDateDifference(torrent.pubdate) }}</span>
+          <VIcon size="small" color="medium-emphasis" icon="mdi-clock-outline" class="me-1"></VIcon>
+          <span class="num text-sm text-medium-emphasis">{{ formatDateDifference(torrent.pubdate) }}</span>
         </div>
 
         <div class="d-flex flex-wrap gap-1 mb-2">
           <!-- 流媒体平台 -->
-          <VChip v-if="meta?.web_source" class="chip-web-source rounded-sm" size="x-small" variant="elevated">
+          <VChip v-if="meta?.web_source" class="chip-web-source rounded-sm" size="x-small" variant="flat">
             {{ meta?.web_source }}
           </VChip>
 
           <!-- 版本标签 -->
-          <VChip v-if="meta?.edition" class="chip-edition rounded-sm" size="x-small" variant="elevated">
+          <VChip v-if="meta?.edition" class="chip-edition rounded-sm" size="x-small" variant="flat">
             {{ meta?.edition }}
           </VChip>
 
           <!-- 分辨率标签 -->
-          <VChip v-if="meta?.resource_pix" class="chip-resolution rounded-sm" size="x-small" variant="elevated">
+          <VChip v-if="meta?.resource_pix" class="chip-resolution rounded-sm" size="x-small" variant="flat">
             {{ meta?.resource_pix }}
           </VChip>
 
           <!-- 编码标签 -->
-          <VChip v-if="meta?.video_encode" class="chip-codec rounded-sm" size="x-small" variant="elevated">
+          <VChip v-if="meta?.video_encode" class="chip-codec rounded-sm" size="x-small" variant="flat">
             {{ meta?.video_encode }}
           </VChip>
 
           <!-- 制作组标签 -->
-          <VChip v-if="meta?.resource_team" class="chip-team rounded-sm" size="x-small" variant="elevated">
+          <VChip v-if="meta?.resource_team" class="chip-team rounded-sm" size="x-small" variant="flat">
             {{ meta?.resource_team }}
           </VChip>
 
@@ -221,14 +225,14 @@ watch(
             :key="index"
             class="chip-label rounded-sm"
             size="x-small"
-            variant="elevated"
+            variant="flat"
           >
             {{ label }}
           </VChip>
 
           <!-- 特殊标签 -->
-          <VChip v-if="torrent?.hit_and_run" class="chip-hr rounded-sm" size="x-small" variant="elevated"> H&R </VChip>
-          <VChip v-if="torrent?.freedate_diff" class="chip-expire rounded-sm" size="x-small" variant="elevated">
+          <VChip v-if="torrent?.hit_and_run" class="chip-hr rounded-sm" size="x-small" variant="flat"> H&R </VChip>
+          <VChip v-if="torrent?.freedate_diff" class="chip-expire num rounded-sm" size="x-small" variant="flat">
             {{ torrent?.freedate_diff }}
           </VChip>
         </div>
@@ -237,18 +241,18 @@ watch(
       <template v-slot:append>
         <div class="torrent-item-actions d-flex flex-row flex-sm-column align-center align-sm-end gap-2">
           <div class="d-flex align-center gap-3 num">
-            <span v-if="torrent?.seeders" class="d-flex align-center font-weight-bold">
+            <span v-if="torrent?.seeders" class="d-flex align-center font-weight-semibold">
               <VIcon size="small" color="success" icon="mdi-arrow-up" class="mr-1"></VIcon>
               {{ torrent?.seeders }}
             </span>
-            <span v-if="torrent?.peers" class="d-flex align-center font-weight-bold">
+            <span v-if="torrent?.peers" class="d-flex align-center font-weight-semibold">
               <VIcon size="small" color="warning" icon="mdi-arrow-down" class="mr-1"></VIcon>
               {{ torrent?.peers }}
             </span>
           </div>
 
           <div class="d-flex align-center">
-            <VChip v-if="torrent?.size" color="primary" size="x-small" variant="elevated" class="rounded-sm mr-2">
+            <VChip v-if="torrent?.size" color="primary" size="x-small" variant="tonal" class="num rounded-sm mr-2">
               {{ formatFileSize(torrent.size) }}
             </VChip>
 
@@ -336,79 +340,6 @@ watch(
   background-color: var(--mp-list-row-hover) !important;
   box-shadow: none !important;
   transform: none;
-}
-
-.chip-season {
-  background-color: #3f51b5;
-  color: white;
-}
-
-.chip-web-source {
-  background-color: #8000ff;
-  color: white;
-}
-
-.chip-edition {
-  background-color: #f44336;
-  color: white;
-}
-
-.chip-resolution {
-  background-color: #7b1fa2;
-  color: white;
-}
-
-.chip-codec {
-  background-color: #ff9800;
-  color: white;
-}
-
-.chip-team {
-  background-color: #00897b;
-  color: white;
-}
-
-.chip-label {
-  background-color: #5c6bc0;
-  color: white;
-}
-
-.chip-hr {
-  background-color: #212121;
-  color: white;
-}
-
-.chip-expire {
-  background-color: #7e57c2;
-  color: white;
-}
-
-/* 优惠标签样式 */
-.bg-success {
-  background-color: #4caf50;
-}
-
-.bg-orange {
-  background-color: #ff5722;
-}
-
-.bg-purple {
-  background-color: #9c27b0;
-}
-
-.chip-free {
-  background-color: #4caf50;
-  color: white;
-}
-
-.chip-discount {
-  background-color: #ff5722;
-  color: white;
-}
-
-.chip-bonus {
-  background-color: #9c27b0;
-  color: white;
 }
 
 .site-icon {

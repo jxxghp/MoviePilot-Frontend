@@ -2436,7 +2436,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
         hide-details
         @update:model-value="selectDesktopPage"
       />
-      <span class="transfer-history-desktop-selection__count">
+      <span class="transfer-history-desktop-selection__count num">
         {{ t('transferHistory.selectedCount', { count: desktopSelectedCount, total: dataList.length }) }}
       </span>
       <template v-if="canManage && desktopSelectedCount > 0">
@@ -2473,7 +2473,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
       </VBtn>
     </div>
 
-    <div v-else-if="!desktopEmpty" class="transfer-history-desktop-summary">
+    <div v-else-if="!desktopEmpty" class="transfer-history-desktop-summary num">
       {{ t('transferHistory.desktop.summary', { count: totalItems, pages: totalPage }) }}
     </div>
 
@@ -2544,7 +2544,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
               <div class="transfer-history-album-summary__identity">
                 <div class="transfer-history-album-summary__title-line">
                   <strong>{{ getHistoryGroupSummary(item.items)?.label }}</strong>
-                  <VChip size="x-small" variant="tonal" color="primary">
+                  <VChip size="x-small" variant="tonal" color="primary" class="num">
                     {{
                       t('transferHistory.desktop.pageTracks', {
                         count: getHistoryGroupSummary(item.items)?.trackCount || 0,
@@ -2571,7 +2571,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 <span>{{ getHistoryGroupSummary(item.items)?.albumPath }}</span>
               </div>
 
-              <div class="transfer-history-album-summary__facts">
+              <div class="transfer-history-album-summary__facts num">
                 <VChip
                   v-if="getHistoryGroupSummary(item.items)?.mode"
                   size="x-small"
@@ -2642,9 +2642,9 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
               </div>
               <div class="transfer-history-desktop-group-identity">
                 <strong>{{ getHistoryGroupLabel(item.items) }}</strong>
-                <small>{{ t('transferHistory.desktop.pageRecords', { count: item.items.length }) }}</small>
+                <small class="num">{{ t('transferHistory.desktop.pageRecords', { count: item.items.length }) }}</small>
               </div>
-              <div class="transfer-history-desktop-group-counts">
+              <div class="transfer-history-desktop-group-counts num">
                 <VChip color="success" size="x-small" variant="tonal"
                   >{{ t('transferHistory.status.success') }}
                   {{ item.items.filter(entry => entry.value.status).length }}</VChip
@@ -2776,7 +2776,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                     </VMenu>
                   </IconBtn>
                 </div>
-                <div class="transfer-history-desktop-record__metadata">
+                <div class="transfer-history-desktop-record__metadata num">
                   <VChip variant="tonal" size="x-small">{{
                     TransferDict[item.mode ?? ''] || t('common.unknown')
                   }}</VChip>
@@ -2803,7 +2803,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
         class="transfer-history-pagination__size"
         :aria-label="t('transferHistory.pageSize')"
       />
-      <span class="transfer-history-pagination__info">{{
+      <span class="transfer-history-pagination__info num">{{
         t('transferHistory.pageInfo', { ...pageTip, total: totalItems })
       }}</span>
       <VPagination v-model="currentPage" show-first-last-page :length="totalPage" :total-visible="7" />
@@ -3018,7 +3018,7 @@ const nativeGroupingMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 </VMenu>
               </IconBtn>
 
-              <div class="transfer-history-mobile-record__meta">
+              <div class="transfer-history-mobile-record__meta num">
                 <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
                   {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
                 </VChip>
@@ -3253,8 +3253,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 .transfer-history-desktop-virtual > .v-table__wrapper {
   padding-inline: 0;
-  // 队列悬浮按钮压在列表右下角，末尾留白让最后一条记录能滚到按钮上方。
-  padding-block-end: var(--app-fab-clearance);
+  // 队列悬浮按钮压在列表右下角，末尾留白让最后一条记录能滚到按钮上方（原生套壳下自动归零）。
+  padding-block-end: var(--mp-bottom-clearance);
   border-radius: inherit;
 }
 .transfer-history-desktop-virtual table {
@@ -3397,8 +3397,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   padding-block: 0.1rem;
   padding-inline: 0.4rem;
   border-radius: 4px;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  background: var(--mp-muted);
+  color: var(--mp-muted-fg);
   font-size: 0.72rem;
   line-height: 1.5;
   margin-block-start: 0.1rem;
@@ -3486,6 +3486,21 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-desktop-pagination {
   flex-wrap: wrap;
   padding-block: 0;
+}
+
+// 玻璃主题下底部分页条直接浮在壁纸上，补充静态可读底色确保深色海面与亮空背景下的页码辨识度。
+html[data-theme='glass'] .transfer-history-desktop-pagination {
+  padding-block: 0.375rem;
+  padding-inline: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--app-theme-surface-radius);
+  background: rgba(15, 23, 42, 0.56);
+}
+
+html[data-theme='glass'][data-glass-color-scheme='light'] .transfer-history-desktop-pagination {
+  border-color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 // 仅移除桌面分页按钮的垂直外边距，保留横向间距和原有点击面积。
 .transfer-history-desktop-pagination .v-pagination__item,
@@ -3679,18 +3694,17 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 }
 
 .transfer-history-mobile-page {
-  --transfer-history-mobile-surface-opacity: 0.92;
-  --transfer-history-mobile-search-bg: rgba(var(--v-theme-on-surface), 0.045);
-  --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
-  --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.1);
-  --transfer-history-mobile-surface-blur: none;
+  --transfer-history-mobile-search-bg: var(--mp-muted);
+  --transfer-history-mobile-muted-bg: var(--mp-muted);
+  --transfer-history-mobile-border: var(--mp-border);
+  --transfer-history-mobile-surface-blur: var(--app-grouped-list-backdrop-filter);
 
   display: flex;
   flex-direction: column;
   gap: 1rem;
   min-block-size: 100%;
-  // 列表末尾预留悬浮按钮高度：本页按钮距底 4.5rem，比默认位置高 3.5rem，扣除外层布局 1.5rem 内边距后补 2rem。
-  padding-block: 0.25rem calc(var(--app-fab-clearance) + 2rem);
+  // 列表末尾预留悬浮按钮高度：网页端在原生底部避让基础上补足队列栈抬高距离，原生套壳下随 --mp-bottom-clearance 归零。
+  padding-block: 0.25rem calc(var(--mp-bottom-clearance) + 2rem);
   padding-inline: 0.35rem;
 }
 
@@ -3762,9 +3776,10 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 
 .transfer-history-mobile-record {
   overflow: hidden;
+  border: var(--app-grouped-list-border);
   border-radius: var(--app-surface-radius);
   backdrop-filter: var(--transfer-history-mobile-surface-blur);
-  background: rgba(var(--v-theme-surface), var(--transfer-history-mobile-surface-opacity));
+  background: var(--app-grouped-list-background);
   box-shadow: var(--app-card-rest-shadow);
 }
 
@@ -3835,8 +3850,8 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   position: absolute;
   padding: 2px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 55%);
-  color: rgb(255, 255, 255);
+  background: rgba(15, 23, 42, 0.64);
+  color: var(--mp-on-media);
   inset-block-end: 4px;
   inset-inline-start: 4px;
   opacity: 0.92;
@@ -3923,7 +3938,7 @@ html[data-theme='glass'] .transfer-history-desktop-page {
   display: grid;
   border: 0;
   background: transparent;
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-block-start: 1px solid var(--mp-list-row-divider);
   color: inherit;
   cursor: pointer;
   column-gap: 0.625rem;
@@ -4006,12 +4021,12 @@ html[data-theme='glass'] .transfer-history-desktop-page {
 .transfer-history-mobile-record__error {
   display: flex;
   align-items: center;
-  border: 1px solid rgba(var(--v-theme-error), 0.2);
+  border: 1px solid var(--mp-destructive-border);
   border-radius: 8px;
-  background: rgba(var(--v-theme-error), 0.08);
-  color: rgb(var(--v-theme-error));
+  background: var(--mp-destructive-soft);
+  color: var(--mp-destructive-fg);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 600;
   gap: 0.5rem;
   line-height: 1.45;
   margin-block: 0 1rem;

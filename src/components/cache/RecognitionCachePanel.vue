@@ -363,28 +363,28 @@ watch([searchFilter, statusFilter, typeFilter], () => {
         <div class="cache-panel-stat cache-panel-stat--primary">
           <VIcon icon="mdi-database-outline" :size="isMobile ? 32 : 22" />
           <div>
-            <strong>{{ totalCount }}</strong>
+            <strong class="num">{{ totalCount }}</strong>
             <span>{{ t('setting.cache.totalCount') }}</span>
           </div>
         </div>
         <div class="cache-panel-stat cache-panel-stat--success">
           <VIcon icon="mdi-check-decagram-outline" :size="isMobile ? 32 : 22" />
           <div>
-            <strong>{{ recognizedCount }}</strong>
+            <strong class="num">{{ recognizedCount }}</strong>
             <span>{{ t('setting.cache.recognized') }}</span>
           </div>
         </div>
         <div v-if="!isMobile || cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--warning">
           <VIcon icon="mdi-help-circle-outline" size="22" />
           <div>
-            <strong>{{ unrecognizedCount }}</strong>
+            <strong class="num">{{ unrecognizedCount }}</strong>
             <span>{{ t('setting.cache.unrecognized') }}</span>
           </div>
         </div>
         <div v-if="cacheData.shared_recognize_enabled" class="cache-panel-stat cache-panel-stat--info">
           <VIcon icon="mdi-cloud-check-outline" :size="isMobile ? 32 : 22" />
           <div>
-            <strong>{{ cacheData.shared_recognized }}</strong>
+            <strong class="num">{{ cacheData.shared_recognized }}</strong>
             <span>{{ t('setting.cache.sharedRecognized') }}</span>
           </div>
         </div>
@@ -512,8 +512,10 @@ watch([searchFilter, statusFilter, typeFilter], () => {
                     <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
                       {{ getMediaTypeLabel(item.media_type) }}
                     </VChip>
-                    <span v-if="item.year">{{ item.year }}</span>
-                    <span v-if="isRecognized(item)">{{ recognitionIdLabel }} #{{ getRecognitionId(item) }}</span>
+                    <span v-if="item.year" class="num">{{ item.year }}</span>
+                    <span v-if="isRecognized(item)" class="num"
+                      >{{ recognitionIdLabel }} #{{ getRecognitionId(item) }}</span
+                    >
                   </div>
                   <div class="recognition-cache-mobile-item__key">{{ item.key }}</div>
                 </div>
@@ -568,7 +570,7 @@ watch([searchFilter, statusFilter, typeFilter], () => {
         <template #item.result="{ item }">
           <div class="recognition-cache-result">
             <strong>{{ item.title || t('setting.cache.unrecognized') }}</strong>
-            <span v-if="item.year">{{ item.year }}</span>
+            <span v-if="item.year" class="num">{{ item.year }}</span>
             <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
               {{ getMediaTypeLabel(item.media_type) }}
             </VChip>
@@ -576,7 +578,7 @@ watch([searchFilter, statusFilter, typeFilter], () => {
         </template>
 
         <template #item.recognition_id="{ item }">
-          <span v-if="isRecognized(item)" class="font-weight-medium">#{{ getRecognitionId(item) }}</span>
+          <span v-if="isRecognized(item)" class="font-weight-medium num">#{{ getRecognitionId(item) }}</span>
           <span v-else class="text-medium-emphasis">-</span>
         </template>
 
@@ -659,10 +661,10 @@ watch([searchFilter, statusFilter, typeFilter], () => {
 .cache-panel-stat {
   display: flex;
   align-items: center;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  background: var(--app-grouped-list-background);
-  box-shadow: var(--app-surface-shadow);
+  background: var(--mp-muted);
+  box-shadow: none;
   gap: 10px;
   min-block-size: 58px;
   min-inline-size: 126px;
@@ -676,13 +678,13 @@ watch([searchFilter, statusFilter, typeFilter], () => {
 }
 
 .cache-panel-stat strong {
-  color: rgba(var(--v-theme-on-surface), 0.9);
+  color: var(--mp-fg);
   font-size: 18px;
   line-height: 1.15;
 }
 
 .cache-panel-stat span {
-  color: rgba(var(--v-theme-on-surface), 0.58);
+  color: var(--mp-muted-fg);
   font-size: 12px;
   margin-block-start: 3px;
 }
@@ -717,7 +719,7 @@ watch([searchFilter, statusFilter, typeFilter], () => {
 
 .cache-panel-filters :deep(.v-field) {
   border-radius: var(--app-field-radius);
-  background: var(--app-grouped-list-background);
+  background: var(--mp-input);
 }
 
 .cache-panel-mobile-actions {
@@ -732,9 +734,9 @@ watch([searchFilter, statusFilter, typeFilter], () => {
 
 .recognition-cache-table {
   overflow: hidden;
-  border: var(--app-surface-border);
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-surface-radius);
-  box-shadow: var(--app-surface-shadow);
+  box-shadow: none;
 }
 
 .recognition-cache-table__poster,
@@ -892,11 +894,10 @@ watch([searchFilter, statusFilter, typeFilter], () => {
     display: grid;
     align-items: start;
     padding: 12px;
-    border: var(--app-surface-border);
+    border: 1px solid var(--mp-border);
     border-radius: var(--app-surface-radius);
-    backdrop-filter: var(--app-grouped-list-backdrop-filter);
-    background: var(--app-grouped-list-background);
-    box-shadow: var(--app-surface-shadow);
+    background: var(--mp-muted);
+    box-shadow: none;
     gap: 12px;
     grid-template-columns: 54px minmax(0, 1fr) 36px;
   }
