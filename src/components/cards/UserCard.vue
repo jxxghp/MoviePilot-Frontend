@@ -305,7 +305,6 @@ onMounted(() => {
           <div rounded="lg" class="d-flex justify-space-around">
             <div class="d-flex align-center gap-3">
               <VAvatar
-                tile
                 rounded="lg"
                 size="large"
                 class="mr-1"
@@ -322,7 +321,6 @@ onMounted(() => {
             </div>
             <div class="d-flex align-center gap-3">
               <VAvatar
-                tile
                 rounded="lg"
                 size="large"
                 class="mr-1"

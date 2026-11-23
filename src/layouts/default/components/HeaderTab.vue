@@ -101,7 +101,7 @@ const updateTabsIndicator = () => {
   const isScrolledToEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - tolerance
   const isScrolledToStart = el.scrollLeft <= tolerance
 
-  showTabsScrollIndicator.value = hasOverflow && !isScrolledToEnd && !shouldHideScrollControls
+  showTabsScrollIndicator.value = hasOverflow && !isScrolledToEnd
   showLeftButton.value = hasOverflow && !isScrolledToStart && !shouldHideScrollControls
   showRightButton.value = hasOverflow && !isScrolledToEnd && !shouldHideScrollControls
 }
@@ -195,102 +195,70 @@ onUnmounted(() => {
 }
 
 .header-tabs {
-  position: relative; // Needed for pseudo-element positioning
+  position: relative;
   display: flex;
   flex-grow: 1;
-  gap: 12px;
-
-  // Clip content that overflows, useful with padding
-  mask-image: linear-gradient(to right, black 95%, transparent 100%);
+  align-items: center;
+  gap: 6px;
   min-inline-size: 0;
   overflow-x: auto;
-  padding-block: 4px;
+  padding-block: 3px 5px;
   padding-inline: 0;
-
-  // Add padding-right to make space for the indicator visually
-  padding-inline-end: 20px;
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
     display: none;
   }
 
-  // Gradient indicator pseudo-element
-  &::after {
-    position: absolute;
-    z-index: 1; // Ensure it's above the tabs but below other header elements if needed
-    background: linear-gradient(to left, rgba(var(--v-theme-background), 0.3) 30%, transparent);
-    content: '';
-    inline-size: 40px; // Width of the fade effect
-    inset-block: 0;
-    inset-inline-end: 0;
-    opacity: 0; // Hidden by default
-    pointer-events: none; // Allow interaction with content behind it
-    transition: opacity 0.2s ease-in-out;
-  }
-
-  // Show indicator when class is applied
-  &.show-indicator::after {
-    opacity: 1;
-  }
-
-  // 触摸设备支持手势横向滚动，无需额外指示器
-  @media (hover: none) and (pointer: coarse) {
-    &::after {
-      display: none !important;
-    }
+  &.show-indicator {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
   }
 }
 
 .header-tab-icon {
-  color: rgba(var(--v-theme-on-background), 0.6);
+  color: currentcolor;
   margin-inline-end: 6px;
-  transition: color 0.2s ease;
+  opacity: 0.78;
+  transition:
+    color 160ms var(--mp-motion-ease-standard),
+    opacity 160ms var(--mp-motion-ease-standard);
 }
 
 .header-tab {
   position: relative;
-  display: flex;
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  border-radius: 20px;
+  block-size: 2rem;
+  border-radius: 9999px;
   background-color: transparent;
-  color: rgba(var(--v-theme-on-background), 0.7);
+  color: var(--mp-muted-fg);
   cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding-block: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
   padding-inline: 14px;
-  transition: all 0.2s ease;
+  transition:
+    background-color 160ms var(--mp-motion-ease-standard),
+    box-shadow 160ms var(--mp-motion-ease-standard),
+    color 160ms var(--mp-motion-ease-standard);
   white-space: nowrap;
 
-  &::after {
-    position: absolute;
-    border-radius: 3px;
-    background-color: rgb(var(--v-theme-primary));
-    block-size: 3px;
-    content: '';
-    inline-size: 70%;
-    inset-block-end: -4px;
-    inset-inline-start: 50%;
-    transform: translateX(-50%) scaleX(0);
-    transition: transform 0.2s ease;
-  }
-
   &.active {
+    background-color: var(--mp-primary-soft);
+    box-shadow: inset 0 0 0 1px var(--mp-primary-border);
     color: var(--mp-primary-fg);
-
-    &::after {
-      transform: translateX(-50%) scaleX(1);
-    }
+    font-weight: 600;
 
     .header-tab-icon {
       color: var(--mp-primary-fg);
+      opacity: 1;
     }
   }
 
   &:hover:not(.active) {
-    background-color: rgba(var(--v-theme-primary), 0.05);
-    color: rgba(var(--v-theme-on-background), 1);
+    background-color: rgba(var(--v-theme-on-surface), 0.06);
+    color: var(--mp-fg);
   }
 }
 </style>

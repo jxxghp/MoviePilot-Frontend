@@ -341,6 +341,7 @@ export default {
     active: '激活',
     inactive: '未激活',
     filter: '篩選',
+    collapse: '收起',
     noMatchingData: '沒有符合條件的數據',
     tryChangingFilters: '請嘗試更改篩選條件',
     default: '默認',
@@ -6093,6 +6094,7 @@ export default {
     genre: '風格',
     language: '語言',
     rating: '評分',
+    voteCount: '人數',
     sortType: {
       popularityDesc: '熱度降序',
       popularityAsc: '熱度升序',

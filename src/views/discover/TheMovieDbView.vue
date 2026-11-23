@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppFilterBar from '@/components/filter/AppFilterBar.vue'
 import MediaCardListView from '@/views/discover/MediaCardListView.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -133,28 +134,34 @@ watch(filterParams, () => {
   }
   currentKey.value++
 })
+// 统计移动端收起态下已激活的次级筛选数量。
+const secondaryFilterCount = computed(() => {
+  let count = 0
+  if (filterParams.sort_by && filterParams.sort_by !== 'popularity.desc') count += 1
+  if (filterParams.with_genres) count += 1
+  if (filterParams.with_original_language) count += 1
+  if (filterParams.vote_average > 0) count += 1
+  if (Number(filterParams.vote_count) !== 10) count += 1
+  return count
+})
 </script>
 
 <template>
-  <div class="app-filter-bar">
-    <div class="app-filter-row">
-      <VLabel class="app-filter-label">{{ t('tmdb.type') }}</VLabel>
-      <VChipGroup v-model="type" class="app-filter-chips">
-        <VChip :color="type == 'movies' ? 'primary' : ''" filter tile value="movies">{{ t('mediaType.movie') }}</VChip>
-        <VChip :color="type == 'tvs' ? 'primary' : ''" filter tile value="tvs">{{ t('mediaType.tv') }}</VChip>
-      </VChipGroup>
-    </div>
+  <AppFilterBar :active-count="secondaryFilterCount">
+    <template #primary>
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ t('tmdb.type') }}</VLabel>
+        <VChipGroup v-model="type" class="app-filter-chips">
+          <VChip value="movies">{{ t('mediaType.movie') }}</VChip>
+          <VChip value="tvs">{{ t('mediaType.tv') }}</VChip>
+        </VChipGroup>
+      </div>
+    </template>
+
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('tmdb.sort') }}</VLabel>
       <VChipGroup v-model="filterParams.sort_by" class="app-filter-chips">
-        <VChip
-          :color="filterParams.sort_by == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in type == 'movies' ? tmdbSortDict : tmdbTvSortDict"
-          :key="key"
-        >
+        <VChip v-for="(value, key) in type == 'movies' ? tmdbSortDict : tmdbTvSortDict" :key="key" :value="key">
           {{ value }}
         </VChip>
       </VChipGroup>
@@ -162,14 +169,7 @@ watch(filterParams, () => {
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('tmdb.genre') }}</VLabel>
       <VChipGroup v-model="filterParams.with_genres" class="app-filter-chips">
-        <VChip
-          :color="filterParams.with_genres == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in type == 'movies' ? tmdbMovieGenreDict : tmdbTvGenreDict"
-          :key="key"
-        >
+        <VChip v-for="(value, key) in type == 'movies' ? tmdbMovieGenreDict : tmdbTvGenreDict" :key="key" :value="key">
           {{ value }}
         </VChip>
       </VChipGroup>
@@ -177,46 +177,44 @@ watch(filterParams, () => {
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('tmdb.language') }}</VLabel>
       <VChipGroup v-model="filterParams.with_original_language" class="app-filter-chips">
-        <VChip
-          :color="filterParams.with_original_language == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
-          v-for="(value, key) in tmdbLanguageDict"
-          :key="key"
-        >
+        <VChip v-for="(value, key) in tmdbLanguageDict" :key="key" :value="key">
           {{ value }}
         </VChip>
       </VChipGroup>
     </div>
     <div class="app-filter-row">
       <VLabel class="app-filter-label">{{ t('tmdb.rating') }}</VLabel>
-      <VSlider
-        v-model="filterParams.vote_average"
-        thumb-label
-        max="10"
-        min="0"
-        :step="1"
-        class="app-filter-slider align-center"
-        hide-details
-      >
-        <template v-slot:append>
+      <div class="app-filter-range-capsule">
+        <span class="app-filter-range-readout num" :class="{ 'is-active': filterParams.vote_average > 0 }">
+          <span class="app-filter-range-readout__star" aria-hidden="true">★</span>
+          <span>{{ filterParams.vote_average > 0 ? `≥ ${filterParams.vote_average}` : t('common.all') }}</span>
+        </span>
+        <VSlider
+          v-model="filterParams.vote_average"
+          max="10"
+          min="0"
+          :step="1"
+          density="compact"
+          class="app-filter-slider align-center"
+          hide-details
+        />
+        <label class="app-filter-vote-count">
+          <span class="app-filter-vote-prefix">{{ t('tmdb.voteCount') }} ≥</span>
           <VTextField
-            variant="outlined"
-            width="5rem"
             v-model="filterParams.vote_count"
-            class="num"
+            variant="plain"
             density="compact"
             type="number"
             hide-details
             single-line
+            class="app-filter-vote-input num"
           />
-        </template>
-      </VSlider>
+        </label>
+      </div>
     </div>
-  </div>
+  </AppFilterBar>
 
   <div>
-    <MediaCardListView :key="currentKey" :apipath="`discover/tmdb_${type}`" :params="filterParams" />
+    <MediaCardListView :key="currentKey" :apipath="`discover/tmdb_${type}`" :params="filterParams" hide-type-badge />
   </div>
 </template>

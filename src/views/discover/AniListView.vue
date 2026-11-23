@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppFilterBar from '@/components/filter/AppFilterBar.vue'
 import MediaCardListView from '@/views/discover/MediaCardListView.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -93,30 +94,46 @@ watch(filterParams, () => {
   }
   currentKey.value++
 })
+const primaryGroup = filterGroups[0]
+const secondaryGroups = filterGroups.slice(1)
+const secondaryFilterCount = computed(() => secondaryGroups.filter(group => Boolean(filterParams[group.key])).length)
 </script>
 
 <template>
-  <div class="app-filter-bar">
-    <div v-for="group in filterGroups" :key="group.key" class="app-filter-row">
+  <AppFilterBar :active-count="secondaryFilterCount">
+    <template #primary>
+      <div class="app-filter-row">
+        <VLabel class="app-filter-label">{{ primaryGroup.label }}</VLabel>
+        <VChipGroup
+          class="app-filter-chips"
+          :model-value="filterParams[primaryGroup.key]"
+          @update:model-value="updateFilter(primaryGroup.key, $event)"
+        >
+          <VChip v-for="item in primaryGroup.items" :key="item.value" :value="item.value">
+            {{ item.title }}
+          </VChip>
+        </VChipGroup>
+      </div>
+    </template>
+
+    <div v-for="group in secondaryGroups" :key="group.key" class="app-filter-row">
       <VLabel class="app-filter-label">{{ group.label }}</VLabel>
       <VChipGroup
         class="app-filter-chips"
         :model-value="filterParams[group.key]"
         @update:model-value="updateFilter(group.key, $event)"
       >
-        <VChip
-          v-for="item in group.items"
-          :key="item.value"
-          :color="filterParams[group.key as keyof typeof filterParams] == item.value ? 'primary' : ''"
-          filter
-          tile
-          :value="item.value"
-        >
+        <VChip v-for="item in group.items" :key="item.value" :value="item.value">
           {{ item.title }}
         </VChip>
       </VChipGroup>
     </div>
-  </div>
+  </AppFilterBar>
 
-  <MediaCardListView :key="currentKey" apipath="anilist/discover" :params="filterParams" />
+  <MediaCardListView
+    :key="currentKey"
+    apipath="anilist/discover"
+    :params="filterParams"
+    :hide-type-badge="Boolean(filterParams.format)"
+  />
 </template>

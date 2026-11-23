@@ -36,12 +36,22 @@ html {
   // 压在海报或剧照底图上的文字与压暗遮罩不随浅色主题反转为深色
   --mp-on-media: #f8fafc;
   --mp-on-media-muted: rgba(248, 250, 252, 0.78);
+  --mp-on-media-movie: #60a5fa;
+  --mp-on-media-tv: #a78bfa;
+  --mp-on-media-music: #f472b6;
+  --mp-on-media-rating: #fbbf24;
   --mp-media-scrim: linear-gradient(
     180deg,
     rgba(11, 19, 34, 0.06) 0%,
     rgba(11, 19, 34, 0.66) 54%,
     rgba(11, 19, 34, 0.92) 100%
   );
+
+  // 无框筛选轨道内的单颗自衬底微胶囊令牌（零 backdrop-filter，兼顾透射壁纸与高反差可读性）
+  --mp-filter-pill-bg: #ffffff;
+  --mp-filter-pill-border: rgba(24, 24, 27, 0.08);
+  --mp-filter-pill-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --mp-filter-pill-fg: rgba(24, 24, 27, 0.84);
 
   // 描边与键盘可见焦点环
   --mp-border: rgba(24, 24, 27, 0.08);
@@ -115,6 +125,10 @@ html:where([data-glass-color-scheme='dark'], [data-theme='glass']:not([data-glas
   --mp-semantic-fg-mix: 60%;
   --mp-semantic-fg-anchor: #fff;
   --mp-muted: #131b2b;
+  --mp-filter-pill-bg: #182235;
+  --mp-filter-pill-border: rgba(255, 255, 255, 0.09);
+  --mp-filter-pill-shadow: none;
+  --mp-filter-pill-fg: rgba(242, 245, 250, 0.84);
   --mp-border: rgba(255, 255, 255, 0.08);
   --mp-border-subtle: rgba(255, 255, 255, 0.055);
   --mp-card-dock-border: rgba(255, 255, 255, 0.055);
@@ -133,6 +147,10 @@ html[data-theme='glass'] {
   --mp-muted: rgba(255, 255, 255, 0.055);
   --mp-reading-surface: rgba(15, 23, 42, 0.58);
   --mp-reading-border: rgba(255, 255, 255, 0.14);
+  --mp-filter-pill-bg: rgba(15, 23, 42, 0.54);
+  --mp-filter-pill-border: rgba(255, 255, 255, 0.11);
+  --mp-filter-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --mp-filter-pill-fg: rgba(242, 245, 250, 0.88);
   --mp-popover: var(--glass-popup-surface, var(--glass-overlay-surface));
   --mp-border: var(--glass-border);
   --mp-list-group-bg: rgba(255, 255, 255, 0.035);
@@ -144,7 +162,11 @@ html[data-theme='glass'][data-glass-color-scheme='light'] {
   --mp-faint-alpha: 0.72;
   --mp-muted: rgba(15, 23, 42, 0.055);
   --mp-reading-surface: rgba(255, 255, 255, 0.78);
-  --mp-reading-border: rgba(255, 255, 255, 0.8);
+  --mp-reading-border: rgba(15, 23, 42, 0.1);
+  --mp-filter-pill-bg: rgba(255, 255, 255, 0.66);
+  --mp-filter-pill-border: rgba(15, 23, 42, 0.1);
+  --mp-filter-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --mp-filter-pill-fg: #18181b;
   --mp-list-group-bg: rgba(15, 23, 42, 0.03);
   --mp-list-row-divider: rgba(15, 23, 42, 0.09);
   --mp-list-row-hover: rgba(15, 23, 42, 0.065);
