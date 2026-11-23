@@ -871,7 +871,7 @@ watch(
         value: 2,
         show: true,
         props: {
-          prependIcon: 'mdi-auto-fix',
+          prependIcon: 'mdi-image-text',
           click: (_item: FileItem) => {
             showScrape(_item)
           },
@@ -1131,7 +1131,7 @@ const nativeSortMenu = computed<NativeStandaloneMenuBinding>(() => ({
       <span class="num">{{ t('file.selectedItems', { count: selected.length }) }}</span>
       <div class="file-list__batch">
         <IconBtn :disabled="!selected.length" :aria-label="t('file.scrape')" @click="showBatchScrape"
-          ><VIcon icon="mdi-auto-fix"
+          ><VIcon icon="mdi-image-text"
         /></IconBtn>
         <IconBtn :disabled="!selected.length" :aria-label="t('file.reorganize')" @click="showBatchTransfer"
           ><VIcon icon="mdi-folder-arrow-right"

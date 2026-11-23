@@ -45,7 +45,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       : [
           {
             title: t('navItems.recommend'),
-            icon: 'mdi-star-outline',
+            icon: 'mdi-cards-outline',
             iconColor: 'primary',
             to: '/recommend',
             header: t('menu.discovery'),

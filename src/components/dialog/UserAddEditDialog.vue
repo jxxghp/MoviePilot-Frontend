@@ -110,7 +110,7 @@ const permissionOptions = [
     key: 'discovery',
     title: t('dialog.userAddEdit.permissions.discovery'),
     description: t('dialog.userAddEdit.permissions.discoveryDesc'),
-    icon: 'mdi-star-outline',
+    icon: 'mdi-cards-outline',
   },
   {
     key: 'search',

@@ -864,7 +864,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     await screen.findByText('first.mkv')
 
     const firstRow = screen.getByText('first.mkv').closest('.file-row') as Element
-    await fireEvent.click(firstRow.querySelector('[data-icon="mdi-auto-fix"]')?.closest('button') as Element)
+    await fireEvent.click(firstRow.querySelector('[data-icon="mdi-image-text"]')?.closest('button') as Element)
     expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({ items: [first] })
 
     await fireEvent.click(firstRow.querySelector('[data-icon="mdi-folder-arrow-right"]')?.closest('button') as Element)
@@ -883,7 +883,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     await fireEvent.click(getIconButton('mdi-select'))
     await fireEvent.click(firstRow)
     await fireEvent.click(screen.getByText('second.mkv').closest('.file-row') as Element)
-    await fireEvent.click(getIconButton('mdi-auto-fix'))
+    await fireEvent.click(getIconButton('mdi-image-text'))
     expect(mocks.openSharedDialog.mock.calls.at(-1)?.[1]).toMatchObject({ items: [first, second] })
   })
 
@@ -898,7 +898,7 @@ describe('FileList dialogs, download and lifecycle', () => {
     await fireEvent.click(getIconButton('mdi-select'))
     await fireEvent.click(screen.getByText('first.mkv').closest('.file-row') as Element)
     await fireEvent.click(screen.getByText('second.mkv').closest('.file-row') as Element)
-    await fireEvent.click(getIconButton('mdi-auto-fix'))
+    await fireEvent.click(getIconButton('mdi-image-text'))
     const scrapeEvents = mocks.openSharedDialog.mock.calls.at(-1)?.[2] as Record<
       string,
       (options: Record<string, unknown>) => Promise<void>

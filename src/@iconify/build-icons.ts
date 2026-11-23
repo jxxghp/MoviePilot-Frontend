@@ -23,13 +23,7 @@ const projectSrcDir = join(__dirname, '..')
 const require = createRequire(import.meta.url)
 
 // Installation: npm install --save-dev @iconify/tools @iconify/utils @iconify/json @iconify/iconify
-import {
-  cleanupSVG,
-  importDirectory,
-  isEmptyColor,
-  parseColors,
-  runSVGO,
-} from '@iconify/tools'
+import { cleanupSVG, importDirectory, isEmptyColor, parseColors, runSVGO } from '@iconify/tools'
 import type { IconifyJSON, IconifyMetaData } from '@iconify/types'
 import { getIcons, minifyIconSet, stringToIcon } from '@iconify/utils'
 
@@ -37,7 +31,6 @@ import { getIcons, minifyIconSet, stringToIcon } from '@iconify/utils'
  * Script configuration
  */
 interface BundleScriptCustomSVGConfig {
-
   // Path to SVG files
   dir: string
 
@@ -49,7 +42,6 @@ interface BundleScriptCustomSVGConfig {
 }
 
 interface BundleScriptCustomJSONConfig {
-
   // Path to JSON file
   filename: string
 
@@ -58,7 +50,6 @@ interface BundleScriptCustomJSONConfig {
 }
 
 interface BundleScriptConfig {
-
   // Custom SVG to import and bundle
   svg?: BundleScriptCustomSVGConfig[]
 
@@ -78,7 +69,6 @@ const sources: BundleScriptConfig = {
     //   monotone: true,
     //   prefix: 'custom',
     // },
-
     // {
     //   dir: 'emojis',
     //   monotone: false,
@@ -86,11 +76,7 @@ const sources: BundleScriptConfig = {
     // },
   ],
 
-  icons: [
-    'lucide:sparkles',
-    'material-symbols:passkey',
-    'line-md:loading-twotone-loop',
-  ],
+  icons: ['material-symbols:passkey', 'line-md:loading-twotone-loop'],
 
   json: [],
 }
@@ -103,13 +89,13 @@ const component = '@iconify/vue'
 const commonJS = false
 
 // File to save bundle to
-const target = join(__dirname, 'icons-bundle.js');
+const target = join(__dirname, 'icons-bundle.js')
 
 /**
  * Do stuff!
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity
-(async function () {
+;(async function () {
   const scannedIcons = await collectUsedIcons(projectSrcDir)
 
   if (sources.icons) {
@@ -129,8 +115,7 @@ const target = join(__dirname, 'icons-bundle.js');
     await fs.mkdir(dir, {
       recursive: true,
     })
-  }
-  catch (err) {
+  } catch (err) {
     //
   }
 
@@ -146,8 +131,7 @@ const target = join(__dirname, 'icons-bundle.js');
       let filename
       try {
         filename = require.resolve(`@iconify-json/${prefix}/icons.json`)
-      }
-      catch (err) {
+      } catch (err) {
         filename = require.resolve(`@iconify/json/json/${prefix}.json`)
       }
 
@@ -167,15 +151,12 @@ const target = join(__dirname, 'icons-bundle.js');
 
       // Load icon set
       const filename = typeof item === 'string' ? item : item.filename
-      let content = JSON.parse(
-        await fs.readFile(filename, 'utf8'),
-      ) as IconifyJSON
+      let content = JSON.parse(await fs.readFile(filename, 'utf8')) as IconifyJSON
 
       // Filter icons
       if (typeof item !== 'string' && item.icons?.length) {
         const filteredContent = getIcons(content, item.icons)
-        if (!filteredContent)
-          throw new Error(`Cannot find required icons in ${filename}`)
+        if (!filteredContent) throw new Error(`Cannot find required icons in ${filename}`)
 
         content = filteredContent
       }
@@ -202,8 +183,7 @@ const target = join(__dirname, 'icons-bundle.js');
 
       // Validate, clean up, fix palette and optimise
       await iconSet.forEach(async (name, type) => {
-        if (type !== 'icon')
-          return
+        if (type !== 'icon') return
 
         // Get SVG instance for parsing
         const svg = iconSet.toSVG(name)
@@ -225,22 +205,16 @@ const target = join(__dirname, 'icons-bundle.js');
             await parseColors(svg, {
               defaultColor: 'currentColor',
               callback: (attr, colorStr, color) => {
-                return (!color || isEmptyColor(color))
-                  ? colorStr
-                  : 'currentColor'
+                return !color || isEmptyColor(color) ? colorStr : 'currentColor'
               },
             })
           }
 
           // Optimise
           await runSVGO(svg)
-        }
-        catch (err) {
+        } catch (err) {
           // Invalid icon
-          console.error(
-            `Error parsing ${name} from ${source.dir}:`,
-            err,
-          )
+          console.error(`Error parsing ${name} from ${source.dir}:`, err)
           iconSet.remove(name)
 
           return
@@ -262,7 +236,7 @@ const target = join(__dirname, 'icons-bundle.js');
   await fs.writeFile(target, bundle, 'utf8')
 
   console.log(`Saved ${target} (${bundle.length} bytes)`)
-})().catch((err) => {
+})().catch(err => {
   console.error(err)
   // 构建图标失败时必须终止构建，避免继续发布上一次遗留的超大 icons-bundle。
   process.exitCode = 1
@@ -322,16 +296,9 @@ async function walkDirectory(dir: string): Promise<string[]> {
  * Remove metadata from icon set
  */
 function removeMetaData(iconSet: IconifyJSON) {
-  const props: (keyof IconifyMetaData)[] = [
-    'info',
-    'chars',
-    'categories',
-    'themes',
-    'prefixes',
-    'suffixes',
-  ]
+  const props: (keyof IconifyMetaData)[] = ['info', 'chars', 'categories', 'themes', 'prefixes', 'suffixes']
 
-  props.forEach((prop) => {
+  props.forEach(prop => {
     delete iconSet[prop]
   })
 }
@@ -342,20 +309,16 @@ function removeMetaData(iconSet: IconifyJSON) {
 function organizeIconsList(icons: string[]): Record<string, string[]> {
   const sorted: Record<string, string[]> = Object.create(null)
 
-  icons.forEach((icon) => {
+  icons.forEach(icon => {
     const item = stringToIcon(icon)
-    if (!item)
-      return
+    if (!item) return
 
     const prefix = item.prefix
 
-    const prefixList = sorted[prefix]
-      ? sorted[prefix]
-      : (sorted[prefix] = [])
+    const prefixList = sorted[prefix] ? sorted[prefix] : (sorted[prefix] = [])
 
     const name = item.name
-    if (!prefixList.includes(name))
-      prefixList.push(name)
+    if (!prefixList.includes(name)) prefixList.push(name)
   })
 
   return sorted

@@ -114,7 +114,7 @@ const subscribeModeOptions = computed<SubscribeModeOption[]>(() => [
   {
     title: t('dialog.subscribeMode.bestVersionFull'),
     value: 'best_version_full',
-    icon: 'mdi-shimmer',
+    icon: 'mdi-quality-high',
   },
 ])
 

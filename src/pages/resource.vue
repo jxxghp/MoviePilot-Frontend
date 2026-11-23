@@ -1693,7 +1693,7 @@ useNativePageHeader({
     },
     {
       title: t('resource.aiRecommend'),
-      icon: 'lucide:sparkles',
+      icon: 'mdi-check-decagram-outline',
       show:
         showResultHeader.value &&
         !isSubtitleSearch.value &&
@@ -1704,7 +1704,7 @@ useNativePageHeader({
     },
     {
       title: t('resource.reRecommend'),
-      icon: 'mdi-auto-fix',
+      icon: 'mdi-refresh',
       show:
         showResultHeader.value &&
         !isSubtitleSearch.value &&
@@ -1850,7 +1850,7 @@ useNativePageHeader({
             @click="toggleAiRecommend"
           >
             <template #prepend>
-              <VIcon icon="lucide:sparkles" size="18" />
+              <VIcon icon="mdi-check-decagram-outline" size="18" />
             </template>
             <span class="ai-action-group__label">{{ t('resource.aiRecommend') }}</span>
             <VTooltip activator="parent" location="top">
@@ -1861,7 +1861,7 @@ useNativePageHeader({
           <VExpandXTransition>
             <div v-if="aiRecommended || isRecommending" class="ai-action-group__more">
               <IconBtn variant="text" color="gray" :disabled="isRecommending || !aiStatusChecked" @click="reRecommend">
-                <VIcon :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-auto-fix'" />
+                <VIcon :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'" />
                 <VTooltip activator="parent" location="top">
                   {{ t('resource.reRecommend') }}
                 </VTooltip>

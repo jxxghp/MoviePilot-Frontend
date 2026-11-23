@@ -242,16 +242,16 @@ const compactStateDisplay = computed(() => {
     return { color: 'info', icon: 'mdi-timer-sand', label: t('subscribe.cardStatePending') }
   }
   if (hasBestVersion.value) {
-    return { color: 'success', icon: 'mdi-shimmer', label: t('subscribe.subscribing') }
+    return { color: 'success', icon: 'mdi-quality-high', label: t('subscribe.subscribing') }
   }
   return { color: 'primary', icon: 'mdi-rss', label: t('subscribe.subscribing') }
 })
 
-// 洗版徽标：共用 mdi-shimmer 图标，分集 / 全集 由 full 标记区分背景
+// 洗版徽标：共用 mdi-quality-high 图标，分集 / 全集 由 full 标记区分背景
 const bestVersionBadge = computed(() => {
   if (!hasBestVersion.value) return null
   return {
-    icon: 'mdi-shimmer',
+    icon: 'mdi-quality-high',
     full: isEnabledFlag(props.media?.best_version_full),
   }
 })

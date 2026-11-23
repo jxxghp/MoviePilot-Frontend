@@ -83,7 +83,7 @@ function closeDialog() {
         </VRow>
       </VCardText>
       <VCardActions class="app-dialog-actions">
-        <VBtn color="success" variant="tonal" prepend-icon="mdi-magic" @click="emit('auto-name')">
+        <VBtn color="success" variant="tonal" prepend-icon="mdi-text-recognition" @click="emit('auto-name')">
           {{ t('file.autoRecognizeName') }}
         </VBtn>
         <VSpacer />

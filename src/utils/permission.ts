@@ -47,7 +47,7 @@ export const USER_PERMISSION_FEATURES: UserPermissionFeatureOption[] = [
     permission: 'discovery',
     titleKey: 'dialog.userAddEdit.permissions.features.recommend',
     descriptionKey: 'dialog.userAddEdit.permissions.featureDescriptions.recommend',
-    icon: 'mdi-star-outline',
+    icon: 'mdi-cards-outline',
     path: '/recommend',
   },
   {

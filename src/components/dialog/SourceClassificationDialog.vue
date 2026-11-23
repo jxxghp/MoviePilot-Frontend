@@ -167,7 +167,7 @@ async function submit(execute = false) {
         </VAlert>
 
         <VBtnToggle v-model="mode" mandatory divided color="primary" class="mb-5">
-          <VBtn value="recognize" prepend-icon="mdi-auto-fix">系统识别归类</VBtn>
+          <VBtn value="recognize" prepend-icon="mdi-text-recognition">系统识别归类</VBtn>
           <VBtn value="manual" prepend-icon="mdi-folder-edit-outline">手动指定目录</VBtn>
         </VBtnToggle>
 

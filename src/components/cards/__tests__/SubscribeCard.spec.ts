@@ -521,7 +521,7 @@ describe('SubscribeCard display and progress', () => {
     })
 
     expect(container.querySelector('.subscribe-card')).toHaveClass('subscribe-card-best-version-tint')
-    expect(container.querySelector('[data-subscribe-state-icon="mdi-shimmer"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-subscribe-state-icon="mdi-quality-high"]')).toBeInTheDocument()
     expect(container.querySelector('.subscribe-card-mobile-state')).toHaveStyle({
       color: 'rgb(var(--v-theme-success))',
     })

@@ -477,7 +477,7 @@ onMounted(() => {
                       :items="effectOptions"
                       :hint="t('dialog.subscribeEdit.effectHint')"
                       persistent-hint
-                      prepend-inner-icon="mdi-auto-fix"
+                      prepend-inner-icon="mdi-hdr"
                     />
                   </VCol>
                 </VRow>

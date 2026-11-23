@@ -12,7 +12,7 @@ const { t } = useI18n()
 const actions: { key: FileAction; icon: string }[] = [
   { key: 'play', icon: 'mdi-play' },
   { key: 'recognize', icon: 'mdi-text-recognition' },
-  { key: 'scrape', icon: 'mdi-auto-fix' },
+  { key: 'scrape', icon: 'mdi-image-text' },
   { key: 'rename', icon: 'mdi-rename' },
   { key: 'reorganize', icon: 'mdi-folder-arrow-right' },
   { key: 'download', icon: 'mdi-download' },
