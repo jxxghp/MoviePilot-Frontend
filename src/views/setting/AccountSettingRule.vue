@@ -58,7 +58,7 @@ const savingFilterRuleGroups = ref(false)
 const selectedTorrentPriority = ref<string[]>(['seeder'])
 
 // 二级分类策略
-const mediaCategories = ref<{ [key: string]: any }>({})
+const mediaCategories = ref<Record<string, unknown>>({})
 
 // 提示框
 const $toast = useToast()
@@ -405,9 +405,9 @@ async function importRules(ruleType: string) {
 }
 
 // 保存导入的代码
-function saveCodeString(type: string, codeString: any) {
+function saveCodeString(type: string, codeString: { value: string }) {
   // codeString从子组件传递过来，从对象转换为JSON
-  let parsedCode
+  let parsedCode: unknown
   try {
     parsedCode = JSON.parse(codeString.value)
   } catch (e) {
@@ -436,12 +436,13 @@ function saveCodeString(type: string, codeString: any) {
 }
 
 // 赋值自定义规则，避免存在多余的属性
-function extractCustomRules(value: any) {
+function extractCustomRules(value: unknown): CustomRule[] | undefined {
   try {
-    return value.map((item: any) => {
+    if (!Array.isArray(value)) return undefined
+    return value.map((item: Partial<CustomRule>) => {
       return {
-        id: item.id,
-        name: item.name,
+        id: item.id ?? '',
+        name: item.name ?? '',
         include: item.include,
         exclude: item.exclude,
         size_range: item.size_range,
@@ -455,11 +456,12 @@ function extractCustomRules(value: any) {
 }
 
 // 赋值规则组，避免存在多余的属性
-function extractFilterRuleGroups(value: any) {
+function extractFilterRuleGroups(value: unknown): FilterRuleGroup[] | undefined {
   try {
-    return value.map((item: any) => {
+    if (!Array.isArray(value)) return undefined
+    return value.map((item: Partial<FilterRuleGroup>) => {
       return {
-        name: item.name,
+        name: item.name ?? '',
         rule_string: item.rule_string,
         media_type: item.media_type,
         category: item.category,
@@ -471,10 +473,10 @@ function extractFilterRuleGroups(value: any) {
 }
 
 // 根据ID简单区分规则与规则组
-function checkValueValidity(values: any, type: string): boolean {
+function checkValueValidity(values: unknown, type: string): boolean {
   try {
     if (!values) return true
-    if (!type) return false
+    if (!type || !Array.isArray(values)) return false
 
     for (const value of values) {
       if (!isValidValue(value, type)) return false
@@ -486,7 +488,8 @@ function checkValueValidity(values: any, type: string): boolean {
   }
 }
 
-function isValidValue(value: any, type: string): boolean {
+function isValidValue(value: unknown, type: string): boolean {
+  if (!value || typeof value !== 'object') return false
   const keys = Object.keys(value)
   const uniqueKeys = new Set(keys)
   const hasName = keys.includes('name')
@@ -632,7 +635,6 @@ useSilentSettingRefresh(loadPageData, {
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn
                 type="submit"
-                class="me-2"
                 :loading="savingCustomRules"
                 :disabled="savingCustomRules"
                 @click="saveCustomRules"
@@ -692,7 +694,6 @@ useSilentSettingRefresh(loadPageData, {
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn
                 type="submit"
-                class="me-2"
                 :loading="savingFilterRuleGroups"
                 :disabled="savingFilterRuleGroups"
                 @click="saveFilterRuleGroups"

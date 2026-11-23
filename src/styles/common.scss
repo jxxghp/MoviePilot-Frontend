@@ -414,6 +414,10 @@ html[data-theme-radius='extra'] {
 }
 
 // 统一文本输入、下拉框、文本域等有框表单控件的圆角，显式 rounded 控件保留特殊形态。
+.v-field input:is([type='number'], [type='time'], [type='date'], [type='datetime-local']) {
+  font-variant-numeric: tabular-nums;
+}
+
 .v-field:not(
   .v-field--variant-plain,
   .v-field--variant-underlined,
@@ -464,7 +468,7 @@ html[data-theme-radius='extra'] {
 
 .app-responsive-input__label {
   display: block;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   cursor: default;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -474,7 +478,7 @@ html[data-theme-radius='extra'] {
 
 .app-responsive-input__hint {
   margin-block-start: 0.25rem;
-  color: rgba(var(--v-theme-on-surface), 0.56);
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -518,6 +522,7 @@ html[data-theme-radius='extra'] {
 .app-responsive-input--multiline .v-field {
   border-radius: var(--app-control-radius) !important;
   background-color: transparent;
+  column-gap: 0.25rem;
   transition:
     background-color 0.18s ease,
     box-shadow 0.18s ease;
@@ -528,7 +533,7 @@ html[data-theme-radius='extra'] {
 }
 
 .app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field__input::placeholder {
-  color: rgba(var(--v-theme-on-surface), 0.5);
+  color: var(--mp-muted-fg);
   opacity: 1;
 }
 
@@ -623,8 +628,8 @@ html[data-theme-radius='extra'] {
 
 .app-responsive-input--field .v-field--focused,
 .app-responsive-input--multiline .v-field--focused {
-  background-color: rgba(var(--v-theme-primary), 0.08);
-  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.2);
+  background-color: var(--mp-primary-soft);
+  box-shadow: inset 0 0 0 1px var(--mp-primary-border);
 }
 
 .app-responsive-input--multiline {
@@ -682,7 +687,7 @@ html[data-theme-radius='extra'] {
 }
 
 .app-responsive-input__native .v-field--error {
-  background-color: rgba(var(--v-theme-error), 0.08);
+  background-color: var(--mp-destructive-soft);
   box-shadow: inset 0 0 0 1px rgb(var(--v-theme-error));
 }
 
@@ -710,7 +715,7 @@ html[data-theme-radius='extra'] {
   .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > * > .app-responsive-input,
   .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > .app-responsive-input,
   .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > * > .app-responsive-input {
-    border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+    border-block-start: 1px solid var(--mp-list-row-divider);
   }
 
   // 表单顶层在桌面也占满 12 格的字段改为上下两行，避免把嵌套 md=12 字段误判为整行字段。
@@ -753,7 +758,7 @@ html[data-theme-radius='extra'] {
 @media (hover: hover) {
   .app-responsive-input--field .v-field:hover,
   .app-responsive-input--multiline .v-field:hover {
-    background-color: rgba(var(--v-theme-on-surface), 0.04);
+    background-color: var(--mp-list-row-hover);
   }
 }
 
@@ -800,7 +805,8 @@ html[data-theme] {
     color: var(--mp-info-fg) !important;
   }
 
-  .v-chip.v-chip--variant-tonal.text-primary {
+  .v-chip.v-chip--variant-tonal.text-primary,
+  .v-chip.v-chip--variant-outlined.text-primary {
     color: var(--mp-primary-fg) !important;
   }
 

@@ -525,7 +525,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn
-                mtype="submit"
+                type="submit"
                 :loading="notificationSaveLoading"
                 :disabled="!canSaveNotifications"
                 @click="saveNotificationSetting"
@@ -635,7 +635,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
         </VCardItem>
         <VCardText>
           <VRow>
-            <VCol cols="6">
+            <VCol cols="12" sm="6">
               <VTextField
                 v-model="notificationTime.start"
                 :label="t('setting.notification.startTime')"
@@ -643,7 +643,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 prepend-inner-icon="mdi-clock-start"
               />
             </VCol>
-            <VCol cols="6">
+            <VCol cols="12" sm="6">
               <VTextField
                 v-model="notificationTime.end"
                 :label="t('setting.notification.endTime')"
@@ -695,7 +695,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
   border-radius: 12px;
   background: rgba(var(--app-card-accent-rgb), 0.13);
   block-size: 2.625rem;
-  color: rgb(var(--app-card-accent-rgb));
+  color: color-mix(in srgb, rgb(var(--app-card-accent-rgb)) 78%, var(--mp-fg));
   inline-size: 2.625rem;
 }
 
@@ -708,7 +708,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .template-card-title {
   overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  color: var(--mp-fg);
   font-size: 0.98rem;
   font-weight: 600;
   line-height: 1.35;
@@ -717,7 +717,7 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
 }
 
 .template-card-subtitle {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.25;
   margin-block-start: 0.25rem;
@@ -725,15 +725,17 @@ const nativeAddNotificationMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .template-card-arrow {
   flex: 0 0 auto;
-  color: rgba(var(--v-theme-on-surface), 0.42);
+  color: var(--mp-faint);
   transition:
     color 0.2s ease,
     transform 0.2s ease;
 }
 
-.notification-template-card:hover .template-card-arrow {
-  color: rgb(var(--app-card-accent-rgb));
-  transform: translateX(2px);
+@media (hover: hover) {
+  .notification-template-card:hover .template-card-arrow {
+    color: rgb(var(--app-card-accent-rgb));
+    transform: translateX(2px);
+  }
 }
 
 @media (width <= 600px) {

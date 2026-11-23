@@ -937,10 +937,10 @@ watch(analysisTab, tab => {
 
 <style scoped>
 .classification-settings {
-  --classification-border: rgba(var(--v-theme-on-surface), 0.16);
-  --classification-panel: rgba(var(--v-theme-on-surface), 0.04);
-  --classification-panel-raised: rgb(var(--v-theme-surface));
-  --classification-control: rgba(var(--v-theme-on-surface), 0.08);
+  --classification-border: var(--mp-border);
+  --classification-panel: var(--mp-muted);
+  --classification-panel-raised: var(--mp-card);
+  --classification-control: var(--mp-input);
 
   overflow: hidden;
   background: transparent;
@@ -969,7 +969,7 @@ watch(analysisTab, tab => {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  color: rgba(var(--v-theme-on-surface), 0.68);
+  color: var(--mp-muted-fg);
 }
 
 .classification-settings__workspace {
@@ -983,7 +983,7 @@ watch(analysisTab, tab => {
   inline-size: 100%;
   block-size: var(--classification-tabs-height);
   border: 1px solid var(--classification-border);
-  border-radius: 8px;
+  border-radius: var(--app-control-radius);
   background: var(--classification-control);
 }
 
@@ -1027,7 +1027,7 @@ watch(analysisTab, tab => {
   min-inline-size: 0;
   padding: 18px;
   border: 1px solid var(--classification-border);
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background: var(--classification-panel);
 }
 
@@ -1099,7 +1099,7 @@ watch(analysisTab, tab => {
 }
 
 .classification-settings__section-heading p {
-  color: rgba(var(--v-theme-on-surface), 0.62);
+  color: var(--mp-muted-fg);
   font-size: 0.8125rem;
   margin-block-start: 0.25rem;
 }
@@ -1142,10 +1142,10 @@ watch(analysisTab, tab => {
 }
 
 :global(html[data-theme='glass'] .classification-settings) {
-  --classification-border: var(--glass-border);
-  --classification-panel: var(--glass-surface-soft);
+  --classification-border: var(--mp-border);
+  --classification-panel: var(--mp-muted);
   --classification-panel-raised: var(--glass-surface);
-  --classification-control: var(--glass-control);
+  --classification-control: var(--mp-input);
 
   border-color: var(--glass-border);
   -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
@@ -1155,11 +1155,13 @@ watch(analysisTab, tab => {
   box-shadow: var(--glass-shadow);
 }
 
+/* 玻璃主题下工作区内部面板位于外层玻璃卡片之中，保持单层静默底托且不叠加二次模糊与外投影。 */
 :global(html[data-theme='glass'] .classification-settings__panel) {
-  -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
-  backdrop-filter: var(--glass-surface-backdrop-filter);
-  background-image: var(--glass-sheen);
-  box-shadow: var(--glass-control-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--classification-panel);
+  background-image: none;
+  box-shadow: none;
 }
 
 :global(.classification-category-menu),
@@ -1169,10 +1171,10 @@ watch(analysisTab, tab => {
 :global(.classification-rule-menu) {
   max-block-size: min(280px, calc(100dvh - 8rem)) !important;
   overflow-y: auto !important;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
-  background-color: rgb(var(--v-theme-surface)) !important;
-  color: rgb(var(--v-theme-on-surface));
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
+  background-color: var(--mp-popover) !important;
+  color: var(--mp-fg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
 }
 
@@ -1284,6 +1286,8 @@ watch(analysisTab, tab => {
 
   .classification-settings__actions {
     align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     flex-direction: row;
   }
 

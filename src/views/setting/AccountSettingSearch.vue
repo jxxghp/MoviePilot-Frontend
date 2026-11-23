@@ -31,7 +31,16 @@ const allSites = ref<Site[]>([])
 const selectedSites = ref<number[]>([])
 
 // 系统设置
-const SystemSettings = ref<any>({
+interface SearchSystemSettings {
+  Basic: {
+    SEARCH_MULTIPLE_NAME: boolean
+    DOWNLOAD_SUBTITLE: boolean
+    AUTO_DOWNLOAD_USER: string | string[] | null
+    TORRENT_TAG: string
+  }
+}
+
+const SystemSettings = ref<SearchSystemSettings>({
   Basic: {
     SEARCH_MULTIPLE_NAME: false,
     DOWNLOAD_SUBTITLE: false,
@@ -115,14 +124,13 @@ async function loadSearchSetting() {
 }
 
 // 调用API保存设置
-async function saveSystemSetting(value: { [key: string]: any }) {
+async function saveSystemSetting(value: Record<string, unknown>) {
   try {
     await api.post('system/env', value, { feedback: 'silent' })
     return true
   } catch {
     return false
   }
-  return false
 }
 
 // 调用API保存设置
@@ -157,9 +165,9 @@ async function saveSearchSetting() {
 /** 共享初次读取，页面刷新时重新取回配置并与并发面板合并。 */
 async function loadSystemSettings(refresh = false) {
   try {
-    const result: { [key: string]: any } = await getSharedConfiguration('system/env', refresh)
+    const result = await getSharedConfiguration<Record<string, unknown>>('system/env', refresh)
     // 将API返回的值赋值给SystemSettings
-    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof SearchSystemSettings>) {
       Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
         if (Object.prototype.hasOwnProperty.call(result, key)) {
           Reflect.set(SystemSettings.value[sectionKey], key, result[key])

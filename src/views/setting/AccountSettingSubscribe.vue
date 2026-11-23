@@ -75,7 +75,17 @@ const subscribeSearchIntervalItems = [
 ]
 
 // 系统设置项
-const SystemSettings = ref<any>({
+interface SubscribeSystemSettings {
+  Basic: {
+    SUBSCRIBE_MODE: string
+    SUBSCRIBE_SEARCH: boolean
+    SUBSCRIBE_SEARCH_INTERVAL: number
+    SUBSCRIBE_RSS_INTERVAL: number
+    LOCAL_EXISTS_SEARCH: boolean
+  }
+}
+
+const SystemSettings = ref<SubscribeSystemSettings>({
   // 基础设置
   Basic: {
     SUBSCRIBE_MODE: 'auto',
@@ -132,9 +142,9 @@ async function saveSelectedRssSites() {
 /** 共享初次读取，页面刷新时重新取回配置并与并发面板合并。 */
 async function loadSystemSettings(refresh = false) {
   try {
-    const result: { [key: string]: any } = await getSharedConfiguration('system/env', refresh)
+    const result = await getSharedConfiguration<Record<string, unknown>>('system/env', refresh)
     // 将API返回的值赋值给SystemSettings
-    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+    for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof SubscribeSystemSettings>) {
       Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
         if (Object.prototype.hasOwnProperty.call(result, key)) {
           Reflect.set(SystemSettings.value[sectionKey], key, result[key])
@@ -147,14 +157,13 @@ async function loadSystemSettings(refresh = false) {
 }
 
 // 调用API保存设置
-async function saveSystemSetting(value: { [key: string]: any }) {
+async function saveSystemSetting(value: Record<string, unknown>) {
   try {
     await api.post('system/env', value, { feedback: 'silent' })
     return true
   } catch {
     return false
   }
-  return false
 }
 
 // 查询订阅设置
@@ -281,6 +290,7 @@ useSilentSettingRefresh(() => loadPageData(true), {
                   :label="t('setting.subscribe.searchStrategy')"
                   :hint="t('setting.subscribe.searchStrategyHint')"
                   persistent-hint
+                  prepend-inner-icon="mdi-magnify"
                 />
               </VCol>
               <VCol cols="12" md="6">

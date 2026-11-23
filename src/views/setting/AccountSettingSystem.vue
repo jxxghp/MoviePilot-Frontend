@@ -1955,7 +1955,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                           >
                             {{ server.name }}
                           </VChip>
-                          <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal">
+                          <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal" class="num">
                             +{{ agentMcpServers.length - 3 }}
                           </VChip>
                         </div>
@@ -3588,14 +3588,15 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .media-settings-section + .media-settings-section {
   margin-block-start: 1.75rem;
   padding-block-start: 1.5rem;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 1px solid var(--mp-border);
 }
 
 .setting-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
 }
 
 .setting-actions__secondary {

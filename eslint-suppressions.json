@@ -554,34 +554,6 @@
       "count": 2
     }
   },
-  "src/views/setting/AccountSettingDirectory.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    }
-  },
-  "src/views/setting/AccountSettingRule.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 8
-    }
-  },
-  "src/views/setting/AccountSettingSearch.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "src/views/setting/AccountSettingSite.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "src/views/setting/AccountSettingSubscribe.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "src/views/subscribe/SubscribePopularView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1

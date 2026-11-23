@@ -74,7 +74,16 @@ const storageOptions = computed(() => {
 })
 
 // 系统设置
-const SystemSettings = ref<any>({
+interface DirectorySystemSettings {
+  Basic: {
+    SCRAP_SOURCE: string
+    MOVIE_RENAME_FORMAT: string | null
+    TV_RENAME_FORMAT: string | null
+    MUSIC_RENAME_FORMAT: string | null
+  }
+}
+
+const SystemSettings = ref<DirectorySystemSettings>({
   Basic: {
     SCRAP_SOURCE: 'themoviedb',
     MOVIE_RENAME_FORMAT: null,
@@ -265,6 +274,12 @@ function removeDirectory(directory: TransferDirectoryConf) {
   }
 }
 
+/** 回写目录卡片编辑后的下载与媒体库路径。 */
+function updateDirectoryPaths(directory: TransferDirectoryConf, value?: { download?: string; library?: string }) {
+  directory.download_path = value?.download
+  directory.library_path = value?.library
+}
+
 // 调用API查询自动分类配置
 async function loadMediaCategories() {
   classificationLoadError.value = null
@@ -276,6 +291,15 @@ async function loadMediaCategories() {
   }
 }
 
+/** 提取名称末尾的十进制数字，避免正则回溯。 */
+function extractTrailingNumber(name: string): number {
+  let index = name.length
+  while (index > 0 && name[index - 1] >= '0' && name[index - 1] <= '9') {
+    index--
+  }
+  return index < name.length ? Number.parseInt(name.slice(index), 10) : 1
+}
+
 /** 根据原存储类型创建本地待保存项，不在菜单接管层复制配置流程。 */
 function addStorage(storageType = 'custom') {
   let name: string
@@ -285,7 +309,7 @@ function addStorage(storageType = 'custom') {
     // 自定义存储需要数字序号
     name = `${t(`storage.${storageType}`)} ${storages.value.length + 1}`
     while (storages.value.some(item => item.name === name)) {
-      const num = parseInt(name.match(/\d+$/)?.[0] || '1') + 1
+      const num = extractTrailingNumber(name) + 1
       name = `${t(`storage.${storageType}`)} ${num}`
     }
     type = `custom${storages.value.length + 1}`
@@ -314,7 +338,7 @@ function removeStorage(storage: StorageConf) {
 }
 
 // 保存设置
-async function saveSystemSettings(value: any) {
+async function saveSystemSettings(value: DirectorySystemSettings['Basic']) {
   try {
     await Promise.all([
       api.post('system/env', value, { feedback: 'silent' }),
@@ -386,7 +410,7 @@ const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn type="submit" class="me-2" @click="saveStorages" prepend-icon="mdi-content-save">
+              <VBtn type="submit" @click="saveStorages" prepend-icon="mdi-content-save">
                 {{ t('common.save') }}
               </VBtn>
               <VBtn color="success" variant="tonal">
@@ -447,12 +471,7 @@ const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 :directory="element"
                 :categories="mediaCategories"
                 :storages="storages"
-                @update:modelValue="
-                  (value: any) => {
-                    element.download_path = value?.download
-                    element.library_path = value?.library
-                  }
-                "
+                @update:modelValue="updateDirectoryPaths(element, $event)"
                 @close="removeDirectory(element)"
               />
             </template>
@@ -464,7 +483,7 @@ const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
               <VBtn type="submit" @click="saveDirectories" prepend-icon="mdi-content-save">
                 {{ t('common.save') }}
               </VBtn>
-              <VBtn color="success" variant="tonal" @click="addDirectory" class="me-2">
+              <VBtn color="success" variant="tonal" @click="addDirectory">
                 <VIcon icon="mdi-plus" />
               </VBtn>
               <VSpacer />
@@ -604,7 +623,7 @@ const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
 .rename-format-editor__label {
   display: flex;
   align-items: center;
-  color: rgba(var(--v-theme-on-surface), 0.78);
+  color: var(--mp-fg);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.375rem;
@@ -613,13 +632,13 @@ const nativeAddStorageMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
 .rename-format-editor__ace {
   overflow: hidden;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid var(--mp-border);
   border-radius: var(--app-field-radius);
   min-block-size: 8rem;
 }
 
 .rename-format-editor__hint {
-  color: rgba(var(--v-theme-on-surface), 0.6);
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.25rem;
   margin-block-start: 0.375rem;

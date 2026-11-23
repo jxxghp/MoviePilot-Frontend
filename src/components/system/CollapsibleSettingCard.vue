@@ -68,8 +68,17 @@ function toggleCollapsed() {
 
 <style scoped>
 .collapsible-setting-card {
-  border-color: rgba(var(--v-theme-primary), 0.15);
-  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
+  border-color: var(--mp-border);
+  background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, var(--mp-muted) 100%);
+}
+
+/* 深色玻璃主题下折叠子卡位于外层玻璃卡内部，承接透光次级表面与清晰细描边且不叠加二次模糊。 */
+:global(html[data-theme='glass']:not([data-glass-color-scheme='light']) .collapsible-setting-card) {
+  border: 1px solid var(--mp-border) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--mp-muted) !important;
+  background-image: none !important;
 }
 
 .collapsible-setting-card__header {
