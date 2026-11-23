@@ -108,12 +108,12 @@ const getImgUrl = computed(() => {
               </template>
               <template #default>
                 <VCardText
-                  class="backdrop-card-overlay w-full flex flex-col flex-wrap justify-end align-left absolute bottom-0 cursor-pointer pa-3"
+                  class="backdrop-card-overlay w-full flex flex-col justify-end absolute bottom-0 cursor-pointer pa-3"
                 >
                   <h1 class="backdrop-card-title mb-1 line-clamp-2 overflow-hidden text-ellipsis">
                     {{ props.media?.title }}
                   </h1>
-                  <span class="backdrop-card-subtitle">{{ props.media?.subtitle }}</span>
+                  <span v-if="props.media?.subtitle" class="backdrop-card-subtitle">{{ props.media?.subtitle }}</span>
                 </VCardText>
               </template>
             </VImg>
@@ -156,19 +156,26 @@ const getImgUrl = computed(() => {
 }
 
 .backdrop-card-title {
+  inline-size: 100%;
+  min-inline-size: 0;
   color: var(--mp-on-media);
   font-size: 1.0625rem;
   font-weight: 600;
   line-height: 1.3;
+  overflow-wrap: anywhere;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  text-wrap: wrap;
 }
 
 .backdrop-card-subtitle {
+  inline-size: 100%;
   color: var(--mp-on-media-muted);
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.3;
+  overflow-wrap: anywhere;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  text-wrap: wrap;
 }
 
 .backdrop-card-placeholder,

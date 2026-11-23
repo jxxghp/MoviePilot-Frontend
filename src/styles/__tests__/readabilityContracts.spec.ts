@@ -189,4 +189,20 @@ describe('跨主题可读性与玻璃表面契约守卫', () => {
     expect(reducedBlock).toContain("html[data-theme='glass'][data-glass-color-scheme='light']")
     expect(reducedBlock).toContain('--mp-filter-pill-bg: rgb(var(--mp-surface-rgb));')
   })
+
+  it('海报与剧照卡片详情层预留顶部徽章安全区，并显式关闭 balance/pretty 缩行与全局段落底距', () => {
+    const mediaCardSource = readFileSync(resolve(root, 'src/components/cards/MediaCard.vue'), 'utf8')
+    expect(mediaCardSource).toMatch(/\.v-card-text\.media-card-detail\s*\{[\s\S]*?padding-block:\s*2\.25rem/u)
+    expect(mediaCardSource).toMatch(/\.media-card-title\s*\{[\s\S]*?text-wrap:\s*wrap;/u)
+    expect(mediaCardSource).toMatch(
+      /\.media-card-overview\s*\{[\s\S]*?margin-block:\s*0\s+0\.25rem;[\s\S]*?text-wrap:\s*wrap;/u,
+    )
+    expect(mediaCardSource).toMatch(
+      /@container\s*\(width\s*<\s*136px\)\s*\{[\s\S]*?\.v-card-text\.media-card-detail[\s\S]*?-webkit-line-clamp:\s*2;/u,
+    )
+
+    const posterCardSource = readFileSync(resolve(root, 'src/components/cards/PosterCard.vue'), 'utf8')
+    expect(posterCardSource).toMatch(/\.v-card-text\.poster-card-detail\s*\{[\s\S]*?padding-block:\s*2\.25rem/u)
+    expect(posterCardSource).toMatch(/\.poster-card-title\s*\{[\s\S]*?text-wrap:\s*wrap;/u)
+  })
 })

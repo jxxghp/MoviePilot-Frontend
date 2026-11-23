@@ -1356,4 +1356,27 @@ describe('MediaCard', () => {
     await fireEvent.click(getCard(container))
     await waitFor(() => expect(mocks.routerPush).toHaveBeenCalledWith(expect.objectContaining({ path: '/media' })))
   })
+
+  it('keeps the detail overlay in a single non-wrapping column and omits empty metadata placeholders', async () => {
+    const media = createMediaInfo({
+      overview: '',
+      title: '紧凑海报文字占位',
+      tmdb_id: 9702,
+      year: '',
+    })
+    const { container } = await renderCard(media)
+
+    await fireEvent.mouseEnter(getHoverArea(container))
+    const detail = await waitFor(() => {
+      const element = container.querySelector<HTMLElement>('.media-card-detail')
+      expect(element).not.toBeNull()
+      return element as HTMLElement
+    })
+
+    expect(detail).not.toHaveClass('flex-wrap')
+    expect(detail.querySelector('.media-card-title')).toHaveTextContent('紧凑海报文字占位')
+    expect(detail.querySelector('.media-card-year')).toBeNull()
+    expect(detail.querySelector('.media-card-overview')).toBeNull()
+    expect(detail.querySelector('.media-card-actions')).not.toBeNull()
+  })
 })

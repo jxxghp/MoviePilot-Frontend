@@ -119,10 +119,10 @@ const nativeCardMenu = computed(() =>
           <!-- 详情 -->
           <VCardText
             v-show="hover.isHovering || imageLoadError"
-            class="poster-card-detail w-full h-full flex flex-col flex-wrap justify-end align-left absolute bottom-0 cursor-pointer pa-2 pb-5"
+            class="poster-card-detail w-full h-full flex flex-col justify-end absolute inset-0 cursor-pointer"
             @click.stop="goPlay(hover.isHovering)"
           >
-            <span class="poster-card-subtitle">{{ props.media?.subtitle }}</span>
+            <span v-if="props.media?.subtitle" class="poster-card-subtitle">{{ props.media?.subtitle }}</span>
             <h1 class="poster-card-title mb-1 line-clamp-2 overflow-hidden text-ellipsis">
               {{ props.media?.title }}
             </h1>
@@ -185,7 +185,10 @@ const nativeCardMenu = computed(() =>
   background: rgba(15, 23, 42, 0.72) !important;
 }
 
-.poster-card-detail {
+.v-card-text.poster-card-detail {
+  overflow: hidden;
+  padding-block: 2.25rem 1rem;
+  padding-inline: 0.5rem;
   background: linear-gradient(
     180deg,
     rgba(11, 19, 34, 0.36) 0%,
@@ -196,17 +199,26 @@ const nativeCardMenu = computed(() =>
 }
 
 .poster-card-subtitle {
+  flex: 0 0 auto;
+  inline-size: 100%;
   color: var(--mp-on-media-muted);
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-wrap: wrap;
 }
 
 .poster-card-title {
+  flex: 0 0 auto;
+  inline-size: 100%;
+  min-inline-size: 0;
   color: var(--mp-on-media);
-  font-size: 1.0625rem;
+  font-size: 1rem;
   font-weight: 600;
   line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-wrap: wrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
