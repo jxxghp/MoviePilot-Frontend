@@ -163,6 +163,7 @@ describe('GlassOpticalLayer', () => {
     expect(rendererCalls.every(options => options.syncDocumentState === false)).toBe(true)
     expect(rendererCalls.every(options => (options.dynamicsActive as { value: boolean }).value)).toBe(true)
     expect(rendererCalls.map(options => (options.tintColor as () => string)())).toEqual(['#8D51F9', '#8D51F9'])
+    expect(rendererCalls.map(options => (options.lightScheme as () => boolean)())).toEqual([false, false])
     expect(rendererCalls[0].pageMotion).toBeUndefined()
     expect(rendererCalls[1].pageMotion).toEqual(
       expect.objectContaining({
@@ -171,8 +172,9 @@ describe('GlassOpticalLayer', () => {
       }),
     )
 
-    await wrapper.setProps({ tintColor: '#00A6B8' })
+    await wrapper.setProps({ lightScheme: true, tintColor: '#00A6B8' })
     expect(rendererCalls.map(options => (options.tintColor as () => string)())).toEqual(['#00A6B8', '#00A6B8'])
+    expect(rendererCalls.map(options => (options.lightScheme as () => boolean)())).toEqual([true, true])
 
     wrapper.unmount()
     expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')

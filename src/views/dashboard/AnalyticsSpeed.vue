@@ -220,7 +220,8 @@ const { loading } = useDataRefresh(
 }
 
 .dashboard-speed-rate span {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.72rem;
+  color: var(--mp-muted-fg);
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 </style>

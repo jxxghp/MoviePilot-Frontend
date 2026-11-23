@@ -165,7 +165,7 @@ function setReady(state: NavigationSurfaceState, ready: boolean) {
   if (state.shell?.getAttribute(state.readyAttribute) !== value) state.shell?.setAttribute(state.readyAttribute, value)
 }
 
-/** 清透/色调导航允许准备 SVG；水平回顶时仅预热，实际呈现仍由浮动 CSS 资格决定。 */
+/** 清透/色调导航在平衡与高画质下准备 SVG 边缘折射，水平回顶时仅预热，实际呈现仍由浮动 CSS 资格决定。 */
 function isRefractionActive(surface: NavigationSurface) {
   const { theme, glassAppearance, glassQuality } = document.documentElement.dataset
   const state = getSurfaceState(surface)
@@ -455,6 +455,7 @@ onMounted(() => {
       'data-theme',
       'data-theme-radius',
       'data-glass-appearance',
+      'data-glass-color-scheme',
       'data-glass-quality',
     ],
   })

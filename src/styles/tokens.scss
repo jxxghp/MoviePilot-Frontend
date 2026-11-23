@@ -136,7 +136,8 @@ html[data-theme='glass'] {
 }
 
 html[data-theme='glass'][data-glass-color-scheme='light'] {
-  --mp-muted: rgba(24, 24, 27, 0.045);
+  --mp-faint-alpha: 0.72;
+  --mp-muted: rgba(15, 23, 42, 0.055);
   --mp-list-group-bg: rgba(15, 23, 42, 0.03);
   --mp-list-row-divider: rgba(15, 23, 42, 0.09);
   --mp-list-row-hover: rgba(15, 23, 42, 0.065);

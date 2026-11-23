@@ -559,39 +559,27 @@ onBeforeUnmount(() => {
   }
 }
 
-// 浅色玻璃背板同步清透日光薄纱层，使固定壳背板与主视口剧照壁纸自然衔接
+// 浅色玻璃背板与主视口剧照壁纸共用同一滤镜与顶部阅读薄纱，确保固定壳无缝衔接
 html[data-glass-color-scheme='light'] .glass-fixed-shell-backplate {
   background-color: #eef1f7;
 }
 
 html[data-glass-color-scheme='light'] .glass-fixed-shell-backplate__wallpaper {
   background-color: #eef1f7;
-  filter: none;
+  filter: var(--glass-light-wallpaper-filter, saturate(1.05) brightness(var(--glass-wallpaper-brightness, 1.01)));
 
   .glass-fixed-shell-backplate__source {
-    filter: saturate(1.06) brightness(1.06) contrast(0.92);
-    opacity: 0.94;
+    filter: none;
+    opacity: 1;
     transform: none;
   }
 
   &::after {
-    background:
-      radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.24) 0%, rgba(244, 246, 251, 0.44) 100%),
-      linear-gradient(180deg, rgba(250, 251, 254, 0.28) 0%, rgba(242, 245, 250, 0.48) 100%);
+    background: var(
+      --glass-light-wallpaper-veil,
+      linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100px, rgba(255, 255, 255, 0) 210px)
+    );
   }
-}
-
-html[data-glass-color-scheme='light'][data-glass-appearance='tinted'] .glass-fixed-shell-backplate__wallpaper::after {
-  background:
-    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.22) 0%, rgba(244, 246, 251, 0.42) 100%),
-    linear-gradient(180deg, rgba(250, 251, 254, 0.26) 0%, rgba(242, 245, 250, 0.46) 100%),
-    rgba(var(--glass-material-accent-rgb), 5%);
-}
-
-html[data-glass-color-scheme='light'][data-glass-appearance='frosted'] .glass-fixed-shell-backplate__wallpaper::after {
-  background:
-    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.36) 0%, rgba(246, 247, 251, 0.56) 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(244, 246, 250, 0.58) 100%);
 }
 
 .glass-fixed-shell-backplate__source {
