@@ -300,13 +300,25 @@ function parseTimestampedStructuredBody(
 function parseSourceStructuredBody(body: string): { appName: string; source: string; message: string } | null {
   const { appName, rest } = extractLeadingBracketApp(body)
   const parsedSource = parseSourceAndMessage(rest)
-  if (!parsedSource) return null
-
-  return {
-    appName,
-    source: parsedSource.source,
-    message: parsedSource.message,
+  if (parsedSource) {
+    return {
+      appName,
+      source: parsedSource.source,
+      message: parsedSource.message,
+    }
   }
+  // 允许 `[source] - message` 无独立 appName 前缀时回退将方括号段作为 source。
+  if (appName) {
+    const fallbackSource = parseSourceAndMessage(body)
+    if (fallbackSource) {
+      return {
+        appName: '',
+        source: fallbackSource.source,
+        message: fallbackSource.message,
+      }
+    }
+  }
+  return null
 }
 
 /** 从结构化日志正文中提取消息内容。 */
@@ -889,7 +901,8 @@ onUnmounted(() => {
 }
 
 /* 玻璃主题下日志视图嵌在弹窗表面内部，透明承接外层玻璃材质，避免二次叠加模糊或实心遮罩。 */
-:global(html[data-theme-mode='glass'] .logging-view) {
+:global(html[data-theme='glass'] .logging-view),
+:global(html[data-theme='glass'] .logging-view.is-dark-theme) {
   --logging-shell-backdrop-filter: none;
   --logging-shell-background: transparent;
   --logging-border: var(--mp-border);

@@ -697,7 +697,7 @@ onUnmounted(() => {
         <dl class="plugin-market-detail__metadata">
           <div class="plugin-market-detail__metadata-row">
             <dt>{{ t('common.version') }}：</dt>
-            <dd>v{{ props.plugin?.plugin_version }}</dd>
+            <dd class="num">v{{ props.plugin?.plugin_version }}</dd>
           </div>
           <div class="plugin-market-detail__metadata-row">
             <dt>{{ t('common.author') }}：</dt>
@@ -859,7 +859,7 @@ onUnmounted(() => {
                       </VChip>
                       <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                     </span>
-                    <span class="plugin-market-detail-source__choice-meta">
+                    <span class="plugin-market-detail-source__choice-meta num">
                       v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}
                     </span>
                   </span>
@@ -891,7 +891,7 @@ onUnmounted(() => {
                         </VChip>
                         <strong>{{ sourceCandidateLabel(candidate) }}</strong>
                       </span>
-                      <span class="plugin-market-detail-source__choice-meta"
+                      <span class="plugin-market-detail-source__choice-meta num"
                         >v{{ candidate.plugin_version || '-' }} · {{ candidate.package_generation }}</span
                       >
                     </span>
@@ -949,7 +949,7 @@ onUnmounted(() => {
               {{ t('plugin.versionHistory') }}
             </VBtn>
           </div>
-          <div v-if="props.count" class="plugin-market-detail-actions__downloads">
+          <div v-if="props.count" class="plugin-market-detail-actions__downloads num">
             <VIcon icon="mdi-fire" size="18" />
             <span>{{ t('plugin.totalDownloads', { count: formatDownloadCount(props.count) }) }}</span>
           </div>
@@ -1000,8 +1000,8 @@ onUnmounted(() => {
 .plugin-market-detail-source {
   padding: 0.875rem;
   margin-block: 1rem;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.75rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
 }
 
 .plugin-market-detail-source__heading {
@@ -1023,14 +1023,14 @@ onUnmounted(() => {
 
 .plugin-market-detail-source__hint {
   margin: 0.125rem 0 0;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .plugin-market-detail-source__message--error {
   margin: 0 0 0.75rem;
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
   font-size: 0.75rem;
   line-height: 1.45;
 }
@@ -1049,8 +1049,10 @@ onUnmounted(() => {
 }
 
 .plugin-market-detail-source__identity dt {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  flex-shrink: 0;
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .plugin-market-detail-source__identity dd {
@@ -1152,7 +1154,7 @@ onUnmounted(() => {
 }
 
 .plugin-market-detail-source__choice-meta {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
 }
 
@@ -1183,7 +1185,7 @@ onUnmounted(() => {
 .plugin-market-detail__description {
   max-inline-size: 24rem;
   margin: 0.25rem 0 0;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.875rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -1242,7 +1244,7 @@ onUnmounted(() => {
 
 .plugin-market-detail__author:hover,
 .plugin-market-detail__author:focus-visible {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg, rgb(var(--v-theme-primary)));
   text-decoration: underline;
 }
 
@@ -1252,7 +1254,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.25rem;
   padding-block: 0.125rem;
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg, rgb(var(--v-theme-primary)));
   font-size: 0.875rem;
   text-decoration: none;
   text-underline-offset: 0.2em;
@@ -1270,7 +1272,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.375rem;
   margin: 1rem auto 0;
-  color: rgb(var(--v-theme-warning));
+  color: var(--mp-warning-fg, rgb(var(--v-theme-warning)));
   font-size: 0.8125rem;
   line-height: 1.45;
   text-align: center;
@@ -1302,7 +1304,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -1310,7 +1312,7 @@ onUnmounted(() => {
 .plugin-market-detail-user-rating {
   margin-block-start: 1.25rem;
   padding-block-start: 1rem;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 1px solid var(--mp-border);
 }
 
 .plugin-market-detail-user-rating__title {

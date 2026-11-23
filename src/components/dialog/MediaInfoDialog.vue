@@ -15,12 +15,12 @@ defineProps({
 const emit = defineEmits(['close'])
 </script>
 <template>
-  <VDialog max-width="50rem" :aria-label="t('setting.cache.recognitionResult')">
+  <VDialog max-width="50rem" max-height="90dvh" scrollable :aria-label="t('setting.cache.recognitionResult')">
     <VCard>
       <VDialogCloseBtn @click="emit('close')" />
-      <VCardItem data-native-dialog-content>
+      <VCardText data-native-dialog-content class="pa-4">
         <MediaInfoCard :context="context" />
-      </VCardItem>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>

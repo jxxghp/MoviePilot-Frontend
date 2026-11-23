@@ -940,7 +940,7 @@ watch(analysisTab, tab => {
   --classification-border: var(--mp-border);
   --classification-panel: var(--mp-muted);
   --classification-panel-raised: var(--mp-card);
-  --classification-control: var(--mp-input);
+  --classification-control: var(--mp-muted);
 
   overflow: hidden;
   background: transparent;
@@ -1145,7 +1145,7 @@ watch(analysisTab, tab => {
   --classification-border: var(--mp-border);
   --classification-panel: var(--mp-muted);
   --classification-panel-raised: var(--glass-surface);
-  --classification-control: var(--mp-input);
+  --classification-control: var(--glass-control);
 
   border-color: var(--glass-border);
   -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);

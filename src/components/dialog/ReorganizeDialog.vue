@@ -2476,6 +2476,7 @@ onUnmounted(() => {
                   <VCol cols="12" md="6">
                     <VTextField
                       v-model="transferForm.episode_offset"
+                      class="num"
                       :label="t('dialog.reorganize.episodeOffset')"
                       :placeholder="t('dialog.reorganize.episodeOffsetPlaceholder')"
                       :hint="t('dialog.reorganize.episodeOffsetHint')"
@@ -2498,6 +2499,7 @@ onUnmounted(() => {
                   <VCol cols="12" md="6">
                     <VTextField
                       v-model.number="transferForm.min_filesize"
+                      class="num"
                       :label="t('dialog.reorganize.minFileSize')"
                       :rules="[numberValidator]"
                       placeholder="0"
@@ -2618,13 +2620,13 @@ onUnmounted(() => {
                 <div class="reorganize-preview-pane__title-row">
                   <div class="text-h6">{{ t('dialog.reorganize.previewTitle') }}</div>
                   <div v-if="previewLoaded" class="preview-title-stats">
-                    <VChip color="primary" variant="tonal" size="small">
+                    <VChip color="primary" variant="tonal" size="small" class="num">
                       {{ t('dialog.reorganize.previewTotal', { count: previewSummary.total }) }}
                     </VChip>
-                    <VChip color="success" variant="tonal" size="small">
+                    <VChip color="success" variant="tonal" size="small" class="num">
                       {{ t('dialog.reorganize.previewSuccess', { count: previewSummary.success }) }}
                     </VChip>
-                    <VChip color="error" variant="tonal" size="small">
+                    <VChip color="error" variant="tonal" size="small" class="num">
                       {{ t('dialog.reorganize.previewFailed', { count: previewSummary.failed }) }}
                     </VChip>
                   </div>
@@ -2661,7 +2663,7 @@ onUnmounted(() => {
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewSeasonLabel')
                         }}</span>
-                        <span class="preview-overview-card__value">{{ previewSeasonText }}</span>
+                        <span class="preview-overview-card__value num">{{ previewSeasonText }}</span>
                       </div>
                       <div
                         v-if="!previewIsMovie && !isArtistCollectionMode && !hasMusicPreview"
@@ -2670,13 +2672,13 @@ onUnmounted(() => {
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.previewEpisodeCount')
                         }}</span>
-                        <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
+                        <span class="preview-overview-card__value num">{{ previewEpisodeCountText }}</span>
                       </div>
                       <div v-if="isArtistCollectionMode" class="preview-overview-card">
                         <span class="preview-overview-card__label">{{
                           t('dialog.reorganize.artistCollectionGroupCount')
                         }}</span>
-                        <span class="preview-overview-card__value">{{ artistCollectionPreviewGroups.length }}</span>
+                        <span class="preview-overview-card__value num">{{ artistCollectionPreviewGroups.length }}</span>
                       </div>
                     </div>
                     <div v-if="previewRecognitionDetails.length" class="preview-custom-words">
@@ -2734,7 +2736,7 @@ onUnmounted(() => {
                           <div class="artist-collection-group__title">
                             <VIcon :icon="group.entity === 'album' ? 'mdi-album' : 'mdi-music-note'" size="20" />
                             <span>{{ group.name }}</span>
-                            <VChip size="x-small" variant="tonal">
+                            <VChip size="x-small" variant="tonal" class="num">
                               {{ t('dialog.reorganize.artistCollectionTrackCount', { count: group.items.length }) }}
                             </VChip>
                           </div>
@@ -2744,7 +2746,7 @@ onUnmounted(() => {
                             <div
                               v-for="(item, index) in group.items"
                               :key="`${item.source}-${item.target}-${index}`"
-                              class="preview-file-row app-surface-shape"
+                              class="preview-file-row"
                               :class="{ 'preview-file-row--failed': item.success === false }"
                             >
                               <div class="preview-file-row__card preview-file-row__card--source">
@@ -2781,7 +2783,7 @@ onUnmounted(() => {
                       <div
                         v-for="(item, index) in pagedPreviewRows"
                         :key="`${item.source}-${item.target}-${index}`"
-                        class="preview-file-row app-surface-shape"
+                        class="preview-file-row"
                         :class="{ 'preview-file-row--failed': item.success === false }"
                       >
                         <div class="preview-file-row__card preview-file-row__card--source">
@@ -2820,7 +2822,7 @@ onUnmounted(() => {
                       :disabled="previewPage <= 1"
                       @click="previewPage--"
                     />
-                    <span class="text-caption">{{ previewPage }} / {{ previewTotalPages }}</span>
+                    <span class="text-caption num">{{ previewPage }} / {{ previewTotalPages }}</span>
                     <VBtn
                       size="x-small"
                       icon="mdi-chevron-right"
@@ -2918,8 +2920,8 @@ onUnmounted(() => {
 }
 
 .artist-collection-group {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.75rem !important;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius) !important;
 }
 
 .artist-collection-group__title {
@@ -2971,7 +2973,7 @@ onUnmounted(() => {
 }
 
 .reorganize-main-row--preview-visible .reorganize-form-pane {
-  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-inline-end: 1px solid var(--mp-border);
 }
 
 .reorganize-form-pane__content {
@@ -2991,6 +2993,7 @@ onUnmounted(() => {
 }
 
 .reorganize-form-pane__actions {
+  border-block-start: 1px solid var(--mp-border);
   margin-block-start: auto;
 }
 
@@ -3007,14 +3010,14 @@ onUnmounted(() => {
   display: grid;
   justify-items: start;
   gap: 0.375rem;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 1px solid var(--mp-border);
   padding-block-start: 1rem;
   min-inline-size: 0;
   white-space: pre-wrap;
 }
 
 .reorganize-action-btn--active {
-  background: rgba(var(--v-theme-info), 0.12);
+  background: var(--mp-info-soft, rgba(var(--v-theme-info), 0.12));
 }
 
 .target-path-match {
@@ -3066,7 +3069,7 @@ onUnmounted(() => {
   flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
-  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-end: 1px solid var(--mp-border);
   gap: 1rem;
   padding-block: 1.5rem 1rem;
   padding-inline: 1.5rem;
@@ -3109,7 +3112,7 @@ onUnmounted(() => {
 }
 
 .preview-note {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
   font-size: 0.875rem;
   line-height: 1.5;
   padding-block: 0.875rem;
@@ -3125,8 +3128,8 @@ onUnmounted(() => {
 .preview-overview-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
   gap: 0.375rem;
   min-inline-size: 0;
   padding-block: 0.875rem;
@@ -3134,7 +3137,7 @@ onUnmounted(() => {
 }
 
 .preview-overview-card__label {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.2;
   white-space: nowrap;
@@ -3142,7 +3145,7 @@ onUnmounted(() => {
 
 .preview-overview-card__value {
   overflow: hidden;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 0.9375rem;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -3152,8 +3155,8 @@ onUnmounted(() => {
 .preview-custom-words {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
   gap: 0.75rem;
   padding-block: 0.875rem;
   padding-inline: 1rem;
@@ -3162,7 +3165,7 @@ onUnmounted(() => {
 .preview-custom-words__title {
   display: inline-flex;
   align-items: center;
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg, rgb(var(--v-theme-info)));
   font-size: 0.875rem;
   font-weight: 600;
   gap: 0.375rem;
@@ -3183,7 +3186,7 @@ onUnmounted(() => {
 }
 
 .preview-custom-words__source {
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.4;
@@ -3191,7 +3194,7 @@ onUnmounted(() => {
 }
 
 .preview-custom-words__original {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -3268,8 +3271,8 @@ onUnmounted(() => {
 .preview-file-row {
   display: grid;
   align-items: center;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--app-control-radius);
   gap: 0.875rem;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   min-block-size: 5.25rem;
@@ -3279,7 +3282,7 @@ onUnmounted(() => {
 }
 
 .preview-file-row--failed {
-  background: rgba(var(--v-theme-error), 0.04);
+  background: rgba(var(--v-theme-error), 0.05);
 }
 
 .preview-file-row__card {
@@ -3290,7 +3293,7 @@ onUnmounted(() => {
 }
 
 .preview-file-row__label {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -3298,7 +3301,7 @@ onUnmounted(() => {
 
 .preview-file-row__name {
   overflow: hidden;
-  color: rgb(var(--v-theme-on-surface));
+  color: var(--mp-fg);
   font-size: 0.95rem;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -3307,7 +3310,7 @@ onUnmounted(() => {
 
 .preview-file-row__path {
   overflow: visible;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   font-size: 0.8125rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -3316,15 +3319,15 @@ onUnmounted(() => {
 }
 
 .preview-file-row__card--target .preview-file-row__name {
-  color: rgb(var(--v-theme-primary));
+  color: var(--mp-primary-fg, rgb(var(--v-theme-primary)));
 }
 
 .preview-file-row--failed .preview-file-row__card--target .preview-file-row__name {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
 }
 
 .preview-file-row__message {
-  color: rgb(var(--v-theme-error));
+  color: var(--mp-destructive-fg, rgb(var(--v-theme-error)));
   font-size: 0.8125rem;
   line-height: 1.4;
 }
@@ -3335,7 +3338,7 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 999px;
   block-size: 2rem;
-  color: rgb(var(--v-theme-info));
+  color: var(--mp-info-fg, rgb(var(--v-theme-info)));
   inline-size: 2rem;
 }
 
@@ -3344,7 +3347,7 @@ onUnmounted(() => {
   flex: 1;
   align-items: center;
   justify-content: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: var(--mp-muted-fg);
   padding-block: 2rem;
   padding-inline: 1rem;
   text-align: center;
@@ -3396,8 +3399,12 @@ onUnmounted(() => {
   }
 
   .reorganize-main-row--preview-visible .reorganize-form-pane {
-    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-block-end: 1px solid var(--mp-border);
     border-inline-end: none;
+  }
+
+  .reorganize-form-pane__content {
+    padding: 1rem !important;
   }
 
   .reorganize-main-row--preview-visible .reorganize-preview-pane__body,
@@ -3442,10 +3449,6 @@ onUnmounted(() => {
 
   .reorganize-preview-pane__header {
     padding-inline: 1rem;
-  }
-
-  .preview-file-body {
-    padding-inline: 0.75rem;
   }
 
   .preview-file-row {

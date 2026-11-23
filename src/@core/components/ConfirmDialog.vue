@@ -66,12 +66,14 @@ function handleCancel() {
     :model-value="modelValue"
     @update:model-value="emit('update:modelValue', $event)"
     :max-width="width"
+    max-height="90dvh"
+    scrollable
     data-native-confirm-dialog
     :data-native-confirm-kind="type"
   >
     <VCard>
-      <VCardItem>
-        <div class="d-flex align-center justify-start mt-3">
+      <VCardText class="pa-4">
+        <div class="d-flex align-start justify-start mt-1">
           <VAvatar :color="currentType.color" variant="text" size="x-large">
             <VIcon size="x-large" :icon="icon || currentType.icon" />
           </VAvatar>
@@ -82,8 +84,8 @@ function handleCancel() {
             <p data-native-confirm-message class="app-confirm-dialog-content">{{ content }}</p>
           </div>
         </div>
-      </VCardItem>
-      <VCardActions class="app-confirm-dialog-actions mx-auto">
+      </VCardText>
+      <VCardActions class="app-dialog-actions app-confirm-dialog-actions justify-center">
         <VBtn data-native-confirm-cancel variant="tonal" color="secondary" class="px-5" @click="handleCancel">
           {{ cancelText }}
         </VBtn>
@@ -115,6 +117,7 @@ function handleCancel() {
 
 /* 保留原来的图标与正文布局，只为右上角关闭按钮预留标题空间。 */
 .app-confirm-dialog-title {
+  margin-block-end: 0.375rem;
   padding-inline-end: 24px;
 }
 

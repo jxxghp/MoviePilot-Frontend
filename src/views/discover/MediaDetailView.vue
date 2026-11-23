@@ -1972,10 +1972,6 @@ useNativePageHeader({
   background-color: rgba(255, 255, 255, 0.82) !important;
 }
 
-.media-overview-card:empty {
-  display: none;
-}
-
 // 玻璃模式下简介与演职员块与右侧 media-facts 共享同等玻璃材质，避免直接透底导致文字压在深色壁纸上发糊。
 .media-detail-glass .media-overview-card {
   padding: 1.25rem 1.5rem;

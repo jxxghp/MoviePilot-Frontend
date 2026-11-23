@@ -976,7 +976,7 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-desktop-filters :deep(.v-field) {
   border-radius: var(--app-field-radius);
-  background: var(--mp-input);
+  background: var(--mp-muted);
 }
 
 .cache-desktop-page :deep(.v-data-table) {
@@ -1017,7 +1017,7 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-page {
-  --cache-mobile-control-bg: var(--mp-input);
+  --cache-mobile-control-bg: var(--mp-muted);
   --cache-mobile-page-bg: transparent;
   --cache-mobile-surface-bg: var(--mp-muted);
 

@@ -2336,8 +2336,24 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     background: rgba(var(--v-theme-primary), 14%) !important;
   }
 
-  // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景，压在海报或剧照上的深色角标保持 on-media。
-  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat):not(.media-card-badge, .poster-card-chip) {
+  // tonal 的文字与底层共用 currentColor，保留语义色；仅浅透 Chip 实心填充修正浅色前景，压在海报或剧照上的深色角标与语义种子胶囊保留各自前景色。
+  .v-chip:is(.v-chip--variant-elevated, .v-chip--variant-flat):not(
+      .media-card-badge,
+      .poster-card-chip,
+      .cache-mobile-card__type,
+      .chip-season,
+      .chip-web-source,
+      .chip-edition,
+      .chip-resolution,
+      .chip-codec,
+      .chip-team,
+      .chip-label,
+      .chip-hr,
+      .chip-expire,
+      .chip-free,
+      .chip-discount,
+      .chip-bonus
+    ) {
     color: rgb(var(--v-theme-on-surface)) !important;
   }
 
@@ -2355,18 +2371,6 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
       rgba(var(--mp-light-icon-glow-rgb), 0.04) 58%,
       transparent 100%
     );
-
-    border-block-end-color: rgba(24, 24, 27, 0.045);
-  }
-
-  .plugin-card__banner .text-white,
-  .plugin-card__status--rating {
-    color: rgb(var(--v-theme-on-surface)) !important;
-    text-shadow: none;
-  }
-
-  .plugin-card__banner .text-gray-200 {
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)) !important;
   }
 
   // 第三层：浅色玻璃下桌面有框输入框采用凹井渐变与内阴影，暗底靠填充、亮底靠内凹边界分层，排除移动端无框表单。
@@ -2465,17 +2469,7 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
     --app-card-chip-border: rgba(15, 23, 42, 0.09);
   }
 
-  // 直接浮于壁纸之上的裸露页头采用贴合字形的无框柔光晕（避免 background-clip 裁切文字阻断 text-shadow 或形成白框）。
-  .layout-page-content [data-native-page-title] .text-moviepilot {
-    background-clip: border-box;
-    background-image: none;
-    color: color-mix(in oklab, var(--mp-primary-fg) 84%, var(--mp-semantic-fg-anchor));
-    text-shadow:
-      0 0 6px rgba(255, 255, 255, 0.98),
-      0 1px 12px rgba(255, 255, 255, 0.92),
-      0 0 24px rgba(255, 255, 255, 0.76);
-  }
-
+  // 裸露在壁纸上的辅助图标按钮与榜单标题保留轻量承托；页头主标题复用干净无框渐变字色，避免被容器裁成白块。
   [data-native-page-heading] .v-btn.v-btn--variant-text {
     -webkit-backdrop-filter: blur(10px) saturate(140%);
     backdrop-filter: blur(10px) saturate(140%);
@@ -2501,10 +2495,6 @@ html[data-theme='glass'][data-glass-color-scheme='light'] body[data-theme='glass
 
   // 已处于卡片内部的标题与按钮自带玻璃承托，不重复叠加柔光或磨砂底。
   .v-card {
-    [data-native-page-title] .text-moviepilot {
-      text-shadow: none;
-    }
-
     [data-native-page-heading] .v-btn.v-btn--variant-text {
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
