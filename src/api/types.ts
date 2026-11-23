@@ -3202,3 +3202,13 @@ export interface SubscriptionActivityPage {
   items: SubscriptionActivityEvent[]
   next_cursor: string | null
 }
+
+/** 识别测试场景下的整理名称与目标目录预览结果。 */
+export interface TransferNamePreview {
+  category?: string | null
+  target_dir?: string | null
+  file_name?: string | null
+  rename_path?: string | null
+  library_path?: string | null
+  full_path?: string | null
+}

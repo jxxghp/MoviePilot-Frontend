@@ -2509,6 +2509,20 @@ export default {
         caption: 'The native media ID from the matched source',
       },
     },
+    transferPreview: {
+      title: 'Transfer Preview',
+      loading: 'Generating transfer preview from current templates...',
+      category: 'Category Path',
+      noCategory: 'No category matched',
+      targetDir: 'Target Folder',
+      fileName: 'Final Filename',
+      renamePath: 'Relative Path',
+      fullPath: 'Full Target Path',
+      copyPath: 'Copy Path',
+      copied: 'Transfer path copied',
+      copyFailed: 'Failed to copy transfer path',
+      failed: 'Failed to generate transfer preview',
+    },
   },
   netTest: {
     notTested: 'Not Tested',
@@ -3525,6 +3539,12 @@ export default {
         'Organize cover images alongside audio and embed them when online covers are unavailable. Online covers remain available when disabled.',
       musicCueEnableHint:
         'Disable for albums already split into tracks with invalid CUE files to organize using audio tags and filenames. Keep enabled for single-file albums.',
+      musicTrackMatch: 'Automatic Track Alignment',
+      musicTrackMatchHint:
+        'Controls track alignment for automatic music organization and companion album scraping. Ignoring duration still requires unique title, disc, or track matching.',
+      musicTrackMatchStrict: 'Strict validation (Default)',
+      musicTrackMatchFallback: 'Strict first, fallback to ignore duration',
+      musicTrackMatchIgnoreDuration: 'Ignore duration validation',
       musicMetadataToSimplifiedHint:
         'Force recognized music titles, artists, albums, categories, and other metadata to Simplified Chinese',
       musicReleaseRegionPriority: 'Music Release Region Priority',
