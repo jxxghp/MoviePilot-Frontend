@@ -49,9 +49,7 @@ const mediaId = ref<string | null>(null)
 const musicType = ref<Exclude<MusicEntityType, 'artist'>>('recording')
 const mediaSelectorDialog = ref(false)
 const isMusicSelection = computed(() => mediaType.value === '音乐' || isMusicMediaSource(mediaSource.value))
-const canSelectEpisodeGroup = computed(
-  () => mediaType.value === '电视剧' && mediaSource.value === 'themoviedb',
-)
+const canSelectEpisodeGroup = computed(() => mediaType.value === '电视剧' && mediaSource.value === 'themoviedb')
 // 四个可见输入项时每行放置两个字段。
 const hasFourInputFields = computed(() => isMusicSelection.value || canSelectEpisodeGroup.value)
 const episodeGroup = ref<string | null>(null)
@@ -109,12 +107,7 @@ watch([mediaId, mediaType, mediaSource], ([id, type, source]) => {
   if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
 
   const normalizedTmdbId = Number(id)
-  if (
-    type !== '电视剧' ||
-    source !== 'themoviedb' ||
-    !Number.isInteger(normalizedTmdbId) ||
-    normalizedTmdbId <= 0
-  ) {
+  if (type !== '电视剧' || source !== 'themoviedb' || !Number.isInteger(normalizedTmdbId) || normalizedTmdbId <= 0) {
     return
   }
 
@@ -230,7 +223,7 @@ watch(mediaType, type => {
     <VCard>
       <VCardItem class="py-2">
         <template #prepend>
-          <VIcon icon="mdi-auto-fix" class="me-2" />
+          <VIcon icon="mdi-image-text" class="me-2" />
         </template>
         <VCardTitle>{{ t('file.manualScrape') }}</VCardTitle>
         <VCardSubtitle>{{ dialogSubtitle }}</VCardSubtitle>
@@ -312,7 +305,7 @@ watch(mediaType, type => {
         <VBtn
           color="primary"
           variant="flat"
-          prepend-icon="mdi-auto-fix"
+          prepend-icon="mdi-image-text"
           class="px-5"
           style="width: 50%; flex: 0 0 50%"
           :disabled="!canSubmit"

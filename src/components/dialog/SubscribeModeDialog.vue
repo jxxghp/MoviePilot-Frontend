@@ -36,7 +36,7 @@ const optionMeta: Record<SubscribeMode, { icon: string; title: string }> = {
       props.type === '电视剧' ? t('dialog.subscribeMode.bestVersionEpisode') : t('dialog.subscribeMode.bestVersion'),
   },
   best_version_full: {
-    icon: 'mdi-shimmer',
+    icon: 'mdi-quality-high',
     title: t('dialog.subscribeMode.bestVersionFull'),
   },
 }

@@ -298,7 +298,7 @@ const nativeSourceMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
       <div class="dashboard-recommend-topbar">
         <div class="dashboard-recommend-label">
-          <VIcon icon="mdi-creation" size="20" color="primary" />
+          <VIcon icon="mdi-cards-outline" size="20" color="primary" />
           <span>{{ t('dashboard.recommendedMedia') }}</span>
         </div>
 

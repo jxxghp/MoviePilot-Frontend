@@ -1404,7 +1404,7 @@ describe('ReorganizeDialog payloads and lifecycle', () => {
     await renderDialog({ episodeRules: [{ name: '标准季集' }] })
 
     await selectOption('类型', 2)
-    await user.click(screen.getByRole('button', { name: 'mdi-auto-fix' }))
+    await user.click(screen.getByRole('button', { name: 'mdi-text-recognition' }))
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('已生成集数定位模板'))
     await user.click(screen.getByRole('button', { name: '加入整理队列' }))
 

@@ -3749,7 +3749,7 @@ onScopeDispose(() => {
             <div v-if="!hasConversationContent" class="agent-assistant-empty">
               <div class="agent-assistant-empty__mark">
                 <AgentPetAvatar :pet="props.pet" size="3.5rem">
-                  <VIcon icon="lucide:sparkles" size="28" />
+                  <VIcon icon="mdi-message-text-outline" size="28" />
                 </AgentPetAvatar>
               </div>
               <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
