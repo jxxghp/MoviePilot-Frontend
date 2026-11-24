@@ -71,6 +71,8 @@ interface CalendarEventInfo {
   year?: string
   len: number
   episodeNumbers: number[]
+  startEpisode: number
+  inScopeLibraryEpisode: number
   libraryEpisode: number
   lackEpisode: number
   totalEpisode: number
@@ -381,17 +383,44 @@ function clampEpisodeCount(value: number, total: number) {
   return Math.min(Math.max(value, 0), total)
 }
 
-// 获取订阅已入库集数。
-function getLibraryEpisodeCount(subscribe: CalendarSubscription) {
+// 获取归一化后的订阅开始集数，未设置或非正数按第 1 集处理。
+function getStartEpisodeNumber(subscribe: CalendarSubscription) {
+  return Math.max(subscribe.start_episode || 1, 1)
+}
+
+// 获取订阅目标范围 [start_episode, total_episode] 内的已入库集数。
+// lack_episode 只统计目标范围缺集，completed_episode 则包含起始集前的逻辑跳过集数。
+function getInScopeLibraryEpisodeCount(subscribe: CalendarSubscription) {
   const totalEpisode = subscribe.total_episode || 0
   if (!totalEpisode) return 0
 
-  const libraryEpisode =
-    typeof subscribe.lack_episode === 'number'
-      ? totalEpisode - subscribe.lack_episode
-      : (subscribe.completed_episode ?? 0)
+  const startEpisode = getStartEpisodeNumber(subscribe)
+  const targetEpisode = Math.max(totalEpisode - startEpisode + 1, 0)
+  if (!targetEpisode) return 0
 
-  return clampEpisodeCount(libraryEpisode, totalEpisode)
+  const skippedBeforeStart = Math.min(startEpisode - 1, totalEpisode)
+  const inScopeLibrary =
+    typeof subscribe.lack_episode === 'number'
+      ? targetEpisode - subscribe.lack_episode
+      : (subscribe.completed_episode ?? 0) - skippedBeforeStart
+
+  return clampEpisodeCount(inScopeLibrary, targetEpisode)
+}
+
+// 获取订阅实际已入库集数（保留全季分母，仅计入起始集前已确认入库的集数，不把跳过集算作入库）。
+function getLibraryEpisodeCount(
+  subscribe: CalendarSubscription,
+  libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe),
+) {
+  const totalEpisode = subscribe.total_episode || 0
+  if (!totalEpisode) return 0
+
+  const startEpisode = getStartEpisodeNumber(subscribe)
+  const beforeStartLibraryCount = libraryEpisodeNumbers.filter(
+    episode => episode < startEpisode && episode <= totalEpisode,
+  ).length
+
+  return clampEpisodeCount(beforeStartLibraryCount + getInScopeLibraryEpisodeCount(subscribe), totalEpisode)
 }
 
 // 获取订阅缺失集数。
@@ -399,7 +428,13 @@ function getLackEpisodeCount(subscribe: CalendarSubscription) {
   const totalEpisode = subscribe.total_episode || 0
   if (!totalEpisode) return 0
 
-  return clampEpisodeCount(subscribe.lack_episode ?? totalEpisode - getLibraryEpisodeCount(subscribe), totalEpisode)
+  const startEpisode = getStartEpisodeNumber(subscribe)
+  const targetEpisode = Math.max(totalEpisode - startEpisode + 1, 0)
+
+  return clampEpisodeCount(
+    subscribe.lack_episode ?? targetEpisode - getInScopeLibraryEpisodeCount(subscribe),
+    totalEpisode,
+  )
 }
 
 // 规范化后端返回的集号列表。
@@ -429,15 +464,21 @@ function getLibraryEpisodeNumbers(subscribe: CalendarSubscription) {
   )
 }
 
-// 判断订阅列表中的集号明细是否可能落后于聚合入库数。
+// 判断订阅列表中的集号明细是否可能落后于目标范围的聚合入库数。
 function shouldLoadCalendarLibraryDetails(
   subscribe: CalendarSubscription,
   libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe),
 ) {
+  const totalEpisode = subscribe.total_episode || 0
+  const startEpisode = getStartEpisodeNumber(subscribe)
+  const inScopeRecordedCount = libraryEpisodeNumbers.filter(
+    episode => episode >= startEpisode && episode <= totalEpisode,
+  ).length
+
   return (
     subscribe.type === '电视剧' &&
     Boolean(subscribe.id) &&
-    getLibraryEpisodeCount(subscribe) > libraryEpisodeNumbers.length
+    getInScopeLibraryEpisodeCount(subscribe) > inScopeRecordedCount
   )
 }
 
@@ -476,14 +517,17 @@ function getLibraryState(
   episodeNumbers: number[],
   libraryEpisode: number,
   libraryEpisodeNumbers: number[],
+  startEpisode = 1,
+  inScopeLibraryEpisode = libraryEpisode,
 ): CalendarLibraryState {
   const validEpisodeNumbers = episodeNumbers.filter(number => Number.isFinite(number) && number > 0)
   if (!validEpisodeNumbers.length || !libraryEpisode) return 'none'
 
-  // 后端存在具体集号时优先精确匹配；缺少明细时才按聚合进度做保守降级展示。
+  // 后端存在具体集号时优先精确匹配；缺少明细时仅在订阅目标范围内按聚合进度保守降级展示。
   const matchedEpisodeCount = libraryEpisodeNumbers.length
     ? validEpisodeNumbers.filter(number => libraryEpisodeNumbers.includes(number)).length
-    : validEpisodeNumbers.filter(number => number <= libraryEpisode).length
+    : validEpisodeNumbers.filter(number => number >= startEpisode && number < startEpisode + inScopeLibraryEpisode)
+        .length
   if (!matchedEpisodeCount) return 'none'
 
   return matchedEpisodeCount === validEpisodeNumbers.length ? 'complete' : 'partial'
@@ -496,9 +540,11 @@ function buildCalendarEventInfo(
     Partial<Pick<CalendarEventInfo, 'episodeTitle' | 'episodeTitles' | 'runtime'>>,
 ): CalendarEventInfo {
   const totalEpisode = subscribe.total_episode || 0
-  const libraryEpisode = getLibraryEpisodeCount(subscribe)
-  const lackEpisode = getLackEpisodeCount(subscribe)
+  const startEpisode = getStartEpisodeNumber(subscribe)
+  const inScopeLibraryEpisode = getInScopeLibraryEpisodeCount(subscribe)
   const libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe)
+  const libraryEpisode = getLibraryEpisodeCount(subscribe, libraryEpisodeNumbers)
+  const lackEpisode = getLackEpisodeCount(subscribe)
 
   return {
     title: subscribe.name || '',
@@ -509,10 +555,18 @@ function buildCalendarEventInfo(
     season: subscribe.season,
     year: subscribe.year,
     totalEpisode,
+    startEpisode,
+    inScopeLibraryEpisode,
     libraryEpisode,
     lackEpisode,
     libraryEpisodeNumbers,
-    libraryState: getLibraryState(payload.episodeNumbers, libraryEpisode, libraryEpisodeNumbers),
+    libraryState: getLibraryState(
+      payload.episodeNumbers,
+      libraryEpisode,
+      libraryEpisodeNumbers,
+      startEpisode,
+      inScopeLibraryEpisode,
+    ),
     libraryUpdateText: libraryEpisode > 0 && subscribe.last_update ? formatDateDifference(subscribe.last_update) : '',
     ...payload,
   }
@@ -741,6 +795,8 @@ async function eventsHander(subscribe: Subscribe) {
         episodeNumbers,
         dictEpisode[key].libraryEpisode,
         dictEpisode[key].libraryEpisodeNumbers,
+        dictEpisode[key].startEpisode,
+        dictEpisode[key].inScopeLibraryEpisode,
       )
     }
 
@@ -772,8 +828,18 @@ async function enrichCalendarLibraryEpisodes(subscribes: CalendarSubscription[],
           return
         }
 
+        const nextLibraryEpisode = getLibraryEpisodeCount(subscribe, libraryEpisodeNumbers)
         event.libraryEpisodeNumbers = libraryEpisodeNumbers
-        event.libraryState = getLibraryState(event.episodeNumbers, event.libraryEpisode, libraryEpisodeNumbers)
+        event.libraryEpisode = nextLibraryEpisode
+        event.libraryUpdateText =
+          nextLibraryEpisode > 0 && subscribe.last_update ? formatDateDifference(subscribe.last_update) : ''
+        event.libraryState = getLibraryState(
+          event.episodeNumbers,
+          nextLibraryEpisode,
+          libraryEpisodeNumbers,
+          event.startEpisode,
+          event.inScopeLibraryEpisode,
+        )
         changed = true
       })
 

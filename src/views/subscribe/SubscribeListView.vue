@@ -352,15 +352,17 @@ function getSubscribeStatus(subscribe: Subscribe) {
     return completedTracks > 0 ? 'subscribing' : 'not_started'
   }
 
-  // 电视剧根据集数情况判断：completed_episode 由后端按订阅类型派生
-  // （普通=已入库集数，洗版=起始集前 + [start, total] 范围内 priority==100 命中）
+  // 电视剧根据集数情况判断：后端 completed_episode 会把起始集前的集数视为逻辑完成，
+  // 判断是否已开始订阅时需扣除起始集前跳过的集数，避免新订阅无法进入“未开始”筛选。
   if (subscribe.total_episode && subscribe.total_episode > 0) {
     const lackEpisode = subscribe.lack_episode || 0
-    const completedEpisode = subscribe.completed_episode ?? 0
+    const startEpisode = Math.max(subscribe.start_episode || 1, 1)
+    const skippedEpisodes = Math.min(startEpisode - 1, subscribe.total_episode)
+    const completedInScope = Math.max((subscribe.completed_episode ?? 0) - skippedEpisodes, 0)
 
     if (lackEpisode === 0) {
       return 'completed' // 订阅完成
-    } else if (completedEpisode > 0) {
+    } else if (completedInScope > 0) {
       return 'subscribing' // 订阅中
     } else {
       return 'not_started' // 未开始

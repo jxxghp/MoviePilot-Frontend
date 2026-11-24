@@ -1064,6 +1064,64 @@ describe('SubscribeListView loading and filtering', () => {
   })
 
   it.each([
+    ['not_started', ['Mid-season not started', 'Mid-season best not started']],
+    ['subscribing', ['Mid-season subscribing', 'Mid-season best subscribing']],
+    ['completed', ['Mid-season completed', 'Mid-season best completed']],
+  ] as const)(
+    'discounts skipped episodes before start_episode when filtering %s TV subscriptions',
+    async (statusFilter, expectedNames) => {
+      await renderList({
+        listResponse: [
+          tv(51, 'Mid-season not started', {
+            completed_episode: 19,
+            lack_episode: 3,
+            start_episode: 20,
+            total_episode: 22,
+          }),
+          tv(52, 'Mid-season best not started', {
+            best_version: 1,
+            completed_episode: 19,
+            lack_episode: 3,
+            start_episode: 20,
+            total_episode: 22,
+          }),
+          tv(53, 'Mid-season subscribing', {
+            completed_episode: 20,
+            lack_episode: 2,
+            start_episode: 20,
+            total_episode: 22,
+          }),
+          tv(54, 'Mid-season best subscribing', {
+            best_version: 1,
+            completed_episode: 20,
+            lack_episode: 2,
+            start_episode: 20,
+            total_episode: 22,
+          }),
+          tv(55, 'Mid-season completed', {
+            completed_episode: 22,
+            lack_episode: 0,
+            start_episode: 20,
+            total_episode: 22,
+          }),
+          tv(56, 'Mid-season best completed', {
+            best_version: 1,
+            completed_episode: 22,
+            lack_episode: 0,
+            start_episode: 20,
+            total_episode: 22,
+          }),
+        ],
+        statusFilter,
+        type: '电视剧',
+      })
+
+      await screen.findByText(expectedNames[0])
+      expect(displayedNames()).toEqual([...expectedNames])
+    },
+  )
+
+  it.each([
     ['completed', 'Completed', { completed_tracks: 11, total_tracks: 11 }],
     ['subscribing', 'Subscribing', { completed_tracks: 3, total_tracks: 11 }],
     ['not_started', 'Not started', { completed_tracks: 0, total_tracks: 11 }],

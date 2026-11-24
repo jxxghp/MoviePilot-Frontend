@@ -262,6 +262,7 @@ export type CalendarSubscription = Pick<
   | 'year'
   | 'season'
   | 'poster'
+  | 'start_episode'
   | 'total_episode'
   | 'lack_episode'
   | 'completed_episode'

@@ -1056,4 +1056,128 @@ describe('FullCalendarView', () => {
     expect(await screen.findByText('暂无符合筛选条件的日历内容')).toBeInTheDocument()
     expect(screen.queryByText('加载中 ...')).not.toBeInTheDocument()
   })
+
+  it.each(['legacy', 'window'] as const)(
+    'does not treat skipped episodes before start_episode as in library or trigger extra detail fetches (%s)',
+    async apiMode => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-07-23T12:00:00+08:00'))
+      const unstarted = tvSubscribe(3951, '起始集未开始剧', {
+        start_episode: 20,
+        total_episode: 22,
+        lack_episode: 3,
+        completed_episode: 19,
+        note: [],
+      })
+      const partialRecorded = tvSubscribe(3952, '起始集部分入库剧', {
+        start_episode: 194,
+        total_episode: 211,
+        lack_episode: 10,
+        completed_episode: 201,
+        note: [190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201],
+      })
+      const unstartedEpisodes = [
+        createTmdbEpisode({ air_date: '2026-07-23', episode_number: 19 }),
+        createTmdbEpisode({ air_date: '2026-07-24', episode_number: 20 }),
+      ]
+      const partialEpisodes = [
+        createTmdbEpisode({ air_date: '2026-07-23', episode_number: 195 }),
+        createTmdbEpisode({ air_date: '2026-07-24', episode_number: 202 }),
+      ]
+      const filesRequest = vi.fn()
+      server.use(
+        subscribeListHandler([unstarted, partialRecorded]),
+        tmdbSeasonEpisodesHandler(3951, 1, unstartedEpisodes),
+        tmdbSeasonEpisodesHandler(3952, 1, partialEpisodes),
+        http.get(subscribeApiUrls.filesById(3951), () => {
+          filesRequest(3951)
+          return apiJson({ episodes: {} })
+        }),
+        http.get(subscribeApiUrls.filesById(3952), () => {
+          filesRequest(3952)
+          return apiJson({ episodes: {} })
+        }),
+      )
+      if (apiMode === 'window') {
+        server.use(
+          http.get('http://localhost/api/v1/subscribe/calendar', () =>
+            apiJson({
+              items: [
+                { subscribe: unstarted, date: '2026-07-23', episodes: [unstartedEpisodes[0]] },
+                { subscribe: unstarted, date: '2026-07-24', episodes: [unstartedEpisodes[1]] },
+                { subscribe: partialRecorded, date: '2026-07-23', episodes: [partialEpisodes[0]] },
+                { subscribe: partialRecorded, date: '2026-07-24', episodes: [partialEpisodes[1]] },
+              ],
+              total: 4,
+            }),
+          ),
+        )
+      }
+
+      await renderCalendar()
+
+      await waitFor(() => {
+        const unstartedCards = screen.getAllByText('起始集未开始剧').map(node => node.closest('.calendar-event-card'))
+        expect(unstartedCards).toHaveLength(2)
+        unstartedCards.forEach(card => {
+          expect(card).toHaveClass('calendar-event-card--none')
+          expect(card).toHaveAttribute('title', expect.stringContaining('已入库 0/22'))
+        })
+
+        const recordedCards = screen.getAllByText('起始集部分入库剧').map(node => node.closest('.calendar-event-card'))
+        expect(recordedCards).toHaveLength(2)
+        expect(recordedCards[0]).toHaveClass('calendar-event-card--complete')
+        expect(recordedCards[0]).toHaveAttribute('title', expect.stringContaining('已入库 12/211'))
+        expect(recordedCards[1]).toHaveClass('calendar-event-card--none')
+      })
+      expect(filesRequest).not.toHaveBeenCalled()
+    },
+  )
+
+  it('backfills manual in-scope library episodes when start_episode is greater than 1', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-23T12:00:00+08:00'))
+    const subscribe = tvSubscribe(3953, '起始集手动入库剧', {
+      start_episode: 20,
+      total_episode: 22,
+      lack_episode: 2,
+      completed_episode: 20,
+      note: [],
+    })
+    const episodes = [
+      createTmdbEpisode({ air_date: '2026-07-23', episode_number: 1 }),
+      createTmdbEpisode({ air_date: '2026-07-24', episode_number: 21 }),
+    ]
+    const filesRequest = vi.fn()
+    server.use(
+      http.get('http://localhost/api/v1/subscribe/calendar', () =>
+        apiJson({
+          items: [
+            { subscribe, date: '2026-07-23', episodes: [episodes[0]] },
+            { subscribe, date: '2026-07-24', episodes: [episodes[1]] },
+          ],
+          total: 2,
+        }),
+      ),
+      http.get(subscribeApiUrls.filesById(3953), () => {
+        filesRequest()
+        return apiJson({
+          episodes: {
+            21: { library: [{ file_path: '/media/起始集手动入库剧/S01E21.mkv', storage: 'local' }] },
+          },
+        })
+      }),
+    )
+
+    await renderCalendar()
+
+    await waitFor(() => {
+      const cards = screen.getAllByText('起始集手动入库剧').map(node => node.closest('.calendar-event-card'))
+      expect(cards).toHaveLength(2)
+      expect(cards[0]).toHaveClass('calendar-event-card--none')
+      expect(cards[1]).toHaveClass('calendar-event-card--complete')
+      expect(cards[1]).toHaveAttribute('title', expect.stringContaining('已入库 1/22'))
+    })
+    expect(filesRequest).toHaveBeenCalledOnce()
+  })
 })
