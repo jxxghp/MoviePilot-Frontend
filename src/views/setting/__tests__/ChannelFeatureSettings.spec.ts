@@ -351,4 +351,33 @@ describe('共享连接设置', () => {
     await waitFor(() => expect(requests.success).toHaveBeenCalledWith('保存成功'))
     unmount()
   })
+  it('完整目录新增独立平台即可在共享设置页创建草稿，无需共享页平台分支', async () => {
+    const data = settings()
+    data.providers = {
+      telegram: 'Telegram',
+      wechat: '企业微信',
+      wechatclawbot: '微信 ClawBot',
+      feishu: '飞书',
+      qqbot: 'QQ',
+      discord: 'Discord',
+      slack: 'Slack',
+      vocechat: 'VoceChat',
+      synologychat: 'Synology Chat',
+      dingtalk: '钉钉',
+      webpush: 'Web Push',
+      apppush: 'App Push',
+      'boundary-fixture': '独立测试平台',
+    }
+    data.capabilities = { bot: { rule_kinds: ['user'], target_kinds: ['bound'] } }
+    requests.load.mockResolvedValue(data)
+    await renderWithProviders(ChannelFeatureSettings, { props: { feature: 'connection', active: true } })
+    await fireEvent.click(await screen.findByRole('button', { name: '新建连接' }))
+    for (const label of Object.values(data.providers)) {
+      expect(await screen.findByText(label, { exact: true, selector: '.v-list-item-title' })).toBeVisible()
+    }
+    await fireEvent.click(await screen.findByText('独立测试平台', { exact: true, selector: '.v-list-item-title' }))
+    expect(await screen.findByRole('button', { name: '独立测试平台 1' })).toBeVisible()
+    expect(await screen.findByRole('button', { name: '示例机器人' })).toBeVisible()
+    expect(requests.createConnection).not.toHaveBeenCalled()
+  })
 })
