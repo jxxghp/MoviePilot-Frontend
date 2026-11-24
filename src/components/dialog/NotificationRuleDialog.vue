@@ -7,6 +7,7 @@ import { copyToClipboard } from '@/@core/utils/navigator'
 import {
   getNotificationRuleAccounts,
   type NotificationRuleAudience,
+  type ChannelPlatformCapabilities,
   type NotificationRule,
   type NotificationRuleAccount,
   type NotificationTargetKind,
@@ -17,6 +18,8 @@ import { useToast } from 'vue-toastification'
 
 const props = defineProps<{
   provider: string
+  /** 地址格式由后端校验，此处只按能力显示表单。 */
+  capabilities?: ChannelPlatformCapabilities
   kinds: NotificationTargetKind[]
   messageOptions: { value: string; title: string }[]
   rules: NotificationRule[]
@@ -44,7 +47,7 @@ const draft = ref<NotificationRule>()
 const editId = ref<number>()
 const importing = ref(false)
 const accounts = ref<NotificationRuleAccount[]>([])
-const isPush = props.provider === 'webpush' || props.provider === 'apppush'
+const isPush = !!props.capabilities?.account_targets
 const accountsRequest = new AbortController()
 const loadingAccounts = ref(isPush)
 if (isPush) {
@@ -92,7 +95,7 @@ const validDraft = computed(() => {
       (/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(item.send_time.start) &&
         /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(item.send_time.end))) &&
     (!needsAddress.value || !!item.target?.trim()) &&
-    (!item.thread_id?.trim() || /^[1-9]\d*$/.test(item.thread_id.trim()))
+    (!item.thread_id?.trim() || (!!props.capabilities?.thread_id && item.thread_id.trim().length <= 160))
   )
 })
 
@@ -119,8 +122,7 @@ function audienceLabel(rule: NotificationRule) {
 }
 
 function kindLabel(kind: NotificationTargetKind) {
-  if (kind === 'conversation' && ['slack', 'discord', 'vocechat'].includes(props.provider)) return text('channel')
-  return text('kinds.' + kind)
+  return t(props.capabilities?.target_labels?.[kind] ?? 'channelSettings.deliveryRules.kinds.' + kind)
 }
 
 function label(rule: NotificationRule) {
@@ -177,7 +179,7 @@ function saveRule() {
   const rule = copy(draft.value)
   rule.name = rule.name?.trim()
   rule.target = needsAddress.value ? (rule.target?.trim() ?? null) : null
-  rule.thread_id = props.provider === 'telegram' && rule.kind === 'conversation' ? rule.thread_id?.trim() || null : null
+  rule.thread_id = props.capabilities?.thread_id && rule.kind === 'conversation' ? rule.thread_id?.trim() || null : null
   rule.owner_identity = rule.owner_identity?.trim() || null
   const row = rows.value.find(item => item.id === editId.value)
   if (row) row.rule = rule
@@ -252,9 +254,10 @@ function readImport(code: string) {
       (needsTarget ? !isConcrete : target != null) ||
       (thread_id != null &&
         (kind !== 'conversation' ||
-          props.provider !== 'telegram' ||
+          !props.capabilities?.thread_id ||
           typeof thread_id !== 'string' ||
-          !/^[1-9]\d*$/.test(thread_id))) ||
+          !thread_id.trim() ||
+          thread_id.length > 160)) ||
       !Array.isArray(message_types) ||
       (enabled && !message_types.length) ||
       message_types.length > 32 ||
@@ -515,7 +518,7 @@ function openImport() {
             hide-details
           />
           <VTextField
-            v-if="provider === 'telegram' && draft.kind === 'conversation'"
+            v-if="capabilities?.thread_id && draft.kind === 'conversation'"
             v-model="draft.thread_id"
             :label="text('topic')"
             inputmode="numeric"

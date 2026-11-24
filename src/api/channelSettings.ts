@@ -56,7 +56,7 @@ export interface InteractionPolicy {
   connection_id: string
   enabled: boolean
   admission: AdmissionMode
-  command_guild_id?: string | null
+  platform_options?: Record<string, unknown>
   admission_rules?: AdmissionRule[]
   auto_download_rules?: InteractionMatch[]
   auto_download?: AutoDownloadPreference
@@ -84,14 +84,32 @@ export interface AdmissionRule extends InteractionMatch {
 
 export type InteractionPolicyOptions = {
   admission: AdmissionMode
-  command_guild_id?: string
+  platform_options?: Record<string, unknown>
   admission_rules: AdmissionRule[]
   auto_download: AutoDownloadPreference
   auto_download_rules: InteractionMatch[]
 }
 
+/** 后端声明的平台事实；只控制可见能力，实际校验和授权始终由后端执行。 */
+export interface ChannelPlatformCapabilities {
+  rule_kinds?: RuleKind[]
+  target_kinds?: NotificationTargetKind[]
+  account_targets?: boolean
+  legacy_usernames?: boolean
+  thread_id?: boolean
+  rule_labels?: Record<string, string>
+  target_labels?: Record<string, string>
+  interaction_form?: string | null
+  inbound_token?: boolean
+  login_management?: boolean
+  credential_label?: string
+  credential_action?: string
+}
+
 /** 管理员可以读取的连接和功能配置。 */
 export interface ChannelSettings {
+  providers?: Record<string, string>
+  capabilities?: Record<string, ChannelPlatformCapabilities>
   connections: ChannelConnection[]
   notifications: NotificationRoute[]
   notification_target_kinds?: Record<string, NotificationTargetKind[]>

@@ -1009,6 +1009,7 @@ export default {
     },
   },
   channelSettings: {
+    loginStatus: '登入狀態',
     ruleStatus: '啟用狀態',
     ruleStatusAll: '全部',
     ruleStatusDisabled: '已關閉',

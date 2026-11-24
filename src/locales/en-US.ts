@@ -1037,6 +1037,7 @@ export default {
     },
   },
   channelSettings: {
+    loginStatus: 'Login status',
     ruleStatus: 'Rule status',
     ruleStatusAll: 'All',
     ruleStatusDisabled: 'Disabled',

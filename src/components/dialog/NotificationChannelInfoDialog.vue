@@ -46,6 +46,8 @@ const props = defineProps({
     default: undefined,
   },
   // 共享连接保存后使用稳定 ID 管理扫码登录。
+  /** 共享管理页通过能力打开平台登录表单。 */
+  loginManagement: Boolean,
   clawBotLoginOnly: {
     type: Boolean,
     default: false,
@@ -269,7 +271,7 @@ async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null, g
 
 /** 组装微信客服状态接口所需的请求参数。 */
 function getWechatClawBotRequestParams(extraParams: Record<string, unknown> = {}) {
-  if (props.clawBotLoginOnly) {
+  if (props.clawBotLoginOnly || props.loginManagement) {
     return { source: props.notification.id, saved_connection: true, ...extraParams }
   }
   const config = notificationInfo.value.config || {}
@@ -308,7 +310,10 @@ function openNotificationInfoDialog() {
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = true
-  if (notificationInfo.value.type === 'wechatclawbot' && (!props.connectionOnly || props.clawBotLoginOnly)) {
+  if (
+    notificationInfo.value.type === 'wechatclawbot' &&
+    (!props.connectionOnly || props.clawBotLoginOnly || props.loginManagement)
+  ) {
     fetchWechatClawBotStatus({
       autoGenerateQrcode: true,
       autoRefreshExpired: true,
@@ -600,7 +605,7 @@ onMounted(() => {
       <VCardText>
         <slot name="connection-fields" />
         <VForm :disabled="saving">
-          <VRow v-if="!props.connectionOnly && !props.clawBotLoginOnly">
+          <VRow v-if="!props.connectionOnly && !(props.clawBotLoginOnly || props.loginManagement)">
             <VCol cols="12" md="6">
               <VSwitch v-model="notificationInfo.enabled" :label="t('notification.enabled')" />
             </VCol>
@@ -746,7 +751,7 @@ onMounted(() => {
             </template>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'wechatclawbot'">
-            <template v-if="!props.clawBotLoginOnly">
+            <template v-if="!(props.clawBotLoginOnly || props.loginManagement)">
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.name"
@@ -790,7 +795,7 @@ onMounted(() => {
                 />
               </VCol>
             </template>
-            <VCol v-if="!props.connectionOnly || props.clawBotLoginOnly" cols="12">
+            <VCol v-if="!props.connectionOnly || props.clawBotLoginOnly || props.loginManagement" cols="12">
               <VCard variant="tonal" class="pa-4">
                 <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-3">
                   <div>
@@ -847,7 +852,7 @@ onMounted(() => {
                   </VCol>
                   <VCol cols="12" md="7">
                     <VAlert variant="tonal" :type="wechatClawBotStatus?.connected ? 'success' : 'info'" class="mb-3">
-                      <div v-if="!props.clawBotLoginOnly" class="text-body-2">
+                      <div v-if="!(props.clawBotLoginOnly || props.loginManagement)" class="text-body-2">
                         {{ t('notification.wechatclawbot.scanHint') }}
                       </div>
                       <div v-if="wechatClawBotStatus?.account_id" class="mt-2">
@@ -1376,7 +1381,7 @@ onMounted(() => {
         </VForm>
         <slot name="connection-actions" />
       </VCardText>
-      <VCardActions v-if="!props.clawBotLoginOnly" class="app-dialog-actions">
+      <VCardActions v-if="!(props.clawBotLoginOnly || props.loginManagement)" class="app-dialog-actions">
         <VSpacer />
         <VBtn
           color="primary"

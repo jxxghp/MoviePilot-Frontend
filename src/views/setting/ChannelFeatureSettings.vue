@@ -27,6 +27,7 @@ import type { NotificationConf } from '@/api/types'
 import ChannelRuleDialog from '@/components/dialog/ChannelRuleDialog.vue'
 import ChannelManagementSwitch from '@/components/dialog/ChannelManagementSwitch.vue'
 import NotificationRuleDialog from '@/components/dialog/NotificationRuleDialog.vue'
+import ChannelInteractionExtension from '@/components/channel-platforms/ChannelInteractionExtension.vue'
 import { useDisplay } from 'vuetify'
 import { useToast } from 'vue-toastification'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
@@ -55,29 +56,13 @@ const GlobalNotificationSettingsDialog = defineAsyncComponent(
 )
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const ProviderDialog = defineAsyncComponent(() => import('@/components/dialog/NotificationChannelInfoDialog.vue'))
-const knownProviders = new Set([
-  'telegram',
-  'wechat',
-  'wechatclawbot',
-  'feishu',
-  'qqbot',
-  'discord',
-  'slack',
-  'vocechat',
-  'synologychat',
-  'dingtalk',
-  'webpush',
-  'apppush',
-])
 const choices = computed(() => {
   const modules = new Map(providerOptions.value.map(item => [item.value, item.title]))
-  const builtins = [...knownProviders].map(value => ({
-    value,
-    title: modules.get(value) ?? t(`notification.${value}.name`),
-  }))
+  for (const [value, title] of Object.entries(settings.value?.providers ?? {})) {
+    if (!modules.has(value)) modules.set(value, title)
+  }
   return [
-    ...builtins,
-    ...providerOptions.value.filter(item => !knownProviders.has(item.value) && item.value !== 'custom'),
+    ...[...modules].filter(([value]) => value !== 'custom').map(([value, title]) => ({ value, title })),
     { value: 'custom', title: t('setting.system.custom') },
   ]
 })
@@ -153,7 +138,8 @@ const types = ref<string[]>([])
 const notificationRules = ref<NotificationRule[]>([])
 const notificationRuleEditor = ref(false)
 const notificationKinds = computed(() => settings.value?.notification_target_kinds?.[selectedId.value ?? ''] ?? [])
-const commandGuildId = ref('')
+const platformOptions = ref<Record<string, unknown>>({})
+const capabilities = computed(() => settings.value?.capabilities?.[selectedId.value ?? ''] ?? {})
 
 function applyNotificationRules(rules: NotificationRule[]) {
   notificationRules.value = rules
@@ -228,7 +214,7 @@ function resetFeatureDraft() {
   interactionEnabled.value = policy?.enabled ?? false
   types.value = [...(route?.message_types ?? [])]
   notificationRules.value = [...(route?.rules ?? [])]
-  commandGuildId.value = policy?.command_guild_id ?? ''
+  platformOptions.value = { ...policy?.platform_options }
   notificationRuleEditor.value = false
   admission.value = policy?.admission ?? 'manual'
   ruleEditor.value = undefined
@@ -471,7 +457,7 @@ function saveFeature() {
     const options = allowedModes.value
       ? {
           admission: admission.value,
-          command_guild_id: connection.value?.provider === 'discord' ? commandGuildId.value : undefined,
+          platform_options: { ...platformOptions.value },
           admission_rules: hasAdmissionRules.value ? admissionRules.value : [],
           auto_download: autoDownload.value,
           auto_download_rules: autoDownload.value === 'specified' ? autoDownloadRules.value : [],
@@ -666,13 +652,13 @@ async function loadProviderForm(item: ChannelConnection) {
 }
 
 /** 扫码凭据绑定已保存的稳定连接，重新打开也能读取原登录状态。 */
-function openClawBotLogin(item: ChannelConnection) {
+function openPlatformLogin(item: ChannelConnection) {
   connectionEditor.value = false
   providerDialog?.close()
   providerDialog = openSharedDialog(ProviderDialog, {
     notification: { id: item.id, name: item.name, type: item.provider, config: {}, enabled: item.enabled },
     notifications: [],
-    clawBotLoginOnly: true,
+    loginManagement: true,
   })
 }
 
@@ -910,13 +896,10 @@ const nativeAddMenu = computed<NativeStandaloneMenuBinding>(() => ({
               />
             </VCol>
             <template v-else-if="allowedModes">
-              <VCol v-if="connection.provider === 'discord'" cols="12">
-                <VTextField
-                  v-model="commandGuildId"
-                  inputmode="numeric"
-                  :label="t('channelSettings.deliveryRules.guild')"
-                  :hint="t('channelSettings.deliveryRules.guildHint')"
-                  persistent-hint
+              <VCol v-if="capabilities.interaction_form" cols="12">
+                <ChannelInteractionExtension
+                  v-model="platformOptions"
+                  :extension="capabilities.interaction_form"
                   :disabled="saving"
                 />
               </VCol>
@@ -1094,7 +1077,7 @@ const nativeAddMenu = computed<NativeStandaloneMenuBinding>(() => ({
     </template>
     <template #connection-actions>
       <VTextField
-        v-if="connection.provider === 'vocechat'"
+        v-if="capabilities.inbound_token"
         v-model="inboundToken"
         class="mt-4"
         type="password"
@@ -1112,28 +1095,24 @@ const nativeAddMenu = computed<NativeStandaloneMenuBinding>(() => ({
         persistent-hint
       />
       <VBtn
-        v-if="connection.provider === 'wechatclawbot'"
+        v-if="capabilities.login_management"
         class="mt-4"
         variant="tonal"
         :disabled="saving"
-        @click="openClawBotLogin(connection)"
+        @click="openPlatformLogin(connection)"
       >
-        {{ t('notification.wechatclawbot.loginStatus') }}
+        {{ t('channelSettings.loginStatus') }}
       </VBtn>
       <div v-if="connection.can_rotate_credential" class="mt-4">
         <VTextField
           v-model="credential"
           type="password"
           autocomplete="new-password"
-          :label="
-            t(connection.provider === 'wechat' ? 'channelSettings.newAppSecret' : 'channelSettings.newCredential')
-          "
+          :label="t(capabilities.credential_label ?? 'channelSettings.newCredential')"
           :disabled="saving"
         />
         <VBtn variant="tonal" :disabled="saving || !credential.trim()" @click="saveCredential">
-          {{
-            t(connection.provider === 'wechat' ? 'channelSettings.rotateAppSecret' : 'channelSettings.rotateCredential')
-          }}
+          {{ t(capabilities.credential_action ?? 'channelSettings.rotateCredential') }}
         </VBtn>
       </div>
     </template>
@@ -1172,6 +1151,7 @@ const nativeAddMenu = computed<NativeStandaloneMenuBinding>(() => ({
   <NotificationRuleDialog
     v-if="notificationRuleEditor && connection"
     :provider="connection.provider"
+    :capabilities="capabilities"
     :kinds="notificationKinds"
     :message-options="messageOptions"
     :rules="notificationRules"
@@ -1184,6 +1164,7 @@ const nativeAddMenu = computed<NativeStandaloneMenuBinding>(() => ({
     :key="ruleEditor"
     :purpose="ruleEditor"
     :provider="connection.provider"
+    :capabilities="capabilities"
     :kinds="allowedKinds"
     :rules="ruleEditor === 'admission' ? admissionRules : autoDownloadRules"
     @close="ruleEditor = undefined"

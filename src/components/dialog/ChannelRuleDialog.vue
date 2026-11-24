@@ -7,13 +7,21 @@ import ChannelRuleFilterDialog from '@/components/dialog/ChannelRuleFilterDialog
 import ChannelRuleSummaryCard from '@/components/cards/ChannelRuleSummaryCard.vue'
 import { emptyChannelRuleFilters, matchesChannelRuleFilters, channelRuleFilterCount } from '@/utils/channelRuleFilters'
 import { CHANNEL_SCOPES } from '@/api/authorization'
-import type { AdmissionRule, InteractionMatch, InteractionScope, RuleKind } from '@/api/channelSettings'
+import type {
+  AdmissionRule,
+  InteractionMatch,
+  InteractionScope,
+  RuleKind,
+  ChannelPlatformCapabilities,
+} from '@/api/channelSettings'
 import { useDisplay } from 'vuetify'
 
 const props = defineProps<{
   /** 规则用途决定单条规则是否编辑业务权限。 */
   purpose: 'admission' | 'download'
   provider: string
+  /** 平台的标签扩展来自后端能力描述。 */
+  capabilities?: ChannelPlatformCapabilities
   kinds: RuleKind[]
   rules: (AdmissionRule | InteractionMatch)[]
 }>()
@@ -61,8 +69,7 @@ const validDraft = computed(() => {
 })
 
 function kindLabel(kind: RuleKind) {
-  if (kind === 'group' && ['slack', 'discord'].includes(props.provider)) return t('channelSettings.ruleKind.channel')
-  return t(`channelSettings.ruleKind.${kind}`)
+  return t(props.capabilities?.rule_labels?.[kind] ?? `channelSettings.ruleKind.${kind}`)
 }
 
 function openEditor(id?: number) {
