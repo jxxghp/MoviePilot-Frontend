@@ -2428,7 +2428,8 @@ export default {
     sourceHint: '預設使用後台識別設置，可為本次測試單獨切換',
     customWords: '識別詞',
     customWordsPlaceholder: '每行輸入一組識別規則，可直接用於本次識別測試',
-    customWordsHint: '格式與「識別詞管理」一致：屏蔽詞 / 被替換詞 => 替換詞 / 前定位詞 <> 後定位詞 >> 集偏移量',
+    customWordsHint:
+      "格式與「識別詞管理」一致：屏蔽詞 / 被替換詞 => 替換詞 / 前定位詞 <> 後定位詞 >> 集偏移量；填寫後預設覆蓋全域識別詞，單獨一行 {'@global'} 可引入全域識別詞",
     saveWords: '儲存識別詞',
     saveWordsSuccess: '識別詞已儲存到識別詞表末尾',
     saveWordsNoChange: '識別詞已存在，無需重複儲存',
@@ -5099,9 +5100,10 @@ export default {
       mediaCategory: '自定義類別',
       mediaCategoryHint: '指定類別名稱，留空自動識別',
       customWords: '自定義識別詞',
-      customWordsHint: '只對該訂閱使用的識別詞',
+      customWordsHint:
+        "只對該訂閱使用的識別詞，填寫後預設覆蓋全域識別詞；單獨新增一行 {'@global'} 可在該位置引入全域識別詞",
       customWordsPlaceholder:
-        '屏蔽詞\n被替換詞 => 替換詞\n前定位詞 <> 後定位詞 >> 集偏移量（EP）\n被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n其中替換詞支援格式：&#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒體數據源ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
+        "{'@global'}\n屏蔽詞\n被替換詞 => 替換詞\n前定位詞 <> 後定位詞 >> 集偏移量（EP）\n被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n其中 {'@global'} 表示在當前位置引入全域自定義識別詞；替換詞支援格式：&#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定媒體數據源ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）",
       cancelSubscribe: '取消訂閱',
       save: '儲存',
       cancelSubscribeConfirm: '是否確認取消訂閱？',

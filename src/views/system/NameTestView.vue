@@ -485,9 +485,12 @@ async function nameTest() {
   }
 }
 
-/** 将识别词文本拆分为按行的规则列表，过滤掉空白行。 */
+/** 将识别词文本拆分为按行的规则列表，过滤空白行与仅供临时引用的 @global 占位符。 */
 function parseCustomWordLines(text: string) {
-  return text.split('\n').filter(line => line.trim().length > 0)
+  return text.split('\n').filter(line => {
+    const trimmed = line.trim()
+    return trimmed.length > 0 && trimmed.toLowerCase() !== '@global'
+  })
 }
 
 /** 将当前输入的识别词追加保存到系统识别词表末尾。 */
