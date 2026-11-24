@@ -2467,7 +2467,7 @@ export default {
     customWords: 'Custom Words',
     customWordsPlaceholder: 'Enter one recognition rule per line; applied directly to this recognition test',
     customWordsHint:
-      'Same format as Custom Words settings: block word / old => new / before <> after >> episode offset',
+      "Same format as Custom Words settings: block word / old => new / before <> after >> episode offset; overrides global rules by default, add a standalone {'@global'} line to include global rules",
     saveWords: 'Save Words',
     saveWordsSuccess: 'Custom words appended to the word list',
     saveWordsNoChange: 'These words already exist, no need to save again',
@@ -5245,9 +5245,10 @@ export default {
       mediaCategory: 'Custom Category',
       mediaCategoryHint: 'Specify category name, leave empty for auto-recognition',
       customWords: 'Custom Recognition Words',
-      customWordsHint: 'Recognition words only used for this subscription',
+      customWordsHint:
+        "Recognition words for this subscription; overrides global rules by default, add a standalone {'@global'} line to include global rules at that position",
       customWordsPlaceholder:
-        'Block word\nReplaced word => Replacement word\nPrefix <> Suffix >> Episode offset (EP)\nReplaced word => Replacement word && Prefix <> Suffix >> Episode offset (EP)\nReplacement word supports format: &#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to directly specify a media data source ID, where g is the episode group ID and s/e are season and episode numbers (all optional)',
+        "{'@global'}\nBlock word\nReplaced word => Replacement word\nPrefix <> Suffix >> Episode offset (EP)\nReplaced word => Replacement word && Prefix <> Suffix >> Episode offset (EP)\nUse {'@global'} to include global custom recognition words at that position; replacement word supports format: &#123;[tmdbid/doubanid/bangumiid/anilistid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to directly specify a media data source ID, where g is the episode group ID and s/e are season and episode numbers (all optional)",
       cancelSubscribe: 'Cancel Subscription',
       save: 'Save',
       cancelSubscribeConfirm: 'Are you sure you want to cancel the subscription?',

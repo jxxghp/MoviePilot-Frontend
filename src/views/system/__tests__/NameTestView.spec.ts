@@ -258,7 +258,7 @@ describe('NameTestView media identity', () => {
     })
     const user = userEvent.setup()
 
-    await user.type(screen.getByLabelText('识别词'), '新增规则')
+    await user.type(screen.getByLabelText('识别词'), '@global\n新增规则')
     await user.click(screen.getByRole('button', { name: '保存识别词' }))
 
     expect(mocks.apiGet).toHaveBeenCalledWith('system/identifiers', { feedback: 'silent' })
