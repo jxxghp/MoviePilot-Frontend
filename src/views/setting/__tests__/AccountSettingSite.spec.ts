@@ -49,6 +49,7 @@ function mockLoadedSettings() {
           BROWSER_EMULATION: 'flaresolverr',
           OCR_HOST: 'https://ocr.example.com',
           FLARESOLVERR_URL: 'http://solver:8191',
+          SITE_USER_AGENT: null,
           UNRELATED: 'ignored',
         },
       }
@@ -87,6 +88,7 @@ describe('AccountSettingSite', () => {
     expect(await screen.findByDisplayValue('https://cookies.example.com')).toBeInTheDocument()
     expect(screen.getByDisplayValue('https://ocr.example.com')).toBeInTheDocument()
     expect(screen.getByDisplayValue('http://solver:8191')).toBeInTheDocument()
+    expect(screen.getByLabelText('站点默认User-Agent')).toHaveValue('')
     expect(screen.getByLabelText('搜索资源获取页数')).toHaveValue(1)
     expect(screen.getByRole('checkbox', { name: '阅读站点消息' })).toBeChecked()
 
@@ -127,6 +129,7 @@ describe('AccountSettingSite', () => {
     await fireEvent.update(screen.getByLabelText('搜索资源获取页数'), '4')
     await fireEvent.update(screen.getByLabelText('验证码识别服务器'), 'https://new-ocr.example.com')
     await fireEvent.update(screen.getByLabelText('FlareSolverr 服务地址'), 'http://new-solver:8191')
+    await fireEvent.update(screen.getByLabelText('站点默认User-Agent'), 'Mozilla/5.0 SiteDefaultUA/1.0')
     await fireEvent.click(screen.getByRole('checkbox', { name: '阅读站点消息' }))
     await user.click(screen.getByLabelText('站点数据刷新间隔'))
     await user.click(await screen.findByRole('option', { name: '每12小时' }))
@@ -143,6 +146,7 @@ describe('AccountSettingSite', () => {
         BROWSER_EMULATION: 'cloakbrowser',
         OCR_HOST: 'https://new-ocr.example.com',
         FLARESOLVERR_URL: 'http://new-solver:8191',
+        SITE_USER_AGENT: 'Mozilla/5.0 SiteDefaultUA/1.0',
       })
     })
     expect(mocks.toastSuccess).toHaveBeenCalledTimes(2)

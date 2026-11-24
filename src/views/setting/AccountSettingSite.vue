@@ -53,6 +53,8 @@ interface SiteSettingState {
     BROWSER_EMULATION: string
     OCR_HOST: string
     FLARESOLVERR_URL: string
+    /** 站点未单独配置 User-Agent 时优先使用的通用默认 User-Agent。 */
+    SITE_USER_AGENT: string
   }
 }
 
@@ -73,6 +75,7 @@ const siteSetting = ref<SiteSettingState>({
     BROWSER_EMULATION: 'cloakbrowser',
     OCR_HOST: '',
     FLARESOLVERR_URL: '',
+    SITE_USER_AGENT: '',
   },
 })
 
@@ -145,7 +148,13 @@ async function loadSiteSettings(refresh = false) {
     for (const sectionKey of Object.keys(siteSetting.value) as Array<keyof SiteSettingState>) {
       Object.keys(siteSetting.value[sectionKey]).forEach((key: string) => {
         if (Object.prototype.hasOwnProperty.call(result, key)) {
-          Reflect.set(siteSetting.value[sectionKey], key, result[key])
+          const incomingValue = result[key]
+          const currentDefault = Reflect.get(siteSetting.value[sectionKey], key)
+          Reflect.set(
+            siteSetting.value[sectionKey],
+            key,
+            incomingValue === null && typeof currentDefault === 'string' ? '' : incomingValue,
+          )
         }
       })
     }
@@ -342,6 +351,16 @@ useSilentSettingRefresh(() => loadSiteSettings(true), {
                   :hint="t('setting.site.flaresolverrUrlHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-server"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="siteSetting.Site.SITE_USER_AGENT"
+                  :label="t('setting.site.siteUserAgent')"
+                  :placeholder="t('setting.site.siteUserAgentPlaceholder')"
+                  :hint="t('setting.site.siteUserAgentHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-web-box"
                 />
               </VCol>
             </VRow>

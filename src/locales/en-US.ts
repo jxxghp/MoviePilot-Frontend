@@ -3934,6 +3934,10 @@ export default {
       ocrHostHint: 'Used for site check-in, cookie updates, and other captcha recognition tasks',
       flaresolverrUrl: 'FlareSolverr URL',
       flaresolverrUrlHint: 'Required when using FlareSolverr, e.g. http://127.0.0.1:8191',
+      siteUserAgent: 'Default Site User-Agent',
+      siteUserAgentPlaceholder: 'Leave empty to use system default User-Agent',
+      siteUserAgentHint:
+        'Fallback User-Agent when a site has no custom User-Agent configured; leave empty to use system default',
       siteDataRefresh: 'Site Data Refresh',
       siteOptions: 'Site Options',
       siteDataRefreshInterval: 'Site Data Refresh Interval',
