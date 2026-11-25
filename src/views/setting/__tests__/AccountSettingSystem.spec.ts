@@ -935,6 +935,15 @@ describe('AccountSettingSystem', () => {
     expect(findPost('github/auth/manual')?.[1]).toEqual({ token: 'github-token' })
   })
 
+  it('ChatGPT 使用固定地址时仍可设置系统代理', async () => {
+    systemEnv = { ...systemEnv, AI_AGENT_ENABLE: true, LLM_PROVIDER: 'chatgpt' }
+    mocks.useLlmProviderDirectory.mockReturnValue(createLlmDirectoryState())
+    await renderSettings()
+    await expandLlmSettings()
+    expect(screen.queryByLabelText('LLM基础URL')).toBeNull()
+    await fireEvent.click(screen.getByLabelText('使用系统代理'))
+  })
+
   it('round-trips the user-editable application and wallpaper settings', async () => {
     await renderSettings()
     await screen.findByDisplayValue('https://moviepilot.example')
