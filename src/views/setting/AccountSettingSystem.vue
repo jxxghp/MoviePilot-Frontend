@@ -1999,7 +1999,7 @@ const nativeAddMediaServerMenu = computed<NativeStandaloneMenuBinding>(() => ({
                 </VCol>
               </VRow>
               <VRow>
-                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Basic.LLM_USE_PROXY"
                     :label="t('setting.system.llmUseProxy')"
