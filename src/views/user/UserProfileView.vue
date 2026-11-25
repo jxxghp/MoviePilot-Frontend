@@ -15,10 +15,16 @@ const OTPAuthDialog = defineAsyncComponent(() => import('@/components/dialog/OTP
 const PasskeyDialog = defineAsyncComponent(() => import('@/components/dialog/PasskeyDialog.vue'))
 const VerifyPasswordDialog = defineAsyncComponent(() => import('@/components/dialog/VerifyPasswordDialog.vue'))
 const ChannelBindingDialog = defineAsyncComponent(() => import('@/components/dialog/ChannelBindingDialog.vue'))
+const MediaServerBindingDialog = defineAsyncComponent(() => import('@/components/dialog/MediaServerBindingDialog.vue'))
 
 /** 当前登录用户通过一次性码验证已有账号与渠道双方身份。 */
 function openChannelBinding() {
   openSharedDialog(ChannelBindingDialog)
+}
+
+/** 打开媒体服务器账号绑定弹窗，用于启用原生播放实时会话同步。 */
+function openMediaServerBinding() {
+  openSharedDialog(MediaServerBindingDialog)
 }
 
 // 国际化
@@ -528,9 +534,14 @@ const nativeSecurityMenu = computed<NativeStandaloneMenuBinding>(() => ({
 
               <div class="d-flex flex-wrap justify-space-between align-center ga-3 mb-4">
                 <span class="text-caption text-medium-emphasis">{{ t('channelAuthorization.deliveryHint') }}</span>
-                <VBtn variant="tonal" prepend-icon="mdi-link-variant" @click="openChannelBinding">{{
-                  t('channelAuthorization.bindingTitle')
-                }}</VBtn>
+                <div class="d-flex flex-wrap ga-2">
+                  <VBtn variant="tonal" prepend-icon="mdi-television-play" @click="openMediaServerBinding">{{
+                    t('mediaServerBinding.entryButton')
+                  }}</VBtn>
+                  <VBtn variant="tonal" prepend-icon="mdi-link-variant" @click="openChannelBinding">{{
+                    t('channelAuthorization.bindingTitle')
+                  }}</VBtn>
+                </div>
               </div>
 
               <VRow>
