@@ -9,6 +9,7 @@
     "dev": "vite --host",
     "build:plugin-sdk": "node scripts/build-plugin-sdk.mjs",
     "check:plugin-sdk": "node scripts/build-plugin-sdk.mjs --check",
+    "build:plugin-shell": "vite build --config vite.plugin-shell.config.ts",
     "dev:pwa": "vite --host --port 5174",
     "prebuild": "npm run build:plugin-sdk && npm run build:icons && npm run generate:pwa-icons && npm run generate:pwa-splash",
     "build": "vite build",

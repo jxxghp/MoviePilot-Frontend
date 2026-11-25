@@ -1,0 +1,165 @@
+/* MoviePilot Local Plugin Shell — Native Skin Layer (App-only) */
+
+:root {
+  --mp-safe-top: 0px;
+  --mp-safe-bottom: 0px;
+  --mp-safe-left: 0px;
+  --mp-safe-right: 0px;
+  --mp-accent: #9e7af5;
+  --mp-on-accent: #ffffff;
+  --mp-text-primary: #f5f2ff;
+  --mp-text-secondary: #b8b2cc;
+  --mp-surface-glass: rgba(255, 255, 255, 0.08);
+  --mp-surface-elevated: rgba(48, 43, 66, 0.86);
+  --mp-surface-border: rgba(255, 255, 255, 0.14);
+  --mp-surface-blur: 18px;
+  --mp-solid-surface: #473b52;
+  --mp-field-fill: rgba(255, 255, 255, 0.09);
+  --mp-field-border: rgba(255, 255, 255, 0.14);
+  --mp-chip-fill: rgba(255, 255, 255, 0.09);
+  --mp-chip-border: rgba(255, 255, 255, 0.15);
+  --mp-divider: rgba(255, 255, 255, 0.11);
+  --mp-panel-radius: 24px;
+  --mp-sheet-radius: 28px;
+  --mp-border-width: 0.7px;
+  --mp-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+}
+
+/* Layer 1: Full-chain root transparency so native dynamic backgrounds show through */
+html,
+body,
+#app,
+.v-application,
+.v-application__wrap,
+.v-main,
+.mp-shell-root,
+.mp-shell-mount-stage,
+[data-mp-shell-transparent-root='true'] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html,
+body {
+  font-family: var(--mp-font-family);
+  color: var(--mp-text-primary);
+  overscroll-behavior-y: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.mp-shell-root::-webkit-scrollbar {
+  display: none;
+}
+
+.mp-shell-root {
+  min-height: 100vh;
+  padding-top: calc(8px + var(--mp-safe-top));
+  padding-bottom: calc(20px + var(--mp-safe-bottom));
+  padding-left: calc(12px + var(--mp-safe-left));
+  padding-right: calc(12px + var(--mp-safe-right));
+  box-sizing: border-box;
+}
+
+/* Layer 2: Glass cards, sheets, lists & expansion panels aligned with shared/design-tokens */
+.mp-shell-root .v-card,
+.mp-shell-root .v-sheet:not(.bg-transparent):not(.v-theme--transparent),
+.mp-shell-root .v-expansion-panel,
+.mp-shell-root .v-list {
+  background: var(--mp-surface-glass) !important;
+  border: var(--mp-border-width) solid var(--mp-surface-border) !important;
+  border-radius: var(--mp-panel-radius) !important;
+  box-shadow: none !important;
+  color: var(--mp-text-primary);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  html:not([data-mp-shell-amoled='true']) .mp-shell-root .v-card,
+  html:not([data-mp-shell-amoled='true']) .mp-shell-root .v-expansion-panel {
+    backdrop-filter: blur(var(--mp-surface-blur));
+    -webkit-backdrop-filter: blur(var(--mp-surface-blur));
+  }
+}
+
+/* Nested lists inside cards keep clean transparent interior to avoid double borders */
+.mp-shell-root .v-card .v-list,
+.mp-shell-root .v-card .v-table,
+.mp-shell-root .v-card .v-data-table {
+  background: transparent !important;
+  border: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Elevated modals, dialogs & dropdown menus use high-opacity frosted surfaces for crisp legibility */
+.v-overlay__content > .v-card,
+.v-overlay__content > .v-sheet,
+.v-overlay__content > .v-list,
+.v-menu > .v-overlay__content > .v-list,
+.v-menu > .v-overlay__content > .v-card {
+  background: var(--mp-surface-elevated) !important;
+  border: var(--mp-border-width) solid var(--mp-surface-border) !important;
+  border-radius: var(--mp-sheet-radius) !important;
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  color: var(--mp-text-primary);
+}
+
+/* Fields, inputs, chips & tables */
+.mp-shell-root .v-field--variant-outlined .v-field__overlay,
+.mp-shell-root .v-field--variant-filled .v-field__overlay,
+.mp-shell-root .v-field--variant-solo .v-field__overlay {
+  background-color: var(--mp-field-fill) !important;
+  opacity: 1 !important;
+}
+
+.mp-shell-root .v-field__outline {
+  --v-field-border-opacity: 1;
+  color: var(--mp-field-border);
+}
+
+.mp-shell-root .v-field__input,
+.mp-shell-root .v-label {
+  color: var(--mp-text-primary);
+}
+
+.mp-shell-root .v-chip {
+  background-color: var(--mp-chip-fill);
+  border: var(--mp-border-width) solid var(--mp-chip-border);
+}
+
+.mp-shell-root .v-divider {
+  border-color: var(--mp-divider) !important;
+  opacity: 1 !important;
+}
+
+.mp-shell-root .v-table,
+.mp-shell-root .v-data-table {
+  background: transparent !important;
+  color: var(--mp-text-primary);
+}
+
+.mp-shell-root .v-table > .v-table__wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mp-shell-root .v-table .v-table__wrapper > table > tbody > tr:not(:last-child) > td,
+.mp-shell-root .v-table .v-table__wrapper > table > thead > tr > th {
+  border-bottom: var(--mp-border-width) solid var(--mp-divider) !important;
+}
+
+/* Narrow mobile layout convergence */
+.mp-shell-root .v-card-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mp-shell-root img {
+  max-width: 100%;
+  height: auto;
+}
