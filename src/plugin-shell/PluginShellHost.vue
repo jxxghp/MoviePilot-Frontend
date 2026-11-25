@@ -11,11 +11,7 @@ import {
   type Component,
 } from 'vue'
 import { useTheme } from 'vuetify'
-import {
-  getFederationRemote,
-  setFederationRemote,
-  unwrapFederationDefault,
-} from '@/utils/federationRuntime'
+import { getFederationRemote, setFederationRemote, unwrapFederationDefault } from '@/utils/federationRuntime'
 import { pluginHostBridge } from './bridgeClient'
 import {
   providePluginShellSDK,
@@ -89,6 +85,7 @@ if (typeof window !== 'undefined') {
 
 const {
   sdk: hostSdk,
+  nativeHost,
   toast,
   nativeSubscribe,
   subscriptionManager,
@@ -104,6 +101,10 @@ const {
     publishHeaderState()
   },
 })
+
+if (typeof window !== 'undefined') {
+  window.MoviePilotNativeCapabilities = nativeHost
+}
 
 let mountGeneration = 0
 
@@ -224,6 +225,7 @@ async function mountSurface(payload: PluginMountPayload, surface: PluginShellSur
   activeComponent.value = null
   inlineDialogs.value = []
   domHeaderButtons.value = new Map()
+  pluginHostBridge.clearDeviceEventListeners()
   clearRegisteredCommands()
 
   currentMount.value = payload
@@ -331,6 +333,7 @@ function handleUnmount(mountId?: string): void {
   if (mountId && currentMount.value && currentMount.value.mountId !== mountId) return
   mountGeneration += 1
   pluginHostBridge.abortAllPending('Plugin unmounted')
+  pluginHostBridge.clearDeviceEventListeners()
   activeComponent.value = null
   currentMount.value = null
   inlineDialogs.value = []
@@ -443,6 +446,7 @@ const surfaceProps = computed(() => {
     ...extra,
     api: scopedApi,
     hostSdk,
+    nativeHost,
     nativeSubscribe,
     subscriptionManager,
     pluginId: mount?.pluginId || '',

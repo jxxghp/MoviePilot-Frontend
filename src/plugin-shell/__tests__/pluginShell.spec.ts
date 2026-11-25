@@ -223,4 +223,169 @@ describe('plugin-shell local runtime', () => {
       delete window.webkit
     }
   })
+
+  it('exposes full native capabilities (audio record/play, media, device) via hostSdk.native and cleans up device events on unmount', async () => {
+    const receivedEvents: Array<{ event: string; data: Record<string, unknown> }> = []
+    type CapturedNativeSdk = {
+      supports: (cap: string) => boolean
+      native?: {
+        audio: {
+          startRecord: (opts?: Record<string, unknown>) => Promise<{ recordingId: string }>
+          stopRecord: () => Promise<{ recordingId: string; base64?: string }>
+          play: (opts: Record<string, unknown>) => Promise<{ playbackId: string }>
+          stop: () => Promise<{ stopped: boolean }>
+          onEvent: (fn: (ev: { event: string; data: Record<string, unknown> }) => void) => () => void
+        }
+        media: {
+          playNative: (opts: Record<string, unknown>) => Promise<{ launched: boolean }>
+        }
+        device: {
+          getCapabilities: () => Promise<{ platform: string; capabilities: string[] }>
+          readClipboard: () => Promise<{ text: string }>
+          keepAwake: (enabled: boolean) => Promise<{ enabled: boolean }>
+        }
+      }
+    }
+    const sdkHolder: { current: CapturedNativeSdk | null } = { current: null }
+
+    window.__mpAndroidPluginHostV2 = {
+      postMessage: raw => {
+        const msg = JSON.parse(raw) as WebToHostEnvelope
+        sentMessages.push(msg)
+        const requestId = typeof msg.payload.requestId === 'string' ? msg.payload.requestId : ''
+        if (!requestId) return
+        const reply = (data: Record<string, unknown>) => {
+          window.__mpPluginHostReceive?.({
+            protocol: PLUGIN_HOST_PROTOCOL,
+            major: PLUGIN_HOST_PROTOCOL_MAJOR,
+            type: 'bridge.response',
+            payload: { requestId, ok: true, data },
+          })
+        }
+        if (msg.type === 'device.capabilities') {
+          reply({
+            platform: 'ios',
+            osVersion: '18.0',
+            appVersion: '2.0.3',
+            deviceModel: 'iPhone',
+            networkType: 'wifi',
+            isDark: true,
+            capabilities: ['audio.record', 'audio.play', 'media.playNative', 'device.share'],
+          })
+        } else if (msg.type === 'audio.record.start') {
+          reply({ recordingId: 'rec_1', mimeType: 'audio/mp4', format: 'm4a', startedAt: 1000 })
+        } else if (msg.type === 'audio.record.stop') {
+          reply({
+            recordingId: 'rec_1',
+            durationMs: 1200,
+            sizeBytes: 64,
+            mimeType: 'audio/mp4',
+            fileName: 'rec_1.m4a',
+            base64: 'AAAA',
+          })
+        } else if (msg.type === 'audio.play') {
+          reply({ playbackId: 'play_1', state: 'playing', durationMs: 2500 })
+        } else if (msg.type === 'audio.stop') {
+          reply({ stopped: true })
+        } else if (msg.type === 'media.playNative') {
+          reply({ launched: true })
+        } else if (msg.type === 'device.clipboard.read') {
+          reply({ text: 'hello-native' })
+        } else if (msg.type === 'device.keepAwake') {
+          reply({ enabled: Boolean(msg.payload.enabled) })
+        }
+      },
+    }
+
+    const NativeCapPlugin = defineComponent({
+      name: 'NativeCapPlugin',
+      props: { hostSdk: Object },
+      setup(props) {
+        const sdk = props.hostSdk as CapturedNativeSdk | null
+        sdkHolder.current = sdk
+        sdk?.native?.audio.onEvent(ev => {
+          receivedEvents.push(ev)
+        })
+        return () => h('div', { class: 'native-cap-root' }, 'native-ready')
+      },
+    })
+    remoteMocks.getFederationRemote.mockResolvedValue({ default: NativeCapPlugin })
+
+    const wrapper = mount(PluginShellHost, {
+      global: { plugins: [vuetify] },
+      attachTo: document.body,
+    })
+
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'plugin.mount',
+      payload: {
+        mountId: 'm-native',
+        pluginId: 'VoiceDemo',
+        surface: 'dataPage',
+        remoteEntryUrl: '/plugin-remote/VoiceDemo/1.0.0/assets/remoteEntry.js',
+        visualTokens: getDefaultVisualTokens(),
+      },
+    })
+    await new Promise(resolve => setTimeout(resolve, 40))
+    await nextTick()
+
+    const capturedHostSdk = sdkHolder.current
+    expect(capturedHostSdk).not.toBeNull()
+    expect(capturedHostSdk?.supports('native')).toBe(true)
+    expect(capturedHostSdk?.supports('native.audio.record')).toBe(true)
+    expect(capturedHostSdk?.supports('native.audio.play')).toBe(true)
+    expect(window.MoviePilotNativeCapabilities).toBeDefined()
+
+    const caps = await capturedHostSdk!.native!.device.getCapabilities()
+    expect(caps.platform).toBe('ios')
+    expect(caps.capabilities).toContain('audio.record')
+
+    const recStart = await capturedHostSdk!.native!.audio.startRecord({ format: 'm4a', metering: true })
+    expect(recStart.recordingId).toBe('rec_1')
+
+    // Host pushes async audio level event
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'device.event',
+      payload: {
+        event: 'audio.record.level',
+        data: { recordingId: 'rec_1', durationMs: 400, normalizedLevel: 0.65 },
+      },
+    })
+    expect(receivedEvents).toHaveLength(1)
+    expect(receivedEvents[0].event).toBe('audio.record.level')
+
+    const recStop = await capturedHostSdk!.native!.audio.stopRecord()
+    expect(recStop.base64).toBe('AAAA')
+
+    const played = await capturedHostSdk!.native!.audio.play({ base64: 'AAAA', mimeType: 'audio/mp4' })
+    expect(played.playbackId).toBe('play_1')
+    expect((await capturedHostSdk!.native!.audio.stop()).stopped).toBe(true)
+    expect((await capturedHostSdk!.native!.media.playNative({ storage: 'local', path: '/a.mp3' })).launched).toBe(true)
+    expect((await capturedHostSdk!.native!.device.readClipboard()).text).toBe('hello-native')
+    expect((await capturedHostSdk!.native!.device.keepAwake(true)).enabled).toBe(true)
+
+    // Unmount clears device event listeners
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'plugin.unmount',
+      payload: { mountId: 'm-native' },
+    })
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'device.event',
+      payload: {
+        event: 'audio.play.ended',
+        data: { playbackId: 'play_1' },
+      },
+    })
+    expect(receivedEvents).toHaveLength(1)
+
+    wrapper.unmount()
+  })
 })

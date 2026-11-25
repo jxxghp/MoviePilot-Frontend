@@ -18,6 +18,7 @@ export declare const PLUGIN_HOST_KEYS: {
     readonly nativeSubscribe: "moviepilot:nativeSubscribe";
     readonly subscriptionManager: "moviepilot:subscriptionManager";
     readonly agent: "moviepilot:agent";
+    readonly native: "moviepilot:native";
 };
 /** 宿主实际实现的现有订阅管理操作。 */
 export declare const PLUGIN_SUBSCRIPTION_ACTIONS: readonly ["edit", "search", "pause", "resume", "reset", "activity", "detail", "delete", "logs", "files", "execution", "share"];
@@ -26,7 +27,7 @@ export type NativeSubscriptionAction = (typeof PLUGIN_SUBSCRIPTION_ACTIONS)[numb
 /** SDK 所在的联邦宿主界面。 */
 export type PluginHostSurface = 'page' | 'config' | 'dashboard' | 'app' | 'agent-pet';
 /** 能力表示宿主实现可用，不表示当前用户已经获得操作权限。 */
-export type PluginHostCapability = 'api' | 'ui.toast' | 'ui.dialog' | 'ui.confirm' | 'subscription.create' | 'subscription.manage' | `subscription.manage.${NativeSubscriptionAction}` | 'agent' | 'agent.pet' | 'subscription.create.music' | `media.${keyof PluginMediaServices}` | `resources.${keyof PluginResourceServices}` | `files.${keyof PluginFileServices}` | `catalogs.${keyof PluginCatalogServices}` | 'navigation' | 'environment' | 'preferences' | 'events' | 'shell.button' | 'shell.tabs' | 'workflows';
+export type PluginHostCapability = 'api' | 'ui.toast' | 'ui.dialog' | 'ui.confirm' | 'subscription.create' | 'subscription.manage' | `subscription.manage.${NativeSubscriptionAction}` | 'agent' | 'agent.pet' | 'subscription.create.music' | `media.${keyof PluginMediaServices}` | `resources.${keyof PluginResourceServices}` | `files.${keyof PluginFileServices}` | `catalogs.${keyof PluginCatalogServices}` | 'navigation' | 'environment' | 'preferences' | 'events' | 'shell.button' | 'shell.tabs' | 'workflows' | 'native' | 'native.audio' | 'native.audio.record' | 'native.audio.play' | 'native.media' | 'native.device';
 /** 插件请求的公开选项；认证和实例路径由宿主管理。 */
 export interface PluginRequestOptions {
     params?: Record<string, unknown>;
@@ -329,6 +330,253 @@ export interface PluginWorkflowServices {
         onChanged?: () => unknown;
     }): Promise<PluginOperationResult>;
 }
+export type PluginNativeHapticStyle = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'warning' | 'error';
+export type PluginNativePermissionName = 'microphone' | 'camera' | 'photos' | 'notifications';
+export type PluginNativePermissionStatus = 'granted' | 'denied' | 'undetermined' | 'restricted' | 'unsupported';
+export interface PluginNativeAudioRecordStartOptions {
+    format?: 'm4a' | 'wav';
+    sampleRate?: number;
+    channels?: number;
+    bitRate?: number;
+    maxDurationSec?: number;
+    metering?: boolean;
+}
+export interface PluginNativeAudioRecordStartResult {
+    recordingId: string;
+    mimeType: string;
+    format: string;
+    startedAt: number;
+}
+export interface PluginNativeAudioRecordStopResult {
+    recordingId: string;
+    durationMs: number;
+    sizeBytes: number;
+    mimeType: string;
+    fileName: string;
+    base64?: string;
+    truncated?: boolean;
+}
+export interface PluginNativeAudioRecordStatus {
+    state: 'idle' | 'recording' | 'paused';
+    recordingId?: string;
+    durationMs: number;
+    meteringDb?: number;
+    normalizedLevel?: number;
+}
+export interface PluginNativeAudioPlayOptions {
+    url?: string;
+    base64?: string;
+    apiPath?: string;
+    storage?: string;
+    path?: string;
+    mimeType?: string;
+    title?: string;
+    artist?: string;
+    loop?: boolean;
+    volume?: number;
+    rate?: number;
+    startPositionMs?: number;
+}
+export interface PluginNativeAudioPlayResult {
+    playbackId: string;
+    state: 'loading' | 'playing' | 'paused';
+    durationMs?: number;
+}
+export interface PluginNativeAudioStatus {
+    state: 'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
+    playbackId?: string;
+    positionMs: number;
+    durationMs: number;
+    bufferedMs?: number;
+    rate: number;
+    volume: number;
+}
+export interface PluginNativeMediaPlayOptions {
+    url?: string;
+    storage?: string;
+    path?: string;
+    fileName?: string;
+    itemId?: string;
+    server?: string;
+    title?: string;
+    mediaType?: 'audio' | 'video';
+    artworkUrl?: string;
+}
+export interface PluginNativeMediaPlayResult {
+    launched: boolean;
+}
+export interface PluginNativePickedFile {
+    name: string;
+    mimeType: string;
+    sizeBytes: number;
+    base64?: string;
+    truncated?: boolean;
+    width?: number;
+    height?: number;
+    durationMs?: number;
+}
+export interface PluginNativePickMediaOptions {
+    source?: 'library' | 'camera';
+    mediaType?: 'image' | 'video' | 'any';
+    multiple?: boolean;
+    maxCount?: number;
+    includeBase64?: boolean;
+}
+export interface PluginNativePickFileOptions {
+    accept?: string[];
+    multiple?: boolean;
+    includeBase64?: boolean;
+}
+export interface PluginNativePickResult {
+    cancelled: boolean;
+    files: PluginNativePickedFile[];
+}
+export interface PluginNativeShareOptions {
+    title?: string;
+    text?: string;
+    url?: string;
+    base64?: string;
+    mimeType?: string;
+    fileName?: string;
+}
+export interface PluginNativeSaveMediaOptions {
+    base64?: string;
+    apiPath?: string;
+    url?: string;
+    mimeType?: string;
+    fileName?: string;
+}
+export interface PluginNativeNotifyOptions {
+    title: string;
+    body?: string;
+    id?: string;
+    delaySec?: number;
+}
+export interface PluginNativeScanCodeResult {
+    cancelled: boolean;
+    value?: string;
+    format?: string;
+}
+export interface PluginNativeAuthResult {
+    authenticated: boolean;
+    biometryType?: string;
+}
+export interface PluginNativeCapabilitiesSnapshot {
+    platform: 'ios' | 'android' | 'harmony';
+    osVersion: string;
+    appVersion: string;
+    deviceModel: string;
+    networkType: string;
+    isDark: boolean;
+    capabilities: string[];
+}
+export interface PluginNativeDeviceInfo {
+    platform: 'ios' | 'android' | 'harmony';
+    osVersion: string;
+    appVersion: string;
+    deviceModel: string;
+    networkType: string;
+    locale: string;
+    isDark: boolean;
+    screenWidth: number;
+    screenHeight: number;
+    pixelRatio: number;
+}
+export interface PluginNativeDeviceEvent {
+    event: 'audio.record.state' | 'audio.record.level' | 'audio.play.state' | 'audio.play.progress' | 'audio.play.ended' | 'audio.play.error' | string;
+    data: Record<string, unknown>;
+}
+/** 移动 App 原生录音与内联音频播放能力。 */
+export interface PluginNativeAudioServices {
+    startRecord(options?: PluginNativeAudioRecordStartOptions): Promise<PluginNativeAudioRecordStartResult>;
+    pauseRecord(): Promise<{
+        recordingId: string;
+        state: 'paused';
+        durationMs: number;
+    }>;
+    resumeRecord(): Promise<{
+        recordingId: string;
+        state: 'recording';
+        durationMs: number;
+    }>;
+    stopRecord(options?: {
+        includeBase64?: boolean;
+    }): Promise<PluginNativeAudioRecordStopResult>;
+    cancelRecord(): Promise<{
+        cancelled: boolean;
+    }>;
+    getRecordStatus(): Promise<PluginNativeAudioRecordStatus>;
+    play(options: PluginNativeAudioPlayOptions): Promise<PluginNativeAudioPlayResult>;
+    pause(): Promise<PluginNativeAudioStatus>;
+    resume(): Promise<PluginNativeAudioStatus>;
+    stop(): Promise<{
+        stopped: boolean;
+    }>;
+    seek(positionMs: number): Promise<PluginNativeAudioStatus>;
+    setRate(rate: number): Promise<{
+        playbackId?: string;
+        rate: number;
+    }>;
+    setVolume(volume: number): Promise<{
+        playbackId?: string;
+        volume: number;
+    }>;
+    getStatus(): Promise<PluginNativeAudioStatus>;
+    onEvent(listener: (event: PluginNativeDeviceEvent) => void): () => void;
+}
+/** 移动 App 全屏原生音视频播放器（VLCKit/MPV/Media3/AVPlayer）能力。 */
+export interface PluginNativeMediaServices {
+    playNative(options: PluginNativeMediaPlayOptions): Promise<PluginNativeMediaPlayResult>;
+}
+/** 移动 App 系统硬件、权限、文件、分享、剪贴板、扫码、通知与生物认证能力。 */
+export interface PluginNativeDeviceServices {
+    getCapabilities(): Promise<PluginNativeCapabilitiesSnapshot>;
+    getInfo(): Promise<PluginNativeDeviceInfo>;
+    checkPermission(permission: PluginNativePermissionName, options?: {
+        request?: boolean;
+    }): Promise<{
+        permission: PluginNativePermissionName;
+        status: PluginNativePermissionStatus;
+    }>;
+    haptic(style?: PluginNativeHapticStyle): void;
+    copyText(text: string): Promise<{
+        copied: boolean;
+    }>;
+    readClipboard(): Promise<{
+        text: string;
+    }>;
+    share(options: PluginNativeShareOptions): Promise<{
+        completed: boolean;
+        cancelled?: boolean;
+    }>;
+    keepAwake(enabled: boolean): Promise<{
+        enabled: boolean;
+    }>;
+    notify(options: PluginNativeNotifyOptions): Promise<{
+        scheduled: boolean;
+        id: string;
+    }>;
+    pickMedia(options?: PluginNativePickMediaOptions): Promise<PluginNativePickResult>;
+    pickFile(options?: PluginNativePickFileOptions): Promise<PluginNativePickResult>;
+    saveMedia(options: PluginNativeSaveMediaOptions): Promise<{
+        saved: boolean;
+    }>;
+    scanCode(options?: {
+        prompt?: string;
+    }): Promise<PluginNativeScanCodeResult>;
+    authenticate(options?: {
+        reason?: string;
+    }): Promise<PluginNativeAuthResult>;
+    openExternal(url: string): void;
+}
+/** 移动 App 全量原生能力集合（仅在 iOS/Android/HarmonyOS 本地运行时中提供）。 */
+export interface PluginNativeHostServices {
+    readonly audio: Readonly<PluginNativeAudioServices>;
+    readonly media: Readonly<PluginNativeMediaServices>;
+    readonly device: Readonly<PluginNativeDeviceServices>;
+    invoke<T = Record<string, unknown>>(type: string, payload?: Record<string, unknown>, timeoutMs?: number): Promise<T>;
+    onEvent(listener: (event: PluginNativeDeviceEvent) => void): () => void;
+}
 /** 实例身份是路由信息，不是服务端授权凭据。 */
 export interface PluginHostContext {
     pluginId: string;
@@ -368,6 +616,7 @@ export interface PluginHostSDK {
     readonly shell?: Readonly<Partial<PluginShellServices>>;
     readonly workflows?: Readonly<PluginWorkflowServices>;
     readonly pet?: AgentPetContext;
+    readonly native?: Readonly<PluginNativeHostServices>;
     /** 未识别的能力名返回 false，不能按主程序版本猜测接口是否存在。 */
     supports(capability: string): boolean;
 }
@@ -382,6 +631,7 @@ export interface InteractivePluginHostSDK extends PluginHostSDK {
 /** 联邦组件可以通过 prop 取得 SDK，也可通过 PLUGIN_HOST_SDK_KEY 注入。 */
 export interface PluginHostProps {
     hostSdk?: PluginHostSDK;
+    nativeHost?: PluginNativeHostServices;
     subscriptionManager?: NativeSubscriptionManager;
     nativeSubscribe?: NativeSubscribe;
     pluginId?: string;
@@ -406,6 +656,7 @@ export interface PluginHostServices {
     events?: PluginEventServices;
     shell?: Partial<PluginShellServices>;
     workflows?: PluginWorkflowServices;
+    native?: PluginNativeHostServices;
 }
 /** 根据实际服务生成 SDK，保留动态实例 getter，防止路由切换后仍绑定旧实例。 */
 export declare function createPluginHostSDK(services: PluginHostServices & {

@@ -11,6 +11,7 @@ export const PLUGIN_HOST_KEYS = {
     nativeSubscribe: 'moviepilot:nativeSubscribe',
     subscriptionManager: 'moviepilot:subscriptionManager',
     agent: 'moviepilot:agent',
+    native: 'moviepilot:native',
 };
 /** 宿主实际实现的现有订阅管理操作。 */
 export const PLUGIN_SUBSCRIPTION_ACTIONS = [
@@ -58,6 +59,9 @@ export function createPluginHostSDK(services) {
         capabilities.push('agent');
     if (services.pet)
         capabilities.push('agent.pet');
+    if (services.native) {
+        capabilities.push('native', 'native.audio', 'native.audio.record', 'native.audio.play', 'native.media', 'native.device');
+    }
     const available = new Set(capabilities);
     return Object.freeze({
         apiVersion: PLUGIN_HOST_SDK_VERSION,
@@ -83,6 +87,7 @@ export function createPluginHostSDK(services) {
         workflows: services.workflows ? Object.freeze({ ...services.workflows }) : undefined,
         agent: services.agent,
         pet: services.pet,
+        native: services.native ? Object.freeze({ ...services.native }) : undefined,
         supports: (capability) => available.has(capability),
     });
 }

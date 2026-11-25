@@ -10,7 +10,7 @@ export type PluginShellPlatform = 'ios' | 'android' | 'harmony'
 export type PluginShellThemeMode = 'dark' | 'light'
 export type PluginShellSurface = 'config' | 'dataPage' | 'dashboard' | 'appPage'
 export type PluginToastLevel = 'success' | 'info' | 'warning' | 'error'
-export type PluginHapticStyle = 'light' | 'medium' | 'success' | 'warning' | 'error'
+export type PluginHapticStyle = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'warning' | 'error'
 
 export interface NativeVisualSemanticTokens {
   success: string
@@ -138,28 +138,58 @@ export interface HostToWebEnvelope {
     | 'nav.back'
     | 'host.action'
     | 'bridge.response'
+    | 'device.event'
   payload?: Record<string, unknown>
 }
+
+export type WebToHostMessageType =
+  | 'shell.ready'
+  | 'plugin.mounted'
+  | 'plugin.error'
+  | 'plugin.close'
+  | 'plugin.action'
+  | 'api.request'
+  | 'api.abort'
+  | 'ui.toast'
+  | 'ui.confirm'
+  | 'ui.header'
+  | 'nav.backResult'
+  | 'nav.openRoute'
+  | 'nav.openExternal'
+  | 'device.capabilities'
+  | 'device.info'
+  | 'device.permission'
+  | 'device.haptic'
+  | 'device.clipboard'
+  | 'device.clipboard.read'
+  | 'device.share'
+  | 'device.keepAwake'
+  | 'device.notify'
+  | 'device.pickMedia'
+  | 'device.pickFile'
+  | 'device.saveMedia'
+  | 'device.scanCode'
+  | 'device.authenticate'
+  | 'audio.record.start'
+  | 'audio.record.pause'
+  | 'audio.record.resume'
+  | 'audio.record.stop'
+  | 'audio.record.cancel'
+  | 'audio.record.status'
+  | 'audio.play'
+  | 'audio.pause'
+  | 'audio.resume'
+  | 'audio.stop'
+  | 'audio.seek'
+  | 'audio.setRate'
+  | 'audio.setVolume'
+  | 'audio.status'
+  | 'media.playNative'
 
 export interface WebToHostEnvelope {
   protocol: typeof PLUGIN_HOST_PROTOCOL
   major: typeof PLUGIN_HOST_PROTOCOL_MAJOR
-  type:
-    | 'shell.ready'
-    | 'plugin.mounted'
-    | 'plugin.error'
-    | 'plugin.close'
-    | 'plugin.action'
-    | 'api.request'
-    | 'api.abort'
-    | 'ui.toast'
-    | 'ui.confirm'
-    | 'ui.header'
-    | 'nav.backResult'
-    | 'nav.openRoute'
-    | 'nav.openExternal'
-    | 'device.haptic'
-    | 'device.clipboard'
+  type: WebToHostMessageType
   payload: Record<string, unknown>
 }
 
@@ -173,6 +203,7 @@ declare global {
     }
     __mpPluginHostReceive?: (raw: string | HostToWebEnvelope) => void
     __mpPluginShellReady?: boolean
+    MoviePilotNativeCapabilities?: unknown
     webkit?: {
       messageHandlers?: {
         mpPluginHostV2?: {

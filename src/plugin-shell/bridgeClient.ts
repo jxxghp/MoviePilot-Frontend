@@ -1,3 +1,4 @@
+import type { PluginNativeDeviceEvent } from '@/sdk/plugin'
 import {
   PLUGIN_HOST_PROTOCOL,
   PLUGIN_HOST_PROTOCOL_MAJOR,
@@ -9,9 +10,11 @@ import {
   type PluginHeaderActionDescriptor,
   type PluginToastLevel,
   type WebToHostEnvelope,
+  type WebToHostMessageType,
 } from './types'
 
 type HostMessageListener = (envelope: HostToWebEnvelope) => void
+type DeviceEventListener = (event: PluginNativeDeviceEvent) => void
 
 interface PendingRequest {
   resolve: (value: unknown) => void
@@ -39,6 +42,7 @@ export class PluginBridgeError extends Error {
  */
 export class PluginHostBridgeClient {
   private readonly listeners = new Set<HostMessageListener>()
+  private readonly deviceEventListeners = new Set<DeviceEventListener>()
   private readonly pending = new Map<string, PendingRequest>()
   private requestSeq = 0
 
@@ -59,6 +63,17 @@ export class PluginHostBridgeClient {
     return () => {
       this.listeners.delete(listener)
     }
+  }
+
+  onDeviceEvent(listener: DeviceEventListener): () => void {
+    this.deviceEventListeners.add(listener)
+    return () => {
+      this.deviceEventListeners.delete(listener)
+    }
+  }
+
+  clearDeviceEventListeners(): void {
+    this.deviceEventListeners.clear()
   }
 
   receiveFromHost(raw: string | HostToWebEnvelope): void {
@@ -86,6 +101,25 @@ export class PluginHostBridgeClient {
       return
     }
 
+    if (envelope.type === 'device.event') {
+      const payload = envelope.payload || {}
+      const eventName = typeof payload.event === 'string' ? payload.event : ''
+      if (eventName) {
+        const eventObj: PluginNativeDeviceEvent = {
+          event: eventName,
+          data: payload.data && typeof payload.data === 'object' ? (payload.data as Record<string, unknown>) : {},
+        }
+        for (const listener of this.deviceEventListeners) {
+          try {
+            listener(eventObj)
+          } catch (error) {
+            console.error('[plugin-shell] device event listener error:', error)
+          }
+        }
+      }
+      return
+    }
+
     for (const listener of this.listeners) {
       try {
         listener(envelope)
@@ -95,7 +129,7 @@ export class PluginHostBridgeClient {
     }
   }
 
-  send(type: WebToHostEnvelope['type'], payload: Record<string, unknown> = {}): boolean {
+  send(type: WebToHostMessageType, payload: Record<string, unknown> = {}): boolean {
     const envelope: WebToHostEnvelope = {
       protocol: PLUGIN_HOST_PROTOCOL,
       major: PLUGIN_HOST_PROTOCOL_MAJOR,
@@ -122,6 +156,41 @@ export class PluginHostBridgeClient {
     }
 
     return false
+  }
+
+  /** 调用原生本地能力（录音、播放、文件/相册、剪贴板、分享、扫码、鉴权等）并等待 bridge.response 返回。 */
+  invoke<T = Record<string, unknown>>(
+    type: WebToHostMessageType,
+    payload: Record<string, unknown> = {},
+    timeoutMs = 120_000,
+  ): Promise<T> {
+    const requestId = this.nextRequestId('native')
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => {
+          if (!this.pending.has(requestId)) return
+          this.pending.delete(requestId)
+          reject(new PluginBridgeError(`Native capability timeout: ${type}`, { code: 'TIMEOUT' }))
+        },
+        Math.max(1000, timeoutMs),
+      )
+
+      this.pending.set(requestId, {
+        resolve: value => resolve((value ?? {}) as T),
+        reject: err => reject(err),
+        timer,
+      })
+
+      const dispatched = this.send(type, {
+        ...payload,
+        requestId,
+      })
+      if (!dispatched) {
+        clearTimeout(timer)
+        this.pending.delete(requestId)
+        reject(new PluginBridgeError('Native plugin host transport unavailable', { code: 'NO_TRANSPORT' }))
+      }
+    })
   }
 
   nextRequestId(prefix = 'req'): string {
@@ -153,13 +222,16 @@ export class PluginHostBridgeClient {
         reject(new PluginBridgeError('Request aborted', { code: 'ABORTED' }))
       }
 
-      const timer = setTimeout(() => {
-        if (!this.pending.has(requestId)) return
-        this.pending.delete(requestId)
-        cleanupAbort()
-        this.send('api.abort', { requestId })
-        reject(new PluginBridgeError('Request timeout', { code: 'TIMEOUT' }))
-      }, Math.max(1000, timeoutMs))
+      const timer = setTimeout(
+        () => {
+          if (!this.pending.has(requestId)) return
+          this.pending.delete(requestId)
+          cleanupAbort()
+          this.send('api.abort', { requestId })
+          reject(new PluginBridgeError('Request timeout', { code: 'TIMEOUT' }))
+        },
+        Math.max(1000, timeoutMs),
+      )
 
       this.pending.set(requestId, {
         resolve: value => {
