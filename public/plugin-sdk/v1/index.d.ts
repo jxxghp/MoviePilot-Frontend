@@ -27,7 +27,7 @@ export type NativeSubscriptionAction = (typeof PLUGIN_SUBSCRIPTION_ACTIONS)[numb
 /** SDK 所在的联邦宿主界面。 */
 export type PluginHostSurface = 'page' | 'config' | 'dashboard' | 'app' | 'agent-pet';
 /** 能力表示宿主实现可用，不表示当前用户已经获得操作权限。 */
-export type PluginHostCapability = 'api' | 'ui.toast' | 'ui.dialog' | 'ui.confirm' | 'subscription.create' | 'subscription.manage' | `subscription.manage.${NativeSubscriptionAction}` | 'agent' | 'agent.pet' | 'subscription.create.music' | `media.${keyof PluginMediaServices}` | `resources.${keyof PluginResourceServices}` | `files.${keyof PluginFileServices}` | `catalogs.${keyof PluginCatalogServices}` | 'navigation' | 'environment' | 'preferences' | 'events' | 'shell.button' | 'shell.tabs' | 'workflows' | 'native' | 'native.audio' | 'native.audio.record' | 'native.audio.play' | 'native.media' | 'native.device';
+export type PluginHostCapability = 'api' | 'ui.toast' | 'ui.dialog' | 'ui.confirm' | 'subscription.create' | 'subscription.manage' | `subscription.manage.${NativeSubscriptionAction}` | 'agent' | 'agent.pet' | 'subscription.create.music' | `media.${keyof PluginMediaServices}` | `resources.${keyof PluginResourceServices}` | `files.${keyof PluginFileServices}` | `catalogs.${keyof PluginCatalogServices}` | 'navigation' | 'environment' | 'preferences' | 'events' | 'shell.button' | 'shell.tabs' | 'workflows' | 'native' | 'native.audio' | 'native.audio.record' | 'native.audio.play' | 'native.audio.nowPlaying' | 'native.media' | 'native.device';
 /** 插件请求的公开选项；认证和实例路径由宿主管理。 */
 export interface PluginRequestOptions {
     params?: Record<string, unknown>;
@@ -372,10 +372,27 @@ export interface PluginNativeAudioPlayOptions {
     mimeType?: string;
     title?: string;
     artist?: string;
+    album?: string;
+    artworkUrl?: string;
+    showInStatusBar?: boolean;
     loop?: boolean;
     volume?: number;
     rate?: number;
     startPositionMs?: number;
+}
+/** 注册到手机状态栏 / 锁屏 / 控制中心的媒体播控元数据。 */
+export interface PluginNativeNowPlayingOptions {
+    title: string;
+    artist?: string;
+    album?: string;
+    artworkUrl?: string;
+    durationMs?: number;
+    positionMs?: number;
+    isPlaying?: boolean;
+    rate?: number;
+    canNext?: boolean;
+    canPrevious?: boolean;
+    canSeek?: boolean;
 }
 export interface PluginNativeAudioPlayResult {
     playbackId: string;
@@ -483,7 +500,7 @@ export interface PluginNativeDeviceInfo {
     pixelRatio: number;
 }
 export interface PluginNativeDeviceEvent {
-    event: 'audio.record.state' | 'audio.record.level' | 'audio.play.state' | 'audio.play.progress' | 'audio.play.ended' | 'audio.play.error' | string;
+    event: 'audio.record.state' | 'audio.record.level' | 'audio.play.state' | 'audio.play.progress' | 'audio.play.ended' | 'audio.play.error' | 'audio.remoteCommand' | string;
     data: Record<string, unknown>;
 }
 /** 移动 App 原生录音与内联音频播放能力。 */
@@ -522,6 +539,12 @@ export interface PluginNativeAudioServices {
         volume: number;
     }>;
     getStatus(): Promise<PluginNativeAudioStatus>;
+    setNowPlaying(options: PluginNativeNowPlayingOptions): Promise<{
+        registered: boolean;
+    }>;
+    clearNowPlaying(): Promise<{
+        cleared: boolean;
+    }>;
     onEvent(listener: (event: PluginNativeDeviceEvent) => void): () => void;
 }
 /** 移动 App 全屏原生音视频播放器（VLCKit/MPV/Media3/AVPlayer）能力。 */

@@ -67,6 +67,7 @@ export type PluginHostCapability =
   | 'native.audio'
   | 'native.audio.record'
   | 'native.audio.play'
+  | 'native.audio.nowPlaying'
   | 'native.media'
   | 'native.device'
 
@@ -393,10 +394,28 @@ export interface PluginNativeAudioPlayOptions {
   mimeType?: string
   title?: string
   artist?: string
+  album?: string
+  artworkUrl?: string
+  showInStatusBar?: boolean
   loop?: boolean
   volume?: number
   rate?: number
   startPositionMs?: number
+}
+
+/** 注册到手机状态栏 / 锁屏 / 控制中心的媒体播控元数据。 */
+export interface PluginNativeNowPlayingOptions {
+  title: string
+  artist?: string
+  album?: string
+  artworkUrl?: string
+  durationMs?: number
+  positionMs?: number
+  isPlaying?: boolean
+  rate?: number
+  canNext?: boolean
+  canPrevious?: boolean
+  canSeek?: boolean
 }
 
 export interface PluginNativeAudioPlayResult {
@@ -527,6 +546,7 @@ export interface PluginNativeDeviceEvent {
     | 'audio.play.progress'
     | 'audio.play.ended'
     | 'audio.play.error'
+    | 'audio.remoteCommand'
     | string
   data: Record<string, unknown>
 }
@@ -547,6 +567,8 @@ export interface PluginNativeAudioServices {
   setRate(rate: number): Promise<{ playbackId?: string; rate: number }>
   setVolume(volume: number): Promise<{ playbackId?: string; volume: number }>
   getStatus(): Promise<PluginNativeAudioStatus>
+  setNowPlaying(options: PluginNativeNowPlayingOptions): Promise<{ registered: boolean }>
+  clearNowPlaying(): Promise<{ cleared: boolean }>
   onEvent(listener: (event: PluginNativeDeviceEvent) => void): () => void
 }
 
@@ -708,6 +730,7 @@ export function createPluginHostSDK(services: PluginHostServices): PluginHostSDK
       'native.audio',
       'native.audio.record',
       'native.audio.play',
+      'native.audio.nowPlaying',
       'native.media',
       'native.device',
     )

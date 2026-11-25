@@ -184,6 +184,8 @@ export type WebToHostMessageType =
   | 'audio.setRate'
   | 'audio.setVolume'
   | 'audio.status'
+  | 'audio.setNowPlaying'
+  | 'audio.clearNowPlaying'
   | 'media.playNative'
 
 export interface WebToHostEnvelope {

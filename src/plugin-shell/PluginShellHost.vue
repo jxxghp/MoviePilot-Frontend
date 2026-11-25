@@ -10,7 +10,7 @@ import {
   shallowRef,
   type Component,
 } from 'vue'
-import { useTheme } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 import { getFederationRemote, setFederationRemote, unwrapFederationDefault } from '@/utils/federationRuntime'
 import { pluginHostBridge } from './bridgeClient'
 import {
@@ -36,6 +36,21 @@ import {
 } from './visualTheme'
 
 const theme = useTheme()
+const display = useDisplay()
+
+function syncViewportDisplay(): void {
+  if (typeof window === 'undefined') return
+  const width = window.innerWidth || document.documentElement?.clientWidth || 0
+  const height = window.innerHeight || document.documentElement?.clientHeight || 0
+  if (width > 0 && typeof document !== 'undefined') {
+    const isPortraitMobile = width < 768 || (width < 960 && height >= width)
+    document.documentElement.dataset.mpShellViewport = isPortraitMobile ? 'mobile-portrait' : 'expanded'
+  }
+  if (typeof display.update === 'function') {
+    display.update()
+  }
+  notifyEnvironmentChanged()
+}
 
 const mountStageRef = ref<HTMLElement | null>(null)
 const activeComponent = shallowRef<Component | null>(null)
@@ -311,8 +326,10 @@ async function mountSurface(payload: PluginMountPayload, surface: PluginShellSur
   activeComponent.value = markRaw(resolved)
 
   await nextTick()
+  syncViewportDisplay()
   const notifyFrame = () => {
     if (generation !== mountGeneration) return
+    syncViewportDisplay()
     cleanOpaquePluginRoots(mountStageRef.value)
     extractFallbackDomHeader()
     const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt)
@@ -521,11 +538,24 @@ onErrorCaptured(error => {
   return false
 })
 
+let viewportResizeObserver: ResizeObserver | null = null
+
+const handleWindowResize = () => {
+  syncViewportDisplay()
+}
+
 onMounted(() => {
   pluginHostBridge.attachGlobalReceiver()
   applyNativeVisualTokens(theme, getDefaultVisualTokens())
+  syncViewportDisplay()
   if (typeof window !== 'undefined') {
     window.__mpPluginShellReady = true
+    window.addEventListener('resize', handleWindowResize, { passive: true })
+    window.addEventListener('orientationchange', handleWindowResize, { passive: true })
+  }
+  if (typeof ResizeObserver !== 'undefined' && mountStageRef.value) {
+    viewportResizeObserver = new ResizeObserver(() => syncViewportDisplay())
+    viewportResizeObserver.observe(mountStageRef.value)
   }
   pluginHostBridge.send('shell.ready', {
     shellVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__.replace(/^v/, '') : '3.0.0',
@@ -534,6 +564,12 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleWindowResize)
+    window.removeEventListener('orientationchange', handleWindowResize)
+  }
+  viewportResizeObserver?.disconnect()
+  viewportResizeObserver = null
   unsubscribeHost()
   pluginHostBridge.abortAllPending('Shell disposed')
 })

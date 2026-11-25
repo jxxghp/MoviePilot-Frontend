@@ -154,6 +154,14 @@ body::-webkit-scrollbar,
 }
 
 /* Narrow mobile layout convergence */
+html,
+body,
+.mp-shell-root,
+.mp-shell-mount-stage {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 .mp-shell-root .v-card-actions {
   flex-wrap: wrap;
   gap: 8px;
@@ -162,4 +170,29 @@ body::-webkit-scrollbar,
 .mp-shell-root img {
   max-width: 100%;
   height: auto;
+}
+
+/* Portrait phone adaptation: prevent fixed desktop min-widths from forcing horizontal landscape layouts */
+@media (max-width: 767px) {
+  .mp-shell-root .v-container {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .mp-shell-root .v-dialog > .v-overlay__content,
+  .v-dialog > .v-overlay__content {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px !important;
+  }
+
+  .mp-shell-root .v-row {
+    margin-left: -6px;
+    margin-right: -6px;
+  }
+
+  .mp-shell-root .v-row > [class*='v-col'] {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
 }

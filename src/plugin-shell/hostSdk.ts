@@ -28,6 +28,7 @@ import {
   type PluginNativeMediaPlayResult,
   type PluginNativeMediaServices,
   type PluginNativeNotifyOptions,
+  type PluginNativeNowPlayingOptions,
   type PluginNativePermissionName,
   type PluginNativePermissionStatus,
   type PluginNativePickFileOptions,
@@ -124,10 +125,11 @@ export function providePluginShellSDK(options: {
   const getEnvironmentSnapshot = (): Readonly<PluginEnvironmentSnapshot> => {
     const s = state.value
     const perms = s.user.permissions
+    const isCompactViewport = typeof window === 'undefined' ? true : window.innerWidth < 960
     return Object.freeze({
       locale: s.locale || 'zh-CN',
       theme: s.theme,
-      isMobile: true,
+      isMobile: isCompactViewport,
       online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
       user: Object.freeze({
         id: s.user.id,
@@ -265,6 +267,13 @@ export function providePluginShellSDK(options: {
     setVolume: (volume: number) =>
       bridge.invoke<{ playbackId?: string; volume: number }>('audio.setVolume', { volume }, 10_000),
     getStatus: () => bridge.invoke<PluginNativeAudioStatus>('audio.status', {}, 10_000),
+    setNowPlaying: (opts: PluginNativeNowPlayingOptions) =>
+      bridge.invoke<{ registered: boolean }>(
+        'audio.setNowPlaying',
+        opts as unknown as Record<string, unknown>,
+        10_000,
+      ),
+    clearNowPlaying: () => bridge.invoke<{ cleared: boolean }>('audio.clearNowPlaying', {}, 10_000),
     onEvent: (listener: (event: PluginNativeDeviceEvent) => void) =>
       bridge.onDeviceEvent(ev => {
         if (ev.event.startsWith('audio.')) {

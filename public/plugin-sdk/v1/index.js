@@ -60,7 +60,7 @@ export function createPluginHostSDK(services) {
     if (services.pet)
         capabilities.push('agent.pet');
     if (services.native) {
-        capabilities.push('native', 'native.audio', 'native.audio.record', 'native.audio.play', 'native.media', 'native.device');
+        capabilities.push('native', 'native.audio', 'native.audio.record', 'native.audio.play', 'native.audio.nowPlaying', 'native.media', 'native.device');
     }
     const available = new Set(capabilities);
     return Object.freeze({
