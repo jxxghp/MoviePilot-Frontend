@@ -45,3 +45,7 @@ Web Push 切号先取消旧端点，每个异步阶段校验当前账号和登�
 ## 独立平台补齐
 
 provider 是后端模块协议 owner，传输标识及连接身份不能被前端当作权限。共享设置页保留全部目录项，并根据后端增量出现的新 provider 创建独立草稿；组件回归同时检查原有卡片仍存在，禁止通过缩减目录或复用 Web/WebAgent 证明扩展成功。前端生产源码保持 af33d57d 的能力驱动实现，本轮补齐验收和文档；前轮浏览器/构建证据只对相同生产源码复用。实际检查以本轮源码 path/HEAD/index_tree 和最新验收索引为准，手测运行环境未自动切换。
+
+## 后端渠道 SDK 边界
+
+共享页面继续只消费 providers/capabilities 和规范资源，不把渠道 SDK 版本、平台声明或前端规则校验当作权限。后端宿主 SDK 已绑定连接、provider、身份空间、解析 owner 和 revision，失败不回退旧 HTTP；前端不补发另一条入站路径。这里的后端类型 SDK 与前端模块联邦 SDK 不同，可安装插件渠道的信任接入未开放。接口及兼容台账见[后端 SDK 说明](https://github.com/jxxghp/MoviePilot/blob/v3/docs/channel-sdk.md)。
