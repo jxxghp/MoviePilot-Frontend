@@ -4,8 +4,6 @@ import { describe, expect, it } from 'vitest'
 
 const workflowPath = resolve(process.cwd(), '.github/workflows/test.yml')
 const releaseWorkflowPath = resolve(process.cwd(), '.github/workflows/build.yml')
-const testingGuidePath = resolve(process.cwd(), 'docs/testing.md')
-const codeQualityGuidePath = resolve(process.cwd(), 'docs/code-quality.md')
 const prettierIgnorePath = resolve(process.cwd(), '.prettierignore')
 
 describe('前端测试 workflow', () => {
@@ -75,24 +73,6 @@ describe('前端测试 workflow', () => {
     }
     expect(proofJob).not.toContain('always()')
     expect(proofJob).not.toContain('continue-on-error')
-  })
-
-  it('文档使用当前测试 job 名称和触发范围', () => {
-    const testingGuide = readFileSync(testingGuidePath, 'utf8')
-    const codeQualityGuide = readFileSync(codeQualityGuidePath, 'utf8')
-
-    expect(testingGuide).toContain('`yarn test:run` 默认并行执行四个 Vitest shard')
-    expect(testingGuide).toContain('`yarn test:run --serial`')
-    expect(testingGuide).toContain('传入测试文件或名称过滤条件时自动使用单进程')
-    expect(testingGuide).toContain('推送到 `v3`')
-    expect(testingGuide).toContain('只在 Pull Request 事件运行')
-    expect(codeQualityGuide).toContain('`lint` 与 `typecheck` job 分别执行 ESLint 和类型检查')
-    expect(codeQualityGuide).toContain('本地默认并行执行四个 Vitest shard')
-    expect(testingGuide).toContain('代码树完全相同')
-    expect(testingGuide).toContain('直接 push、手动触发')
-    expect(testingGuide).toContain('CI proof')
-    expect(testingGuide).not.toContain('`unit-tests`')
-    expect(codeQualityGuide).not.toContain('`unit-tests`')
   })
 
   it('V3 前端发布只由 v3 分支上的版本变更触发', () => {

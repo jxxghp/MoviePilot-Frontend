@@ -37,6 +37,9 @@ yarn build                    # 生产构建验证
 
 CI workflow 中，`lint` 与 `typecheck` job 分别执行 ESLint 和类型检查，单元测试使用独立的四分片 job 并行执行，本地默认并行执行四个 Vitest shard 并与 CI 共用 `yarn test:run` 入口，而 `format` job 只在 Pull Request 事件检查变更文件。全部 PR 门禁通过后记录 `CI proof`，合并推送在代码树与基线完全匹配时自动复用已验证结果，详见 [单元测试架构](testing.md#命令与-ci)。
 
+测试入口不得充当共享设施：ESLint 检查导入、重新导出及字面量动态加载 `.spec` / `.test` 文件。
+测试的增补、合并和退役按[测试维护与退役](testing.md#测试维护与退役)审查，避免独立回归文件与专属 mock 失去归属后持续堆积。
+
 ## 存量渐进治理规则
 
 ### ESLint 受控抑制基线

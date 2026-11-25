@@ -21,6 +21,7 @@ MoviePilot v3 前端仓库（Vue 3 + Vuetify 3 + TypeScript + Vite），默认�
 
 ## 验证与 Pull Request 要求
 
+- 测试归属、复用、合并和退役按 `docs/testing.md` 执行：新增前查已有覆盖，不从 spec 导入共享设施；功能下线同步清理专属用例和 fixture，PR 说明新增风险及旧测试的处置依据。不以用例数、覆盖率或文档措辞断言代替有效行为验证。
 - 提交前在本地运行 `yarn format:check`、`yarn lint`、`yarn typecheck` 及受影响范围的 Vitest 测试（全量 `yarn test:run`），涉及依赖、构建配置、路由、静态资源、Vue SFC 入口或模块联邦时额外运行 `yarn build`。
 - **真实浏览器界面验证** 凡涉及页面布局、样式、响应式适配、导航或用户交互的改动，必须在真实浏览器（覆盖桌面与移动宽度）核验实际渲染效果、关键交互与控制台无报错，并在 PR 描述中写明浏览器验证情况或附上截图，仅通过组件单测与静态构建的界面改动不足以合入。
 - 使用 Conventional Commits 提交，保持单个 PR 聚焦单一主题，除非明确执行版本发布，不修改 `package.json` 中的版本号。
