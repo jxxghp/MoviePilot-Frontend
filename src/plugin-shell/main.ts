@@ -1,11 +1,42 @@
-import { createApp } from 'vue'
+import { createApp, defineComponent, h } from 'vue'
 import 'vuetify/styles'
 import '@/styles/variables/_vuetify.scss'
+import { VBtn } from 'vuetify/components/VBtn'
+import { VIcon } from 'vuetify/components/VIcon'
 import vuetify from '@/plugins/vuetify'
-import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import { pluginHostBridge } from './bridgeClient'
 import PluginShellHost from './PluginShellHost.vue'
 import './plugin-shell.css'
+
+/** 极简运行时弹窗关闭按钮（免除主站 vue-i18n 依赖，完整兼容插件 `<VDialogCloseBtn>` / `<DialogCloseBtn>`）。 */
+const ShellDialogCloseBtn = defineComponent({
+  name: 'ShellDialogCloseBtn',
+  props: {
+    innerClass: { type: String, default: undefined },
+  },
+  emits: ['click', 'update:modelValue'],
+  setup(props, { emit }) {
+    const onClick = (event: MouseEvent) => {
+      event.stopPropagation()
+      emit('update:modelValue', false)
+      emit('click')
+    }
+    return () =>
+      h(
+        VBtn,
+        {
+          'icon': true,
+          'variant': 'text',
+          'size': 'small',
+          'data-native-dialog-close': '',
+          'aria-label': '关闭',
+          'class': props.innerClass ? props.innerClass : 'absolute right-3 top-3 z-10',
+          onClick,
+        },
+        () => h(VIcon, { icon: 'mdi-close' }),
+      )
+  },
+})
 
 // 加载本地离线 Iconify MDI 图标包，零网络延迟支持全部 mdi-* 图标
 void import('@/@iconify/icons-bundle').catch(error => {
@@ -47,6 +78,6 @@ if (typeof window !== 'undefined') {
 
 const app = createApp(PluginShellHost)
 app.use(vuetify)
-app.component('VDialogCloseBtn', DialogCloseBtn)
-app.component('DialogCloseBtn', DialogCloseBtn)
+app.component('VDialogCloseBtn', ShellDialogCloseBtn)
+app.component('DialogCloseBtn', ShellDialogCloseBtn)
 app.mount('#app')

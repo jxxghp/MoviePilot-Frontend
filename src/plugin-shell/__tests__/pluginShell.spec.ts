@@ -1,6 +1,7 @@
-import { defineComponent, h, nextTick, reactive } from 'vue'
+import { defineComponent, h, nextTick, reactive, resolveComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { VIcon } from 'vuetify/components'
 import vuetify from '@/plugins/vuetify'
 import { PluginHostBridgeClient } from '../bridgeClient'
 import PluginShellHost from '../PluginShellHost.vue'
@@ -111,16 +112,29 @@ describe('plugin-shell local runtime', () => {
         hostSdk: Object,
       },
       setup(props) {
+        const CloseBtn = resolveComponent('VDialogCloseBtn')
         return () =>
           h('div', { class: 'demo-remote-root', style: { backgroundColor: 'rgb(255, 255, 255)' } }, [
             h('span', { class: 'demo-pid' }, props.pluginId || ''),
+            h(VIcon, { class: 'demo-vicon', icon: 'mdi-refresh' }),
+            typeof CloseBtn !== 'string' ? h(CloseBtn, { class: 'demo-close-btn' }) : null,
           ])
       },
     })
     remoteMocks.getFederationRemote.mockResolvedValue({ default: DemoRemote })
 
     const wrapper = mount(PluginShellHost, {
-      global: { plugins: [vuetify] },
+      global: {
+        plugins: [vuetify],
+        components: {
+          VDialogCloseBtn: defineComponent({
+            name: 'ShellDialogCloseBtn',
+            setup(_, { attrs }) {
+              return () => h(VIcon, { ...attrs, icon: 'ri-close-line' })
+            },
+          }),
+        },
+      },
       attachTo: document.body,
     })
 
@@ -152,6 +166,8 @@ describe('plugin-shell local runtime', () => {
     await nextTick()
 
     expect(wrapper.find('.demo-pid').text()).toBe('BrushFlow')
+    expect(wrapper.find('.demo-vicon').exists()).toBe(true)
+    expect(wrapper.find('.demo-close-btn').exists()).toBe(true)
     expect(sentMessages.some(m => m.type === 'plugin.mounted' && m.payload.mountId === 'm-1')).toBe(true)
     expect(window.localStorage.getItem('auth')).toBeNull()
     expect(window.localStorage.getItem('user')).toContain('"userName":"admin"')
@@ -312,7 +328,17 @@ describe('plugin-shell local runtime', () => {
     remoteMocks.getFederationRemote.mockResolvedValue({ default: NativeCapPlugin })
 
     const wrapper = mount(PluginShellHost, {
-      global: { plugins: [vuetify] },
+      global: {
+        plugins: [vuetify],
+        components: {
+          VDialogCloseBtn: defineComponent({
+            name: 'ShellDialogCloseBtn',
+            setup(_, { attrs }) {
+              return () => h(VIcon, { ...attrs, icon: 'ri-close-line' })
+            },
+          }),
+        },
+      },
       attachTo: document.body,
     })
 

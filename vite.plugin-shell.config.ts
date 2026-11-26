@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { federation } from '@module-federation/vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
+import AutoImport from 'unplugin-auto-import/vite'
 import { defineConfig } from 'vite'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import vuetify from 'vite-plugin-vuetify'
@@ -23,6 +24,11 @@ export default defineConfig({
   plugins: [
     vue(),
     vueJsx(),
+    AutoImport({
+      imports: ['vue', '@vueuse/core', '@vueuse/math'],
+      vueTemplate: true,
+      dts: false,
+    }),
     vuetify({
       autoImport: {
         ignore: ['VMenu', ...responsiveInputCoreComponentNames],
