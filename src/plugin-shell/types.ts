@@ -187,10 +187,16 @@ export type WebToHostMessageType =
   | 'audio.seek'
   | 'audio.setRate'
   | 'audio.setVolume'
+  | 'audio.getSystemVolume'
+  | 'audio.setSystemVolume'
+  | 'audio.setSpectrum'
   | 'audio.status'
   | 'audio.setNowPlaying'
   | 'audio.clearNowPlaying'
   | 'media.playNative'
+  | 'widget.update'
+  | 'widget.remove'
+  | 'widget.list'
 
 export interface WebToHostEnvelope {
   protocol: typeof PLUGIN_HOST_PROTOCOL

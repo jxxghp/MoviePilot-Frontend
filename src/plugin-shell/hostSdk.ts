@@ -20,6 +20,7 @@ import {
   type PluginNativeAudioRecordStatus,
   type PluginNativeAudioRecordStopResult,
   type PluginNativeAudioServices,
+  type PluginNativeAudioSpectrumOptions,
   type PluginNativeAudioStatus,
   type PluginNativeAuthResult,
   type PluginNativeCapabilitiesSnapshot,
@@ -41,10 +42,15 @@ import {
   type PluginNativeSaveMediaOptions,
   type PluginNativeScanCodeResult,
   type PluginNativeShareOptions,
+  type PluginNativeSystemVolumeSetOptions,
+  type PluginNativeSystemVolumeSnapshot,
+  type PluginNativeWidgetServices,
   type PluginOperationResult,
   type PluginPermission,
   type PluginShellCommand,
   type PluginToast,
+  type PluginWidgetPayload,
+  type PluginWidgetSummary,
 } from '@/sdk/plugin'
 import type { PluginHostBridgeClient } from './bridgeClient'
 import type {
@@ -333,6 +339,21 @@ export function providePluginShellSDK(options: {
     setRate: (rate: number) => bridge.invoke<{ playbackId?: string; rate: number }>('audio.setRate', { rate }, 10_000),
     setVolume: (volume: number) =>
       bridge.invoke<{ playbackId?: string; volume: number }>('audio.setVolume', { volume }, 10_000),
+    getSystemVolume: () => bridge.invoke<PluginNativeSystemVolumeSnapshot>('audio.getSystemVolume', {}, 10_000),
+    setSystemVolume: (volumeOrOpts: number | PluginNativeSystemVolumeSetOptions) =>
+      bridge.invoke<PluginNativeSystemVolumeSnapshot>(
+        'audio.setSystemVolume',
+        typeof volumeOrOpts === 'number'
+          ? { volume: volumeOrOpts }
+          : ((volumeOrOpts ?? {}) as unknown as Record<string, unknown>),
+        10_000,
+      ),
+    setSpectrum: (opts: PluginNativeAudioSpectrumOptions) =>
+      bridge.invoke<{ spectrumActive: boolean; bands: number; intervalMs: number }>(
+        'audio.setSpectrum',
+        (opts ?? {}) as unknown as Record<string, unknown>,
+        10_000,
+      ),
     getStatus: () => bridge.invoke<PluginNativeAudioStatus>('audio.status', {}, 10_000),
     setNowPlaying: (opts: PluginNativeNowPlayingOptions) =>
       bridge.invoke<{ registered: boolean }>('audio.setNowPlaying', opts as unknown as Record<string, unknown>, 10_000),
@@ -392,10 +413,29 @@ export function providePluginShellSDK(options: {
     openExternal: (url: string) => bridge.openExternal(url),
   })
 
+  const nativeWidget: PluginNativeWidgetServices = Object.freeze({
+    update: (payload: PluginWidgetPayload) =>
+      bridge.invoke<{ updated: boolean; widgetKey: string }>(
+        'widget.update',
+        (payload ?? {}) as unknown as Record<string, unknown>,
+        15_000,
+      ),
+    remove: (widgetKey?: string) =>
+      bridge.invoke<{ removed: boolean }>('widget.remove', widgetKey ? { widgetKey } : {}, 10_000),
+    list: () => bridge.invoke<{ widgets: PluginWidgetSummary[] }>('widget.list', {}, 10_000),
+    onEvent: (listener: (event: PluginNativeDeviceEvent) => void) =>
+      bridge.onDeviceEvent(ev => {
+        if (ev.event.startsWith('widget.')) {
+          listener(ev)
+        }
+      }),
+  })
+
   const nativeHost: PluginNativeHostServices = Object.freeze({
     audio: nativeAudio,
     media: nativeMedia,
     device: nativeDevice,
+    widget: nativeWidget,
     invoke: <T = Record<string, unknown>>(type: string, payload: Record<string, unknown> = {}, timeoutMs = 120_000) =>
       bridge.invoke<T>(type as WebToHostMessageType, payload, timeoutMs),
     onEvent: (listener: (event: PluginNativeDeviceEvent) => void) => bridge.onDeviceEvent(listener),

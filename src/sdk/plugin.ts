@@ -74,9 +74,12 @@ export type PluginHostCapability =
   | 'native.audio.nowPlaying'
   | 'native.audio.lyrics'
   | 'native.audio.customActions'
+  | 'native.audio.systemVolume'
+  | 'native.audio.spectrum'
   | 'native.media'
   | 'native.device'
   | 'native.overlay'
+  | 'native.widget'
 
 /** 插件请求的公开选项；认证和实例路径由宿主管理。 */
 export interface PluginRequestOptions {
@@ -442,6 +445,36 @@ export interface PluginNativeAudioRecordStatus {
   normalizedLevel?: number
 }
 
+/** 原生音频播放实时频谱与双声道电平采集参数。 */
+export interface PluginNativeAudioSpectrumOptions {
+  /** 是否开启实时频谱与双声道电平事件推送（默认 false；暂停或停止时自动暂停推送）。 */
+  enabled: boolean
+  /** 期望输出的频谱柱数量（范围 8 ~ 256，默认 64）。 */
+  bands?: number
+  /** 事件推送间隔毫秒数（范围 30 ~ 500，默认 50，对应约 20Hz）。 */
+  intervalMs?: number
+}
+
+/** 系统媒体音量快照。 */
+export interface PluginNativeSystemVolumeSnapshot {
+  /** 当前系统媒体音量归一化值（0 ~ 1）。 */
+  volume: number
+  /** 当前系统媒体流是否静音。 */
+  muted: boolean
+  /** 离散步进平台（如 Android / HarmonyOS）当前音量步进档位。 */
+  currentSteps?: number
+  /** 离散步进平台最大音量步进档位。 */
+  maxSteps?: number
+}
+
+/** 设置系统媒体音量选项。 */
+export interface PluginNativeSystemVolumeSetOptions {
+  /** 目标归一化系统媒体音量（0 ~ 1）。 */
+  volume: number
+  /** Android 可选：是否同时弹出系统音量调节指示条（默认 false）。 */
+  showUI?: boolean
+}
+
 export interface PluginNativeAudioPlayOptions {
   url?: string
   base64?: string
@@ -458,6 +491,8 @@ export interface PluginNativeAudioPlayOptions {
   volume?: number
   rate?: number
   startPositionMs?: number
+  /** 可选实时频谱采集配置；启用后按 intervalMs 推送 audio.play.spectrum 事件。 */
+  spectrum?: PluginNativeAudioSpectrumOptions
 }
 
 /** 时间轴单行歌词条目。 */
@@ -501,6 +536,7 @@ export interface PluginNativeAudioPlayResult {
   playbackId: string
   state: 'loading' | 'playing' | 'paused'
   durationMs?: number
+  spectrumActive?: boolean
 }
 
 export interface PluginNativeAudioStatus {
@@ -623,13 +659,117 @@ export interface PluginNativeDeviceEvent {
     | 'audio.record.level'
     | 'audio.play.state'
     | 'audio.play.progress'
+    | 'audio.play.spectrum'
     | 'audio.play.ended'
     | 'audio.play.error'
     | 'audio.remoteCommand'
+    | 'audio.systemVolume'
     | 'capsule.action'
     | 'capsule.state'
+    | 'widget.action'
     | string
   data: Record<string, unknown>
+}
+
+export type PluginWidgetKind = 'metrics' | 'list' | 'poster' | 'nowPlaying' | 'custom'
+export type PluginWidgetTone =
+  'default' | 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'danger'
+
+export interface PluginWidgetActionSpec {
+  type?: 'openPlugin' | 'pluginAction'
+  surface?: 'data' | 'config'
+  actionId?: string
+}
+
+export interface PluginWidgetMetric {
+  id: string
+  label: string
+  value: string
+  subValue?: string
+  icon?: string
+  tone?: PluginWidgetTone
+}
+
+export interface PluginWidgetItem {
+  id: string
+  title: string
+  subtitle?: string
+  trailing?: string
+  progress?: number
+  coverUrl?: string
+}
+
+export interface PluginWidgetNode {
+  type:
+    | 'column'
+    | 'row'
+    | 'stack'
+    | 'box'
+    | 'text'
+    | 'icon'
+    | 'image'
+    | 'progress'
+    | 'badge'
+    | 'button'
+    | 'spacer'
+    | 'divider'
+  text?: string
+  label?: string
+  name?: string
+  url?: string
+  backgroundUrl?: string
+  scrim?: boolean
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'hero'
+  weight?: 'regular' | 'medium' | 'semibold' | 'bold'
+  tone?: PluginWidgetTone | string
+  align?: 'start' | 'center' | 'end'
+  justify?: 'start' | 'center' | 'end' | 'spaceBetween'
+  style?: 'bar' | 'ring'
+  gap?: number
+  padding?: number
+  radius?: number
+  width?: number
+  height?: number
+  flex?: number
+  maxLines?: number
+  value?: number
+  minLength?: number
+  tabularNums?: boolean
+  action?: PluginWidgetActionSpec
+  children?: PluginWidgetNode[]
+}
+
+export interface PluginWidgetPayload {
+  widgetKey?: string
+  title: string
+  subtitle?: string
+  iconUrl?: string
+  kind?: PluginWidgetKind
+  tapAction?: PluginWidgetActionSpec
+  metrics?: PluginWidgetMetric[]
+  items?: PluginWidgetItem[]
+  layout?: PluginWidgetNode
+  layouts?: {
+    small?: PluginWidgetNode
+    medium?: PluginWidgetNode
+    large?: PluginWidgetNode
+  }
+}
+
+export interface PluginWidgetSummary {
+  pluginId: string
+  widgetKey: string
+  title: string
+  kind: PluginWidgetKind
+  updatedAt?: number
+}
+
+/** 移动 App 桌面小组件推送与交互管理能力。 */
+export interface PluginNativeWidgetServices {
+  update(payload: PluginWidgetPayload): Promise<{ updated: boolean; widgetKey: string }>
+  remove(widgetKey?: string): Promise<{ removed: boolean }>
+  list(): Promise<{ widgets: PluginWidgetSummary[] }>
+  onEvent(listener: (event: PluginNativeDeviceEvent) => void): () => void
 }
 
 /** 移动 App 原生录音与内联音频播放能力。 */
@@ -647,6 +787,13 @@ export interface PluginNativeAudioServices {
   seek(positionMs: number): Promise<PluginNativeAudioStatus>
   setRate(rate: number): Promise<{ playbackId?: string; rate: number }>
   setVolume(volume: number): Promise<{ playbackId?: string; volume: number }>
+  getSystemVolume?(): Promise<PluginNativeSystemVolumeSnapshot>
+  setSystemVolume?(
+    volumeOrOptions: number | PluginNativeSystemVolumeSetOptions,
+  ): Promise<PluginNativeSystemVolumeSnapshot>
+  setSpectrum?(
+    options: PluginNativeAudioSpectrumOptions,
+  ): Promise<{ spectrumActive: boolean; bands: number; intervalMs: number }>
   getStatus(): Promise<PluginNativeAudioStatus>
   setNowPlaying(options: PluginNativeNowPlayingOptions): Promise<{ registered: boolean }>
   clearNowPlaying(): Promise<{ cleared: boolean }>
@@ -685,6 +832,7 @@ export interface PluginNativeHostServices {
   readonly audio: Readonly<PluginNativeAudioServices>
   readonly media: Readonly<PluginNativeMediaServices>
   readonly device: Readonly<PluginNativeDeviceServices>
+  readonly widget?: Readonly<PluginNativeWidgetServices>
   invoke<T = Record<string, unknown>>(type: string, payload?: Record<string, unknown>, timeoutMs?: number): Promise<T>
   onEvent(listener: (event: PluginNativeDeviceEvent) => void): () => void
 }
@@ -822,6 +970,18 @@ export function createPluginHostSDK(services: PluginHostServices): PluginHostSDK
       'native.device',
       'native.overlay',
     )
+    if (
+      typeof services.native.audio?.getSystemVolume === 'function' ||
+      typeof services.native.audio?.setSystemVolume === 'function'
+    ) {
+      capabilities.push('native.audio.systemVolume')
+    }
+    if (typeof services.native.audio?.setSpectrum === 'function') {
+      capabilities.push('native.audio.spectrum')
+    }
+    if (services.native.widget) {
+      capabilities.push('native.widget')
+    }
   }
   const available = new Set<string>(capabilities)
   return Object.freeze({

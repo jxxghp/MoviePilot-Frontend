@@ -69,6 +69,16 @@ export function createPluginHostSDK(services) {
         capabilities.push('agent.pet');
     if (services.native) {
         capabilities.push('native', 'native.audio', 'native.audio.record', 'native.audio.play', 'native.audio.nowPlaying', 'native.audio.lyrics', 'native.audio.customActions', 'native.media', 'native.device', 'native.overlay');
+        if (typeof services.native.audio?.getSystemVolume === 'function' ||
+            typeof services.native.audio?.setSystemVolume === 'function') {
+            capabilities.push('native.audio.systemVolume');
+        }
+        if (typeof services.native.audio?.setSpectrum === 'function') {
+            capabilities.push('native.audio.spectrum');
+        }
+        if (services.native.widget) {
+            capabilities.push('native.widget');
+        }
     }
     const available = new Set(capabilities);
     return Object.freeze({

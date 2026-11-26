@@ -248,8 +248,17 @@ describe('plugin-shell local runtime', () => {
         audio: {
           startRecord: (opts?: Record<string, unknown>) => Promise<{ recordingId: string }>
           stopRecord: () => Promise<{ recordingId: string; base64?: string }>
-          play: (opts: Record<string, unknown>) => Promise<{ playbackId: string }>
+          play: (opts: Record<string, unknown>) => Promise<{ playbackId: string; spectrumActive?: boolean }>
           stop: () => Promise<{ stopped: boolean }>
+          getSystemVolume?: () => Promise<{ volume: number; muted: boolean; currentSteps?: number; maxSteps?: number }>
+          setSystemVolume?: (
+            volOrOpts: number | { volume: number; showUI?: boolean },
+          ) => Promise<{ volume: number; muted: boolean }>
+          setSpectrum?: (opts: {
+            enabled: boolean
+            bands?: number
+            intervalMs?: number
+          }) => Promise<{ spectrumActive: boolean; bands: number; intervalMs: number }>
           onEvent: (fn: (ev: { event: string; data: Record<string, unknown> }) => void) => () => void
         }
         media: {
@@ -259,6 +268,12 @@ describe('plugin-shell local runtime', () => {
           getCapabilities: () => Promise<{ platform: string; capabilities: string[] }>
           readClipboard: () => Promise<{ text: string }>
           keepAwake: (enabled: boolean) => Promise<{ enabled: boolean }>
+        }
+        widget?: {
+          update: (opts: Record<string, unknown>) => Promise<{ updated: boolean; widgetKey: string }>
+          remove: (widgetKey?: string) => Promise<{ removed: boolean }>
+          list: () => Promise<{ widgets: Array<Record<string, unknown>> }>
+          onEvent: (fn: (ev: { event: 'widget.action'; data: Record<string, unknown> }) => void) => () => void
         }
       }
     }
@@ -300,7 +315,24 @@ describe('plugin-shell local runtime', () => {
             base64: 'AAAA',
           })
         } else if (msg.type === 'audio.play') {
-          reply({ playbackId: 'play_1', state: 'playing', durationMs: 2500 })
+          const spec = msg.payload.spectrum as { enabled?: boolean } | undefined
+          reply({
+            playbackId: 'play_1',
+            state: 'playing',
+            durationMs: 2500,
+            spectrumActive: Boolean(spec?.enabled),
+          })
+        } else if (msg.type === 'audio.getSystemVolume') {
+          reply({ volume: 0.6, muted: false, currentSteps: 9, maxSteps: 15 })
+        } else if (msg.type === 'audio.setSystemVolume') {
+          const targetVol = Number(msg.payload.volume ?? 0.5)
+          reply({ volume: targetVol, muted: targetVol <= 0 })
+        } else if (msg.type === 'audio.setSpectrum') {
+          reply({
+            spectrumActive: Boolean(msg.payload.enabled),
+            bands: Number(msg.payload.bands ?? 64),
+            intervalMs: Number(msg.payload.intervalMs ?? 50),
+          })
         } else if (msg.type === 'audio.stop') {
           reply({ stopped: true })
         } else if (msg.type === 'media.playNative') {
@@ -309,6 +341,14 @@ describe('plugin-shell local runtime', () => {
           reply({ text: 'hello-native' })
         } else if (msg.type === 'device.keepAwake') {
           reply({ enabled: Boolean(msg.payload.enabled) })
+        } else if (msg.type === 'widget.update') {
+          reply({ updated: true, widgetKey: String(msg.payload.widgetKey ?? 'default') })
+        } else if (msg.type === 'widget.remove') {
+          reply({ removed: true })
+        } else if (msg.type === 'widget.list') {
+          reply({
+            widgets: [{ pluginId: 'VoiceDemo', widgetKey: 'status', title: '语音状态', kind: 'custom' }],
+          })
         }
       },
     }
@@ -362,6 +402,9 @@ describe('plugin-shell local runtime', () => {
     expect(capturedHostSdk?.supports('native')).toBe(true)
     expect(capturedHostSdk?.supports('native.audio.record')).toBe(true)
     expect(capturedHostSdk?.supports('native.audio.play')).toBe(true)
+    expect(capturedHostSdk?.supports('native.audio.systemVolume')).toBe(true)
+    expect(capturedHostSdk?.supports('native.audio.spectrum')).toBe(true)
+    expect(capturedHostSdk?.supports('native.widget')).toBe(true)
     expect(window.MoviePilotNativeCapabilities).toBeDefined()
 
     const caps = await capturedHostSdk!.native!.device.getCapabilities()
@@ -387,12 +430,63 @@ describe('plugin-shell local runtime', () => {
     const recStop = await capturedHostSdk!.native!.audio.stopRecord()
     expect(recStop.base64).toBe('AAAA')
 
-    const played = await capturedHostSdk!.native!.audio.play({ base64: 'AAAA', mimeType: 'audio/mp4' })
+    const played = await capturedHostSdk!.native!.audio.play({
+      base64: 'AAAA',
+      mimeType: 'audio/mp4',
+      spectrum: { enabled: true, bands: 64, intervalMs: 50 },
+    })
     expect(played.playbackId).toBe('play_1')
+    expect(played.spectrumActive).toBe(true)
+
+    const sysVol = await capturedHostSdk!.native!.audio.getSystemVolume!()
+    expect(sysVol).toEqual({ volume: 0.6, muted: false, currentSteps: 9, maxSteps: 15 })
+    expect((await capturedHostSdk!.native!.audio.setSystemVolume!(0.4)).volume).toBe(0.4)
+    expect((await capturedHostSdk!.native!.audio.setSystemVolume!({ volume: 0.8, showUI: true })).volume).toBe(0.8)
+    expect(await capturedHostSdk!.native!.audio.setSpectrum!({ enabled: true, bands: 32, intervalMs: 40 })).toEqual({
+      spectrumActive: true,
+      bands: 32,
+      intervalMs: 40,
+    })
+
+    // Host pushes spectrum & systemVolume events
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'device.event',
+      payload: {
+        event: 'audio.play.spectrum',
+        data: { fft: [120, 80, 40], left: 180, right: 175, positionMs: 1200 },
+      },
+    })
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'device.event',
+      payload: {
+        event: 'audio.systemVolume',
+        data: { volume: 0.5, muted: false },
+      },
+    })
+    expect(receivedEvents.map(e => e.event)).toEqual([
+      'audio.record.level',
+      'audio.play.spectrum',
+      'audio.systemVolume',
+    ])
+
     expect((await capturedHostSdk!.native!.audio.stop()).stopped).toBe(true)
     expect((await capturedHostSdk!.native!.media.playNative({ storage: 'local', path: '/a.mp3' })).launched).toBe(true)
     expect((await capturedHostSdk!.native!.device.readClipboard()).text).toBe('hello-native')
     expect((await capturedHostSdk!.native!.device.keepAwake(true)).enabled).toBe(true)
+    expect(
+      await capturedHostSdk!.native!.widget!.update({
+        widgetKey: 'status',
+        title: '语音状态',
+        kind: 'custom',
+        layout: { type: 'column', children: [{ type: 'text', text: '在线' }] },
+      }),
+    ).toEqual({ updated: true, widgetKey: 'status' })
+    expect((await capturedHostSdk!.native!.widget!.list()).widgets).toHaveLength(1)
+    expect((await capturedHostSdk!.native!.widget!.remove('status')).removed).toBe(true)
 
     // Unmount clears device event listeners
     window.__mpPluginHostReceive?.({
@@ -410,7 +504,7 @@ describe('plugin-shell local runtime', () => {
         data: { playbackId: 'play_1' },
       },
     })
-    expect(receivedEvents).toHaveLength(1)
+    expect(receivedEvents).toHaveLength(3)
 
     wrapper.unmount()
   })
