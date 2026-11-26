@@ -39,6 +39,12 @@ describe('ShortcutLogDialog', () => {
     })
     const adapter = new NativeSheetAdapter(document)
     await waitFor(() => expect(adapter.read('仪表盘')?.title).toBe('实时日志'))
+
+    // 网页模式使用共用可换行标题容器承载全部操作按钮，避免窄屏溢出裁切。
+    const header = document.querySelector('.logging-dialog-header')
+    expect(header?.querySelector('.logging-dialog-title')).not.toBeNull()
+    expect(header?.querySelectorAll('.logging-dialog-title__actions > button.logging-dialog-action')).toHaveLength(3)
+
     const sheet = adapter.read('仪表盘')!
     expect(sheet.actions).toEqual([
       expect.objectContaining({ title: '下载', icon: 'mdi-download', enabled: true }),

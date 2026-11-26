@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Plugin } from '@/api/types'
+import LoggingDialogHeader from '@/components/dialog/LoggingDialogHeader.vue'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
+import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
-import { requestAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
 
 const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 
@@ -81,38 +82,13 @@ function diagnoseLogger() {
   >
     <VCard class="logging-dialog-card">
       <VDialogCloseBtn v-model="visible" />
-      <VCardItem>
-        <VCardTitle class="d-inline-flex">
-          <VIcon icon="mdi-file-document" class="me-2" />
-          {{ t('plugin.logTitle') }}
-          <span class="ms-4 d-inline-flex align-center ga-1">
-            <a class="d-inline-flex align-center cursor-pointer" @click="downloadLogger">
-              <VChip color="grey-darken-1" size="small">
-                <VIcon icon="mdi-download" size="small" start />
-                {{ t('common.download') }}
-              </VChip>
-            </a>
-            <a class="d-inline-flex align-center cursor-pointer" @click="openLoggerWindow">
-              <VChip color="grey-darken-1" size="small">
-                <VIcon icon="mdi-open-in-new" size="small" start />
-                {{ t('common.openInNewWindow') }}
-              </VChip>
-            </a>
-            <button
-              v-if="canDiagnose"
-              type="button"
-              class="d-inline-flex align-center cursor-pointer"
-              :aria-label="t('agentAssistant.diagnosticAction')"
-              @click="diagnoseLogger"
-            >
-              <VChip color="primary" size="small">
-                <VIcon icon="mdi-robot-happy-outline" size="small" start />
-                {{ t('agentAssistant.diagnosticAction') }}
-              </VChip>
-            </button>
-          </span>
-        </VCardTitle>
-      </VCardItem>
+      <LoggingDialogHeader
+        :title="t('plugin.logTitle')"
+        :can-diagnose="canDiagnose"
+        @download="downloadLogger"
+        @open-window="openLoggerWindow"
+        @diagnose="diagnoseLogger"
+      />
       <VDivider />
       <VCardText class="logging-dialog-content pa-0">
         <LoggingView :logfile="`plugins/${props.plugin?.id?.toLowerCase()}.log`" />
@@ -120,23 +96,3 @@ function diagnoseLogger() {
     </VCard>
   </VDialog>
 </template>
-
-<style scoped>
-@media (width <= 960px) {
-  .logging-dialog-card {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    block-size: 100%;
-  }
-
-  .logging-dialog-content {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    inline-size: 100%;
-    min-block-size: 0;
-    overflow: hidden;
-  }
-}
-</style>

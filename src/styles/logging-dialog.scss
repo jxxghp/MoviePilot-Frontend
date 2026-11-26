@@ -1,0 +1,76 @@
+// 日志弹窗共用头部与主体布局：为右上角关闭按钮预留内边距，并在窄屏允许标题栏动作自动换行。
+.v-dialog > .v-overlay__content > .v-card.logging-dialog-card > .v-card-item.logging-dialog-header {
+  padding-inline-end: 3.5rem;
+}
+
+.logging-dialog-header .v-card-item__content {
+  overflow: visible;
+  min-inline-size: 0;
+}
+
+.v-card-item.logging-dialog-header .v-card-title.logging-dialog-title {
+  display: flex;
+  overflow: visible;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.logging-dialog-title__main {
+  display: inline-flex;
+  align-items: center;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.logging-dialog-title__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.25rem;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.logging-dialog-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  max-inline-size: 100%;
+
+  .v-chip {
+    cursor: pointer;
+  }
+
+  &:focus-visible {
+    border-radius: 999px;
+    outline: 2px solid rgba(var(--v-theme-primary), 0.5);
+    outline-offset: 2px;
+  }
+}
+
+@media (width <= 960px) {
+  .logging-dialog-card {
+    display: flex;
+    overflow: hidden;
+    flex-direction: column;
+    block-size: 100%;
+  }
+
+  .logging-dialog-content {
+    display: flex;
+    overflow: hidden;
+    flex: 1 1 auto;
+    flex-direction: column;
+    inline-size: 100%;
+    min-block-size: 0;
+  }
+}

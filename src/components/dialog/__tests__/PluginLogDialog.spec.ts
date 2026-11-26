@@ -1,7 +1,8 @@
 import type { Plugin } from '@/api/types'
 import PluginLogDialog from '@/components/dialog/PluginLogDialog.vue'
+import { NativeSheetAdapter } from '@/native/sheet'
 import { onAgentAssistantDiagnostic } from '@/utils/agentAssistantDiagnostic'
-import { screen } from '@testing-library/vue'
+import { screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -35,10 +36,11 @@ const adminAssistantState = {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  document.documentElement.removeAttribute('data-native-sheet')
 })
 
 describe('PluginLogDialog', () => {
-  it('opens the plugin log and download URLs from the title actions', async () => {
+  it('opens the plugin log and download URLs from accessible title action buttons', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     const user = userEvent.setup()
     await renderWithProviders(PluginLogDialog, {
@@ -47,8 +49,12 @@ describe('PluginLogDialog', () => {
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
 
-    await user.click(await screen.findByText('下载'))
-    await user.click(screen.getByText('在新窗口中打开'))
+    const header = document.querySelector('.logging-dialog-header')
+    expect(header?.querySelector('.logging-dialog-title')).not.toBeNull()
+    expect(header?.querySelectorAll('.logging-dialog-title__actions > button.logging-dialog-action')).toHaveLength(3)
+
+    await user.click(await screen.findByRole('button', { name: '下载' }))
+    await user.click(screen.getByRole('button', { name: '在新窗口中打开' }))
 
     expect(open.mock.calls).toEqual([
       [expect.stringMatching(/system\/logging\/download\/myplugin$/), '_blank'],
@@ -56,21 +62,39 @@ describe('PluginLogDialog', () => {
     ])
   })
 
-  it('requests a read-only diagnosis for the current plugin log when assistant is enabled for admins', async () => {
+  it('projects an isolated sheet title and all actions for native hosts and requests read-only diagnosis', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     const prompts: string[] = []
     const stopDiagnostics = onAgentAssistantDiagnostic(({ prompt }) => prompts.push(prompt))
-    const user = userEvent.setup()
     const view = await renderWithProviders(PluginLogDialog, {
       props: { plugin },
       initialState: adminAssistantState,
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
 
-    await user.click(await screen.findByRole('button', { name: 'AI 诊断' }))
+    const adapter = new NativeSheetAdapter(document)
+    await waitFor(() => expect(adapter.read('插件')?.title).toBe('插件日志'))
+    const sheet = adapter.read('插件')!
+    expect(sheet.actions).toEqual([
+      expect.objectContaining({ title: '下载', icon: 'mdi-download', enabled: true }),
+      expect.objectContaining({ title: '在新窗口中打开', icon: 'mdi-open-in-new', enabled: true }),
+      expect.objectContaining({ title: 'AI 诊断', icon: 'mdi-robot-happy-outline', enabled: true }),
+    ])
 
+    adapter.execute('presentation.attach', { id: sheet.id })
+    for (const action of sheet.actions) {
+      expect(adapter.execute('presentation.action', { id: sheet.id, actionId: action.id })).toBe(true)
+    }
+
+    expect(open.mock.calls).toEqual([
+      [expect.stringMatching(/system\/logging\/download\/myplugin$/), '_blank'],
+      [expect.stringMatching(/system\/logging\?length=-1&logfile=plugins\/myplugin\.log$/), '_blank'],
+    ])
     expect(prompts).toEqual([expect.stringContaining('plugins/myplugin.log')])
     expect(view.emitted('update:modelValue')).toEqual([[false]])
     stopDiagnostics()
+    adapter.reset()
+    view.unmount()
   })
 
   it.each([
@@ -99,7 +123,7 @@ describe('PluginLogDialog', () => {
       global: { stubs: { LoggingView: true, VDialogCloseBtn: true } },
     })
 
-    expect(await screen.findByText('下载')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '下载' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'AI 诊断' })).not.toBeInTheDocument()
   })
 })
