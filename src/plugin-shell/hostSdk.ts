@@ -4,11 +4,15 @@ import {
   PLUGIN_HOST_KEYS,
   PLUGIN_HOST_SDK_KEY,
   type PluginAPI,
+  type PluginBackHandler,
+  type PluginCapsuleState,
   type PluginConfirm,
   type PluginDialog,
   type PluginEnvironmentSnapshot,
   type PluginHostSDK,
   type PluginHostSurface,
+  type PluginMinimizeOptions,
+  type PluginMinimizeResult,
   type PluginNativeAudioPlayOptions,
   type PluginNativeAudioPlayResult,
   type PluginNativeAudioRecordStartOptions,
@@ -110,13 +114,76 @@ export function providePluginShellSDK(options: {
   api: PluginAPI
   state: Ref<PluginShellRuntimeState>
   dialogs: Ref<InlineSharedDialogEntry[]>
+  getMountMeta?: () => { mountId: string; pluginId: string; pluginName: string }
+  onRequestClose?: () => void
   onHeaderCommandsChanged: (entries: ShellHeaderCommandEntry[]) => void
 }) {
-  const { bridge, api, state, dialogs, onHeaderCommandsChanged } = options
+  const { bridge, api, state, dialogs, getMountMeta, onRequestClose, onHeaderCommandsChanged } = options
   let dialogSeq = 0
   let commandSeq = 0
+  let backHandlerSeq = 0
   const envListeners = new Set<(snap: Readonly<PluginEnvironmentSnapshot>) => void>()
   const registeredCommands = new Map<string, ShellHeaderCommandEntry>()
+  const backHandlers: Array<{ id: number; handler: PluginBackHandler }> = []
+  const capsuleActionListeners = new Set<(event: { actionId: string }) => void>()
+
+  const closePluginContainer = () => {
+    if (onRequestClose) {
+      onRequestClose()
+    } else {
+      const meta = getMountMeta?.()
+      bridge.send('plugin.close', { mountId: meta?.mountId || '' })
+    }
+  }
+
+  const registerBackHandler = (handler: PluginBackHandler): (() => void) => {
+    if (typeof handler !== 'function') {
+      return () => {}
+    }
+    backHandlerSeq += 1
+    const id = backHandlerSeq
+    backHandlers.push({ id, handler })
+    return () => {
+      const idx = backHandlers.findIndex(item => item.id === id)
+      if (idx >= 0) {
+        backHandlers.splice(idx, 1)
+      }
+    }
+  }
+
+  const runBackHandlers = async (fallbackHandler?: PluginBackHandler | null): Promise<boolean> => {
+    const candidates: PluginBackHandler[] = backHandlers.map(item => item.handler).reverse()
+    if (typeof fallbackHandler === 'function') {
+      candidates.push(fallbackHandler)
+    }
+    for (const candidate of candidates) {
+      try {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const handled = await Promise.race<boolean>([
+          Promise.resolve(candidate()).then(Boolean),
+          new Promise<boolean>(resolve => {
+            timer = setTimeout(() => resolve(false), 300)
+          }),
+        ])
+        if (timer) clearTimeout(timer)
+        if (handled) return true
+      } catch {
+        // 单个返回键拦截器异常时不阻塞后续回退逻辑
+      }
+    }
+    return false
+  }
+
+  const dispatchCapsuleAction = (actionId: string) => {
+    if (!actionId) return
+    for (const listener of capsuleActionListeners) {
+      try {
+        listener({ actionId })
+      } catch {
+        // 忽略单个胶囊动作监听异常
+      }
+    }
+  }
 
   const syncHeaderCommands = () => {
     onHeaderCommandsChanged(Array.from(registeredCommands.values()))
@@ -268,11 +335,7 @@ export function providePluginShellSDK(options: {
       bridge.invoke<{ playbackId?: string; volume: number }>('audio.setVolume', { volume }, 10_000),
     getStatus: () => bridge.invoke<PluginNativeAudioStatus>('audio.status', {}, 10_000),
     setNowPlaying: (opts: PluginNativeNowPlayingOptions) =>
-      bridge.invoke<{ registered: boolean }>(
-        'audio.setNowPlaying',
-        opts as unknown as Record<string, unknown>,
-        10_000,
-      ),
+      bridge.invoke<{ registered: boolean }>('audio.setNowPlaying', opts as unknown as Record<string, unknown>, 10_000),
     clearNowPlaying: () => bridge.invoke<{ cleared: boolean }>('audio.clearNowPlaying', {}, 10_000),
     onEvent: (listener: (event: PluginNativeDeviceEvent) => void) =>
       bridge.onDeviceEvent(ev => {
@@ -367,6 +430,8 @@ export function providePluginShellSDK(options: {
     navigation: {
       push: async target => openNativeRoute(target.path, target.query),
       replace: async target => openNativeRoute(target.path, target.query),
+      onBack: registerBackHandler,
+      close: closePluginContainer,
     },
     environment: {
       getSnapshot: getEnvironmentSnapshot,
@@ -431,6 +496,46 @@ export function providePluginShellSDK(options: {
           syncHeaderCommands()
         }
       },
+      close: closePluginContainer,
+      minimize: async (opts?: PluginMinimizeOptions): Promise<PluginMinimizeResult> => {
+        const meta = getMountMeta?.()
+        return bridge.invoke<PluginMinimizeResult>(
+          'plugin.minimize',
+          {
+            mountId: meta?.mountId || '',
+            pluginId: meta?.pluginId || state.value.pluginId,
+            pluginName: meta?.pluginName || state.value.pluginId,
+            ...((opts ?? {}) as Record<string, unknown>),
+          },
+          15_000,
+        )
+      },
+      updateCapsule: (capsuleState: PluginCapsuleState) => {
+        const meta = getMountMeta?.()
+        bridge.send('plugin.capsule.update', {
+          mountId: meta?.mountId || '',
+          pluginId: meta?.pluginId || state.value.pluginId,
+          ...((capsuleState ?? {}) as Record<string, unknown>),
+        })
+      },
+      restore: async (): Promise<{ restored: boolean }> => {
+        const meta = getMountMeta?.()
+        return bridge.invoke<{ restored: boolean }>(
+          'plugin.restore',
+          {
+            mountId: meta?.mountId || '',
+            pluginId: meta?.pluginId || state.value.pluginId,
+          },
+          10_000,
+        )
+      },
+      onCapsuleAction: (listener: (event: { actionId: string }) => void) => {
+        if (typeof listener !== 'function') return () => {}
+        capsuleActionListeners.add(listener)
+        return () => {
+          capsuleActionListeners.delete(listener)
+        }
+      },
     },
   })
 
@@ -443,6 +548,8 @@ export function providePluginShellSDK(options: {
   provide(PLUGIN_HOST_KEYS.native, nativeHost)
 
   const clearRegisteredCommands = () => {
+    backHandlers.length = 0
+    capsuleActionListeners.clear()
     if (registeredCommands.size > 0) {
       registeredCommands.clear()
       syncHeaderCommands()
@@ -458,5 +565,7 @@ export function providePluginShellSDK(options: {
     subscriptionManager,
     notifyEnvironmentChanged,
     clearRegisteredCommands,
+    runBackHandlers,
+    dispatchCapsuleAction,
   }
 }

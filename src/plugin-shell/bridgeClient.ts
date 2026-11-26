@@ -16,6 +16,77 @@ import {
 type HostMessageListener = (envelope: HostToWebEnvelope) => void
 type DeviceEventListener = (event: PluginNativeDeviceEvent) => void
 
+const BRIDGE_DISPATCHER_SYMBOL = Symbol.for('moviepilot.pluginHost.bridgeDispatcher')
+let activeGlobalBridge: PluginHostBridgeClient | null = null
+let externalGlobalReceiver: ((raw: string | HostToWebEnvelope) => void) | null = null
+
+function installProtectedGlobalReceiver(client: PluginHostBridgeClient): void {
+  activeGlobalBridge = client
+  if (typeof window === 'undefined') return
+
+  const dispatcher = Object.assign(
+    (raw: string | HostToWebEnvelope) => {
+      activeGlobalBridge?.receiveFromHost(raw)
+      const ext = externalGlobalReceiver
+      if (typeof ext === 'function') {
+        let msgType = ''
+        if (typeof raw === 'string') {
+          try {
+            msgType = (JSON.parse(raw) as { type?: string })?.type || ''
+          } catch {
+            msgType = ''
+          }
+        } else if (raw && typeof raw === 'object') {
+          msgType = raw.type || ''
+        }
+        // 保护宿主内部 bridge.response（如 api.request 响应）不被外部覆盖函数截走或窥探
+        if (msgType !== 'bridge.response') {
+          try {
+            ext(raw)
+          } catch (error) {
+            console.error('[plugin-shell] external receiver hook error:', error)
+          }
+        }
+      }
+    },
+    { [BRIDGE_DISPATCHER_SYMBOL]: true },
+  )
+
+  const descriptor = Object.getOwnPropertyDescriptor(window, '__mpPluginHostReceive')
+  if (!descriptor || typeof descriptor.get !== 'function') {
+    try {
+      const existing = window.__mpPluginHostReceive
+      if (
+        typeof existing === 'function' &&
+        !(existing as unknown as Record<symbol, boolean>)[BRIDGE_DISPATCHER_SYMBOL]
+      ) {
+        externalGlobalReceiver = existing
+      }
+      Object.defineProperty(window, '__mpPluginHostReceive', {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return dispatcher
+        },
+        set(candidate: unknown) {
+          if (
+            typeof candidate === 'function' &&
+            (candidate as unknown as Record<symbol, boolean>)[BRIDGE_DISPATCHER_SYMBOL]
+          ) {
+            return
+          }
+          externalGlobalReceiver =
+            typeof candidate === 'function' ? (candidate as (raw: string | HostToWebEnvelope) => void) : null
+        },
+      })
+      return
+    } catch {
+      // 受限环境无法 defineProperty 时降级直接绑定
+    }
+  }
+  window.__mpPluginHostReceive = dispatcher
+}
+
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
@@ -53,9 +124,11 @@ export class PluginHostBridgeClient {
   }
 
   attachGlobalReceiver(): void {
-    if (typeof window !== 'undefined') {
-      window.__mpPluginHostReceive = raw => this.receiveFromHost(raw)
-    }
+    installProtectedGlobalReceiver(this)
+  }
+
+  clearExternalReceiverHook(): void {
+    externalGlobalReceiver = null
   }
 
   onHostMessage(listener: HostMessageListener): () => void {

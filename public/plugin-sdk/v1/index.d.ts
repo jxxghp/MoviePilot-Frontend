@@ -27,7 +27,7 @@ export type NativeSubscriptionAction = (typeof PLUGIN_SUBSCRIPTION_ACTIONS)[numb
 /** SDK 所在的联邦宿主界面。 */
 export type PluginHostSurface = 'page' | 'config' | 'dashboard' | 'app' | 'agent-pet';
 /** 能力表示宿主实现可用，不表示当前用户已经获得操作权限。 */
-export type PluginHostCapability = 'api' | 'ui.toast' | 'ui.dialog' | 'ui.confirm' | 'subscription.create' | 'subscription.manage' | `subscription.manage.${NativeSubscriptionAction}` | 'agent' | 'agent.pet' | 'subscription.create.music' | `media.${keyof PluginMediaServices}` | `resources.${keyof PluginResourceServices}` | `files.${keyof PluginFileServices}` | `catalogs.${keyof PluginCatalogServices}` | 'navigation' | 'environment' | 'preferences' | 'events' | 'shell.button' | 'shell.tabs' | 'workflows' | 'native' | 'native.audio' | 'native.audio.record' | 'native.audio.play' | 'native.audio.nowPlaying' | 'native.media' | 'native.device';
+export type PluginHostCapability = 'api' | 'ui.toast' | 'ui.dialog' | 'ui.confirm' | 'subscription.create' | 'subscription.manage' | `subscription.manage.${NativeSubscriptionAction}` | 'agent' | 'agent.pet' | 'subscription.create.music' | `media.${keyof PluginMediaServices}` | `resources.${keyof PluginResourceServices}` | `files.${keyof PluginFileServices}` | `catalogs.${keyof PluginCatalogServices}` | 'navigation' | 'navigation.back' | 'navigation.close' | 'environment' | 'preferences' | 'events' | 'shell.button' | 'shell.tabs' | 'shell.close' | 'shell.minimize' | 'workflows' | 'native' | 'native.audio' | 'native.audio.record' | 'native.audio.play' | 'native.audio.nowPlaying' | 'native.audio.lyrics' | 'native.audio.customActions' | 'native.media' | 'native.device' | 'native.overlay';
 /** 插件请求的公开选项；认证和实例路径由宿主管理。 */
 export interface PluginRequestOptions {
     params?: Record<string, unknown>;
@@ -235,6 +235,8 @@ export interface PluginCatalogServices {
     }): Promise<PluginDirectoryOption[]>;
     ruleGroups(): Promise<PluginCatalogOption[]>;
 }
+/** 插件返回键拦截处理器；返回 true 表示内部已消费返回事件，false 则交回宿主继续处理。 */
+export type PluginBackHandler = () => boolean | Promise<boolean>;
 /** 导航限于宿主内部路径；插件不需要持有宿主 router。 */
 export interface PluginNavigationServices {
     push(target: {
@@ -245,6 +247,10 @@ export interface PluginNavigationServices {
         path: string;
         query?: Record<string, string | number | boolean | undefined>;
     }): Promise<PluginOperationResult>;
+    /** 注册返回键委托（LIFO 顺序调用；支持异步 Promise 与 300ms 超时保护，卸载时自动清理）。 */
+    onBack?(handler: PluginBackHandler): () => void;
+    /** 请求宿主关闭当前插件容器。 */
+    close?(): void;
 }
 export type PluginPermission = 'discovery' | 'search' | 'subscribe' | 'manage' | 'admin';
 export interface PluginEnvironmentSnapshot {
@@ -303,6 +309,39 @@ export interface PluginShellCommand {
     feature?: string;
     disabled?: boolean;
 }
+/** 悬浮胶囊交互模式：jump 点击直接跳转恢复窗口，mini 点击展开紧凑快捷操作面板。 */
+export type PluginCapsuleMode = 'jump' | 'mini';
+/** 最小化悬浮小窗上的插件自定义快捷按钮描述。 */
+export interface PluginCapsuleAction {
+    id: string;
+    label: string;
+    icon?: string;
+    active?: boolean;
+    destructive?: boolean;
+}
+/** 联邦插件最小化悬浮胶囊展示态。 */
+export interface PluginCapsuleState {
+    title?: string;
+    subtitle?: string;
+    statusText?: string;
+    iconUrl?: string;
+    mode?: PluginCapsuleMode;
+    isPlaying?: boolean;
+    actions?: PluginCapsuleAction[];
+}
+/** 请求最小化联邦插件窗口时的配置参数。 */
+export interface PluginMinimizeOptions extends PluginCapsuleState {
+    /** 退出应用或返回系统桌面后是否继续悬浮显示（Android 需应用悬浮窗权限）。 */
+    keepOutsideApp?: boolean;
+    /** 当开启跨应用悬浮且未授予权限时，是否主动拉起系统悬浮窗授权页。 */
+    requestOverlayPermission?: boolean;
+}
+/** 最小化调用结果。 */
+export interface PluginMinimizeResult {
+    minimized: boolean;
+    overlaySupported?: boolean;
+    overlayGranted?: boolean;
+}
 export interface PluginShellServices {
     /** 每次注册具有独立所有权，返回仅注销本次注册的函数。 */
     registerButton(command: PluginShellCommand & {
@@ -321,6 +360,20 @@ export interface PluginShellServices {
         update(selected: string): void;
         dispose(): void;
     };
+    /** 关闭当前插件窗口或宿主弹窗。 */
+    close(): void;
+    /** 不销毁联邦窗口，将当前插件最小化为悬浮胶囊。 */
+    minimize(options?: PluginMinimizeOptions): Promise<PluginMinimizeResult>;
+    /** 在最小化期间实时刷新悬浮胶囊标题、状态与快捷动作。 */
+    updateCapsule(state: PluginCapsuleState): void;
+    /** 主动从最小化悬浮胶囊恢复至完整插件窗口。 */
+    restore(): Promise<{
+        restored: boolean;
+    }>;
+    /** 监听用户在展开的小悬浮窗上点击的快捷操作按钮。 */
+    onCapsuleAction(listener: (event: {
+        actionId: string;
+    }) => void): () => void;
 }
 export interface PluginWorkflowServices {
     manage(request: {
@@ -331,7 +384,7 @@ export interface PluginWorkflowServices {
     }): Promise<PluginOperationResult>;
 }
 export type PluginNativeHapticStyle = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'warning' | 'error';
-export type PluginNativePermissionName = 'microphone' | 'camera' | 'photos' | 'notifications';
+export type PluginNativePermissionName = 'microphone' | 'camera' | 'photos' | 'notifications' | 'overlay';
 export type PluginNativePermissionStatus = 'granted' | 'denied' | 'undetermined' | 'restricted' | 'unsupported';
 export interface PluginNativeAudioRecordStartOptions {
     format?: 'm4a' | 'wav';
@@ -380,6 +433,18 @@ export interface PluginNativeAudioPlayOptions {
     rate?: number;
     startPositionMs?: number;
 }
+/** 时间轴单行歌词条目。 */
+export interface PluginNativeNowPlayingLyricLine {
+    timeMs: number;
+    text: string;
+}
+/** 系统媒体通知栏 / 锁屏控制中心的自定义动作按钮。 */
+export interface PluginNativeNowPlayingCustomAction {
+    id: string;
+    title: string;
+    icon?: string;
+    active?: boolean;
+}
 /** 注册到手机状态栏 / 锁屏 / 控制中心的媒体播控元数据。 */
 export interface PluginNativeNowPlayingOptions {
     title: string;
@@ -393,6 +458,14 @@ export interface PluginNativeNowPlayingOptions {
     canNext?: boolean;
     canPrevious?: boolean;
     canSeek?: boolean;
+    /** 当前行歌词文本，显示在系统媒体通知与锁屏副标题。 */
+    lyrics?: string;
+    /** 时间轴歌词数组，随播放进度自动匹配并更新通知栏/锁屏歌词。 */
+    lyricLines?: PluginNativeNowPlayingLyricLine[];
+    /** 收藏红心状态；传入布尔值时挂载红心按钮，点击回推 audio.remoteCommand { command: 'toggleLike' }。 */
+    liked?: boolean;
+    /** 自定义播控动作列表；点击回推 audio.remoteCommand { command: 'custom', actionId }。 */
+    customActions?: PluginNativeNowPlayingCustomAction[];
 }
 export interface PluginNativeAudioPlayResult {
     playbackId: string;
@@ -500,7 +573,7 @@ export interface PluginNativeDeviceInfo {
     pixelRatio: number;
 }
 export interface PluginNativeDeviceEvent {
-    event: 'audio.record.state' | 'audio.record.level' | 'audio.play.state' | 'audio.play.progress' | 'audio.play.ended' | 'audio.play.error' | 'audio.remoteCommand' | string;
+    event: 'audio.record.state' | 'audio.record.level' | 'audio.play.state' | 'audio.play.progress' | 'audio.play.ended' | 'audio.play.error' | 'audio.remoteCommand' | 'capsule.action' | 'capsule.state' | string;
     data: Record<string, unknown>;
 }
 /** 移动 App 原生录音与内联音频播放能力。 */

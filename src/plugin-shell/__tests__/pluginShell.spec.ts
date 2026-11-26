@@ -414,4 +414,230 @@ describe('plugin-shell local runtime', () => {
 
     wrapper.unmount()
   })
+
+  it('delegates nav.back with 300ms timeout protection, protects __mpPluginHostReceive from overwrite, and supports close/minimize/capsule APIs', async () => {
+    const capsuleClicks: string[] = []
+    type ExtendedShellSdk = {
+      supports: (cap: string) => boolean
+      api: { get: <T = unknown>(url: string) => Promise<T> }
+      navigation?: {
+        onBack?: (handler: () => boolean | Promise<boolean>) => () => void
+        close?: () => void
+      }
+      shell?: {
+        close?: () => void
+        minimize?: (opts?: Record<string, unknown>) => Promise<{ minimized: boolean; overlayGranted?: boolean }>
+        updateCapsule?: (state: Record<string, unknown>) => void
+        restore?: () => Promise<{ restored: boolean }>
+        onCapsuleAction?: (cb: (ev: { actionId: string }) => void) => () => void
+      }
+    }
+    const sdkHolder: { current: ExtendedShellSdk | null } = { current: null }
+
+    window.__mpAndroidPluginHostV2 = {
+      postMessage: raw => {
+        const msg = JSON.parse(raw) as WebToHostEnvelope
+        sentMessages.push(msg)
+        const requestId = typeof msg.payload.requestId === 'string' ? msg.payload.requestId : ''
+        if (!requestId) return
+        if (msg.type === 'api.request') {
+          window.__mpPluginHostReceive?.({
+            protocol: PLUGIN_HOST_PROTOCOL,
+            major: PLUGIN_HOST_PROTOCOL_MAJOR,
+            type: 'bridge.response',
+            payload: {
+              requestId,
+              ok: true,
+              data: { status: 200, body: { survivedOverwrite: true } },
+            },
+          })
+        } else if (msg.type === 'plugin.minimize') {
+          window.__mpPluginHostReceive?.({
+            protocol: PLUGIN_HOST_PROTOCOL,
+            major: PLUGIN_HOST_PROTOCOL_MAJOR,
+            type: 'bridge.response',
+            payload: {
+              requestId,
+              ok: true,
+              data: { minimized: true, overlaySupported: true, overlayGranted: true },
+            },
+          })
+        } else if (msg.type === 'plugin.restore') {
+          window.__mpPluginHostReceive?.({
+            protocol: PLUGIN_HOST_PROTOCOL,
+            major: PLUGIN_HOST_PROTOCOL_MAJOR,
+            type: 'bridge.response',
+            payload: {
+              requestId,
+              ok: true,
+              data: { restored: true },
+            },
+          })
+        }
+      },
+    }
+
+    const MusicLikePlugin = defineComponent({
+      name: 'MusicLikePlugin',
+      props: { hostSdk: Object },
+      setup(props) {
+        const sdk = props.hostSdk as ExtendedShellSdk | null
+        sdkHolder.current = sdk
+        sdk?.shell?.onCapsuleAction?.(ev => {
+          capsuleClicks.push(ev.actionId)
+        })
+        return () => h('div', { class: 'music-plugin-root' }, 'music-ready')
+      },
+    })
+    remoteMocks.getFederationRemote.mockResolvedValue({ default: MusicLikePlugin })
+
+    const wrapper = mount(PluginShellHost, {
+      global: {
+        plugins: [vuetify],
+        components: {
+          VDialogCloseBtn: defineComponent({
+            name: 'ShellDialogCloseBtn',
+            setup(_, { attrs }) {
+              return () => h(VIcon, { ...attrs, icon: 'ri-close-line' })
+            },
+          }),
+        },
+      },
+      attachTo: document.body,
+    })
+
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'plugin.mount',
+      payload: {
+        mountId: 'm-music',
+        pluginId: 'MusicBox',
+        pluginName: '音乐盒',
+        surface: 'dataPage',
+        remoteEntryUrl: '/plugin-remote/MusicBox/1.0.0/assets/remoteEntry.js',
+        visualTokens: getDefaultVisualTokens(),
+      },
+    })
+    await new Promise(resolve => setTimeout(resolve, 40))
+    await nextTick()
+
+    const sdk = sdkHolder.current!
+    expect(sdk.supports('navigation.back')).toBe(true)
+    expect(sdk.supports('navigation.close')).toBe(true)
+    expect(sdk.supports('shell.close')).toBe(true)
+    expect(sdk.supports('shell.minimize')).toBe(true)
+    expect(sdk.supports('native.audio.lyrics')).toBe(true)
+    expect(sdk.supports('native.audio.customActions')).toBe(true)
+
+    // 1. 模拟插件意外覆盖 window.__mpPluginHostReceive，验证 api.request 响应不会被截走
+    const externalCaptured: unknown[] = []
+    window.__mpPluginHostReceive = raw => {
+      externalCaptured.push(raw)
+    }
+    const apiRes = await sdk.api.get<{ survivedOverwrite: boolean }>('plugin/MusicBox/ping')
+    expect(apiRes.survivedOverwrite).toBe(true)
+    expect(externalCaptured).toHaveLength(0)
+
+    // 2. 注册返回键委托：消费一次内部返回 -> 再返回 false 退回宿主 -> 超时 300ms 自动保护放行
+    let detailOpen = true
+    const offBack = sdk.navigation!.onBack!(() => {
+      if (detailOpen) {
+        detailOpen = false
+        return Promise.resolve(true)
+      }
+      return false
+    })
+
+    sentMessages.length = 0
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'nav.back',
+      payload: { mountId: 'm-music' },
+    })
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(sentMessages.find(m => m.type === 'nav.backResult')?.payload).toEqual({
+      mountId: 'm-music',
+      handled: true,
+    })
+
+    sentMessages.length = 0
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'nav.back',
+      payload: { mountId: 'm-music' },
+    })
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(sentMessages.find(m => m.type === 'nav.backResult')?.payload).toEqual({
+      mountId: 'm-music',
+      handled: false,
+    })
+    offBack()
+
+    // 挂起不 resolve 的 Promise 在 300ms 超时保护后不卡死返回键
+    sdk.navigation!.onBack!(() => new Promise<boolean>(() => {}))
+    sentMessages.length = 0
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'nav.back',
+      payload: { mountId: 'm-music' },
+    })
+    await new Promise(resolve => setTimeout(resolve, 340))
+    expect(sentMessages.find(m => m.type === 'nav.backResult')?.payload).toEqual({
+      mountId: 'm-music',
+      handled: false,
+    })
+
+    // 3. 最小化胶囊与快捷按钮回推 + 官方关闭接口
+    const minRes = await sdk.shell!.minimize!({
+      title: '晴天 - 周杰伦',
+      mode: 'mini',
+      keepOutsideApp: true,
+      actions: [{ id: 'togglePlay', label: '暂停' }],
+    })
+    expect(minRes.minimized).toBe(true)
+    expect(minRes.overlayGranted).toBe(true)
+
+    sdk.shell!.updateCapsule!({ subtitle: '故事的小黄花', isPlaying: true })
+    expect(sentMessages.some(m => m.type === 'plugin.capsule.update' && m.payload.subtitle === '故事的小黄花')).toBe(
+      true,
+    )
+
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'capsule.action',
+      payload: { actionId: 'togglePlay' },
+    })
+    expect(capsuleClicks).toEqual(['togglePlay'])
+
+    expect((await sdk.shell!.restore!()).restored).toBe(true)
+
+    sentMessages.length = 0
+    sdk.shell!.close!()
+    expect(sentMessages.some(m => m.type === 'plugin.close' && m.payload.mountId === 'm-music')).toBe(true)
+
+    // 4. plugin.unmount 自动清空已注册的 onBack 与胶囊监听
+    sdk.navigation!.onBack!(() => true)
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'plugin.unmount',
+      payload: { mountId: 'm-music' },
+    })
+    sentMessages.length = 0
+    window.__mpPluginHostReceive?.({
+      protocol: PLUGIN_HOST_PROTOCOL,
+      major: PLUGIN_HOST_PROTOCOL_MAJOR,
+      type: 'nav.back',
+      payload: { mountId: 'm-music' },
+    })
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(sentMessages.find(m => m.type === 'nav.backResult')?.payload.handled).toBe(false)
+
+    wrapper.unmount()
+  })
 })

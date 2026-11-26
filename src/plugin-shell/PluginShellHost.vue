@@ -54,6 +54,7 @@ function syncViewportDisplay(): void {
 
 const mountStageRef = ref<HTMLElement | null>(null)
 const activeComponent = shallowRef<Component | null>(null)
+const activePluginInstanceRef = ref<{ onBack?: () => boolean | Promise<boolean> } | null>(null)
 const mountSessionId = ref('')
 const currentMount = ref<PluginMountPayload | null>(null)
 const activeSurface = ref<PluginShellSurface>('dataPage')
@@ -106,11 +107,21 @@ const {
   subscriptionManager,
   notifyEnvironmentChanged,
   clearRegisteredCommands,
+  runBackHandlers,
+  dispatchCapsuleAction,
 } = providePluginShellSDK({
   bridge: pluginHostBridge,
   api: scopedApi,
   state: runtimeState,
   dialogs: inlineDialogs,
+  getMountMeta: () => ({
+    mountId: currentMount.value?.mountId || '',
+    pluginId: currentMount.value?.pluginId || runtimeState.value.pluginId,
+    pluginName: currentMount.value?.pluginName || currentMount.value?.pluginId || runtimeState.value.pluginId,
+  }),
+  onRequestClose: () => {
+    pluginHostBridge.send('plugin.close', { mountId: currentMount.value?.mountId || '' })
+  },
   onHeaderCommandsChanged: entries => {
     sdkHeaderCommands.value = entries
     publishHeaderState()
@@ -326,9 +337,11 @@ async function mountSurface(payload: PluginMountPayload, surface: PluginShellSur
   activeComponent.value = markRaw(resolved)
 
   await nextTick()
+  pluginHostBridge.attachGlobalReceiver()
   syncViewportDisplay()
   const notifyFrame = () => {
     if (generation !== mountGeneration) return
+    pluginHostBridge.attachGlobalReceiver()
     syncViewportDisplay()
     cleanOpaquePluginRoots(mountStageRef.value)
     extractFallbackDomHeader()
@@ -351,7 +364,10 @@ function handleUnmount(mountId?: string): void {
   mountGeneration += 1
   pluginHostBridge.abortAllPending('Plugin unmounted')
   pluginHostBridge.clearDeviceEventListeners()
+  pluginHostBridge.clearExternalReceiverHook()
+  pluginHostBridge.attachGlobalReceiver()
   activeComponent.value = null
+  activePluginInstanceRef.value = null
   currentMount.value = null
   inlineDialogs.value = []
   domHeaderButtons.value = new Map()
@@ -362,10 +378,17 @@ function handleUnmount(mountId?: string): void {
   }
 }
 
-function handleNavBack(mountId?: string): void {
+async function handleNavBack(mountId?: string): Promise<void> {
+  const resolvedMountId = mountId || currentMount.value?.mountId || ''
+  const exposedOnBack = activePluginInstanceRef.value?.onBack
+  const consumedByPlugin = await runBackHandlers(typeof exposedOnBack === 'function' ? exposedOnBack : null)
+  if (consumedByPlugin) {
+    pluginHostBridge.send('nav.backResult', { mountId: resolvedMountId, handled: true })
+    return
+  }
   if (inlineDialogs.value.length > 0) {
     inlineDialogs.value = inlineDialogs.value.slice(0, -1)
-    pluginHostBridge.send('nav.backResult', { mountId: mountId || currentMount.value?.mountId || '', handled: true })
+    pluginHostBridge.send('nav.backResult', { mountId: resolvedMountId, handled: true })
     return
   }
   if (typeof document !== 'undefined') {
@@ -373,11 +396,11 @@ function handleNavBack(mountId?: string): void {
     if (activeOverlay) {
       const escEvent = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
       document.dispatchEvent(escEvent)
-      pluginHostBridge.send('nav.backResult', { mountId: mountId || currentMount.value?.mountId || '', handled: true })
+      pluginHostBridge.send('nav.backResult', { mountId: resolvedMountId, handled: true })
       return
     }
   }
-  pluginHostBridge.send('nav.backResult', { mountId: mountId || currentMount.value?.mountId || '', handled: false })
+  pluginHostBridge.send('nav.backResult', { mountId: resolvedMountId, handled: false })
 }
 
 function handleHostAction(actionId: string): void {
@@ -425,6 +448,10 @@ function handleSwitchSurface(): void {
 function handleComponentClose(): void {
   const mount = currentMount.value
   pluginHostBridge.send('plugin.close', { mountId: mount?.mountId || '' })
+}
+
+function handleComponentMinimize(options?: Record<string, unknown>): void {
+  void hostSdk.shell?.minimize?.(options)
 }
 
 function handleComponentAction(payload?: unknown): void {
@@ -515,11 +542,16 @@ const unsubscribeHost = pluginHostBridge.onHostMessage((envelope: HostToWebEnvel
       applySafeAreaInsets(payload as unknown as SafeAreaInsets)
       break
     case 'nav.back':
-      handleNavBack(typeof payload.mountId === 'string' ? payload.mountId : undefined)
+      void handleNavBack(typeof payload.mountId === 'string' ? payload.mountId : undefined)
       break
     case 'host.action':
       if (typeof payload.actionId === 'string') {
         handleHostAction(payload.actionId)
+      }
+      break
+    case 'capsule.action':
+      if (typeof payload.actionId === 'string') {
+        dispatchCapsuleAction(payload.actionId)
       }
       break
     default:
@@ -582,9 +614,11 @@ onBeforeUnmount(() => {
         <div v-if="activeComponent" class="mp-shell-mount-stage">
           <component
             :is="activeComponent"
+            ref="activePluginInstanceRef"
             :key="mountSessionId"
             v-bind="surfaceProps"
             @close="handleComponentClose"
+            @minimize="handleComponentMinimize"
             @action="handleComponentAction"
             @save="handleConfigSave"
             @switch="handleSwitchSurface"

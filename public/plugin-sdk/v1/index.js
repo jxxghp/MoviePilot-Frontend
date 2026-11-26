@@ -51,16 +51,24 @@ export function createPluginHostSDK(services) {
         if (services[namespace])
             capabilities.push(namespace);
     }
+    if (services.navigation?.onBack)
+        capabilities.push('navigation.back');
+    if (services.navigation?.close)
+        capabilities.push('navigation.close');
     if (services.shell?.registerButton)
         capabilities.push('shell.button');
     if (services.shell?.registerTabs)
         capabilities.push('shell.tabs');
+    if (services.shell?.close)
+        capabilities.push('shell.close');
+    if (services.shell?.minimize)
+        capabilities.push('shell.minimize');
     if (services.agent)
         capabilities.push('agent');
     if (services.pet)
         capabilities.push('agent.pet');
     if (services.native) {
-        capabilities.push('native', 'native.audio', 'native.audio.record', 'native.audio.play', 'native.audio.nowPlaying', 'native.media', 'native.device');
+        capabilities.push('native', 'native.audio', 'native.audio.record', 'native.audio.play', 'native.audio.nowPlaying', 'native.audio.lyrics', 'native.audio.customActions', 'native.media', 'native.device', 'native.overlay');
     }
     const available = new Set(capabilities);
     return Object.freeze({
