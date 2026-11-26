@@ -20,6 +20,34 @@ async function lintRuleIds(code: string, filePath: string) {
 
 const cases = [
   {
+    name: '拒绝从其他 spec 导入共享夹具',
+    code: "import './other.spec'",
+    filePath: 'src/utils/__tests__/example.spec.ts',
+    ruleId: restrictedSyntaxRule,
+    shouldReport: true,
+  },
+  {
+    name: '拒绝动态加载测试入口',
+    code: "import('@tests/config/other.spec.ts')",
+    filePath: 'tests/support/example.ts',
+    ruleId: restrictedSyntaxRule,
+    shouldReport: true,
+  },
+  {
+    name: '拒绝重新导出测试入口',
+    code: "export * from './other.test.mjs'",
+    filePath: 'tests/support/example.ts',
+    ruleId: restrictedSyntaxRule,
+    shouldReport: true,
+  },
+  {
+    name: '允许复用共享测试设施',
+    code: "import '@tests/support/render'",
+    filePath: 'src/utils/__tests__/example.spec.ts',
+    ruleId: restrictedSyntaxRule,
+    shouldReport: false,
+  },
+  {
     name: '允许图片使用通用源码别名',
     code: "import '@/assets/images/example.png'",
     filePath: 'src/components/valid-image-import.ts',

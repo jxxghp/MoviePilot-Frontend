@@ -56,6 +56,18 @@ const nonLiteralLayoutDynamicImportRestriction = {
   message: 'Dynamic imports in @layouts must use a literal path so module boundaries remain statically verifiable.',
 }
 
+// 测试入口不能充当共享设施，避免导入一个 spec 时注册另一组用例并形成收集顺序依赖。
+const testModulePattern = '/\\.(?:spec|test)(?:\\.[cm]?[jt]sx?)?$/'
+const testModuleImportRestrictions = [
+  'ImportDeclaration',
+  'ExportNamedDeclaration',
+  'ExportAllDeclaration',
+  'ImportExpression',
+].map(nodeType => ({
+  selector: `${nodeType}[source.value=${testModulePattern}]`,
+  message: 'Move shared test helpers to tests/support or a local support module instead of importing a test entry.',
+}))
+
 const viteGlobCallSelectors = [
   "CallExpression[callee.object.type='MetaProperty'][callee.object.meta.name='import'][callee.object.property.name='meta'][callee.property.name=/^glob(?:Eager)?$/]",
   "CallExpression[callee.object.type='MetaProperty'][callee.object.meta.name='import'][callee.object.property.name='meta'][callee.property.value=/^glob(?:Eager)?$/]",
@@ -183,6 +195,7 @@ export default defineConfig([
     files: managedFiles,
     rules: {
       'no-debugger': 'error',
+      'no-restricted-syntax': ['error', ...testModuleImportRestrictions],
     },
   },
   {
@@ -191,6 +204,7 @@ export default defineConfig([
     rules: {
       'no-restricted-syntax': [
         'error',
+        ...testModuleImportRestrictions,
         ...layoutCoreImportRestrictions,
         ...layoutGlobRestrictions,
         nonLiteralLayoutDynamicImportRestriction,
