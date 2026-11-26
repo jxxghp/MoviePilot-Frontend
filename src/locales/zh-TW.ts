@@ -5479,6 +5479,7 @@ export default {
     updateHistoryEmpty: '暫未獲取到更新說明',
     updateHistoryLoadFailed: '讀取更新說明失敗，請稍後重試',
     updateToLatest: '更新到最新版本',
+    upToDate: '已是最新版本',
     folderNameEmpty: '文件夾名稱不能為空',
     folderExists: '文件夾已存在',
     folderCreateSuccess: '文件夾創建成功',

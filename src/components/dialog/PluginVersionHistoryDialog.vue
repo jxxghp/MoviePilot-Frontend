@@ -65,7 +65,12 @@ const installBlockMessage = computed(() =>
 )
 
 const resolvedHistory = computed(() => {
-  const declaredHistory = resolvedPlugin.value?.history || {}
+  const declaredHistory = Object.fromEntries(
+    Object.entries(resolvedPlugin.value?.history || {}).map(([version, body]) => [
+      normalizeHistoryVersion(version),
+      body,
+    ]),
+  )
   const history: Record<string, string> = {}
 
   // Release 与 history 可能来自不同数据源；合并后统一按版本号降序，不能依赖接口返回或对象插入顺序。
@@ -86,7 +91,29 @@ const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)
 const showBlockingLoading = computed(() => loading.value && !hasHistory.value)
 const showTopProgress = computed(() => !showBlockingLoading.value && (loading.value || releaseLoading.value))
 
-const releaseItems = computed(() => releaseDetail.value?.items || [])
+// 兼容旧后端按原始字符串标记版本的响应，避免 v 前缀差异导致最新版和当前版本失配。
+const releaseItems = computed(() => {
+  const detail = releaseDetail.value
+  return (detail?.items || []).map(item => ({
+    ...item,
+    is_latest: detail?.latest_version
+      ? normalizeHistoryVersion(item.version) === normalizeHistoryVersion(detail.latest_version)
+      : item.is_latest,
+    is_current: detail?.current_version
+      ? normalizeHistoryVersion(item.version) === normalizeHistoryVersion(detail.current_version)
+      : item.is_current,
+  }))
+})
+// 优先使用本次强制刷新的更新判据；旧接口缺少标记时才比较 Release 版本，未知状态保持不可操作。
+const latestUpdateAvailable = computed(() => {
+  if (typeof pluginDetail.value?.has_update === 'boolean') return pluginDetail.value.has_update
+  const latestVersion = releaseDetail.value?.latest_version
+  const currentVersion = releaseDetail.value?.current_version || pluginDetail.value?.plugin_version
+  return latestVersion && currentVersion ? isVersionHigher(latestVersion, currentVersion) : null
+})
+const updateCheckComplete = computed(
+  () => !loading.value && !releaseLoading.value && !loadError.value && !releaseError.value,
+)
 const localUpdateCandidate = computed(() => {
   const currentVersion = releaseDetail.value?.current_version || resolvedPlugin.value?.plugin_version
   const latestOnlineVersion = releaseDetail.value?.latest_version
@@ -103,6 +130,7 @@ const localUpdateCandidate = computed(() => {
   return candidate
 })
 
+/** 版本操作前必须处理的来源准入状态。 */
 type ReleaseSourceAction = 'bind' | 'change' | 'unavailable'
 
 const releaseSourceAction = computed<ReleaseSourceAction | null>(() => {
@@ -150,10 +178,24 @@ const latestActionText = computed(() =>
         ? t('plugin.changeSource')
         : props.actionMode === 'install'
           ? t('plugin.installReleaseVersion')
-          : t('plugin.updateToLatest'),
+          : updateCheckComplete.value && latestUpdateAvailable.value === false
+            ? t('plugin.upToDate')
+            : t('plugin.updateToLatest'),
 )
 
-// 调用方显式打开更新入口时始终保留底部操作，允许同步或重新安装当前最新版本。
+// 来源绑定、换源和本地载荷同步各有独立入口资格，不能用在线更新标记一并屏蔽。
+const latestActionDisabled = computed(
+  () =>
+    !updateCheckComplete.value ||
+    Boolean(installBlock.value) ||
+    releaseSourceAction.value === 'unavailable' ||
+    (props.actionMode === 'update' &&
+      !releaseSourceAction.value &&
+      !localUpdateCandidate.value &&
+      latestUpdateAvailable.value !== true),
+)
+
+// 保留调用方要求的底部面板，无更新时展示禁用提示。
 const shouldShowUpdatePanel = computed(() => props.showUpdateAction)
 
 const releaseByHistoryVersion = computed(() => {
@@ -166,7 +208,7 @@ const releaseByHistoryVersion = computed(() => {
 
 /** 历史与 Release 共用带 v 前缀的展示键。 */
 function normalizeHistoryVersion(version: string) {
-  return version.startsWith('v') ? version : `v${version}`
+  return `v${version.trim().replace(/^v/i, '')}`
 }
 
 /** 将版本拆成数值段，兼容插件旧的连字符版本。 */
@@ -334,6 +376,7 @@ async function loadPluginReleases(
 
 /** 根据来源准入状态执行更新，或转交来源绑定和切换。 */
 function handleUpdate(releaseItem?: PluginReleaseVersion) {
+  if ((!releaseItem || releaseItem.is_latest) && latestActionDisabled.value) return
   if (releaseSourceAction.value) {
     if (releaseSourceAction.value !== 'unavailable') emit('sourceAction')
     return
@@ -437,7 +480,7 @@ watch(
               :disabled="
                 releaseItemByHistoryVersion(version)?.is_current ||
                 releaseSourceAction === 'unavailable' ||
-                (releaseItemByHistoryVersion(version)?.is_latest && Boolean(installBlock))
+                (releaseItemByHistoryVersion(version)?.is_latest && latestActionDisabled)
               "
               @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
             >
@@ -455,11 +498,7 @@ watch(
             <VIcon icon="mdi-lock-outline" size="16" />
             <span>{{ installBlockMessage }}</span>
           </p>
-          <VBtn
-            @click="handleUpdate()"
-            block
-            :disabled="Boolean(installBlock) || releaseSourceAction === 'unavailable'"
-          >
+          <VBtn @click="handleUpdate()" block :disabled="latestActionDisabled">
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
             </template>

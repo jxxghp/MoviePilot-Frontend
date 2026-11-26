@@ -5627,6 +5627,7 @@ export default {
     updateHistoryEmpty: 'No update history available yet',
     updateHistoryLoadFailed: 'Failed to load update history. Please try again later.',
     updateToLatest: 'Update to Latest Version',
+    upToDate: 'Already up to date',
     updateToLocal: 'Update to Local Version',
     folderNameEmpty: 'Folder name cannot be empty',
     folderExists: 'Folder already exists',

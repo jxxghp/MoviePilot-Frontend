@@ -5476,6 +5476,7 @@ export default {
     updateHistoryEmpty: '暂未获取到更新说明',
     updateHistoryLoadFailed: '读取更新说明失败，请稍后重试',
     updateToLatest: '更新到最新版本',
+    upToDate: '已是最新版本',
     updateToLocal: '更新到本地版本',
     folderNameEmpty: '文件夹名称不能为空',
     folderExists: '文件夹已存在',
