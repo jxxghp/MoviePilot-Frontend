@@ -134,6 +134,73 @@ if (typeof window !== 'undefined') {
 
 let mountGeneration = 0
 
+const MEDIA_SESSION_ACTIONS: MediaSessionAction[] = [
+  'play',
+  'pause',
+  'stop',
+  'seekbackward',
+  'seekforward',
+  'seekto',
+  'previoustrack',
+  'nexttrack',
+]
+
+/**
+ * 清理并抑制插件容器 WebView 自身的 `navigator.mediaSession` 与残留 `<audio>/<video>`，
+ * 避免与原生 `audio.play` / `audio.setNowPlaying` 注册的系统 MediaSession 产生双通知或点击跳去虚拟源地址。
+ */
+function suppressAndResetWebMediaSession(stageRoot?: HTMLElement | null): void {
+  if (stageRoot) {
+    for (const el of Array.from(stageRoot.querySelectorAll('audio, video'))) {
+      if (el instanceof HTMLMediaElement) {
+        try {
+          el.pause()
+          el.removeAttribute('src')
+          el.load()
+        } catch {
+          // 忽略沙箱或 jsdom 未实现的媒体清理方法
+        }
+      }
+    }
+  }
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !navigator.mediaSession) {
+    return
+  }
+  const ms = navigator.mediaSession
+  try {
+    ms.metadata = null
+  } catch {
+    // ignore
+  }
+  try {
+    ms.playbackState = 'none'
+  } catch {
+    // ignore
+  }
+  for (const action of MEDIA_SESSION_ACTIONS) {
+    try {
+      ms.setActionHandler(action, null)
+    } catch {
+      // 部分内核不支持全部 action，忽略即可
+    }
+  }
+  try {
+    Object.defineProperty(ms, 'metadata', {
+      configurable: true,
+      get: () => null,
+      set: () => {},
+    })
+    Object.defineProperty(ms, 'playbackState', {
+      configurable: true,
+      get: () => 'none',
+      set: () => {},
+    })
+    ms.setActionHandler = () => {}
+  } catch {
+    // 若运行环境将属性标记为不可重定义，上面的显式清空已兜底
+  }
+}
+
 function navKeyToPascalSegment(navKey: string): string {
   return navKey
     .trim()
@@ -338,10 +405,12 @@ async function mountSurface(payload: PluginMountPayload, surface: PluginShellSur
 
   await nextTick()
   pluginHostBridge.attachGlobalReceiver()
+  suppressAndResetWebMediaSession()
   syncViewportDisplay()
   const notifyFrame = () => {
     if (generation !== mountGeneration) return
     pluginHostBridge.attachGlobalReceiver()
+    suppressAndResetWebMediaSession()
     syncViewportDisplay()
     cleanOpaquePluginRoots(mountStageRef.value)
     extractFallbackDomHeader()
@@ -362,6 +431,7 @@ async function mountSurface(payload: PluginMountPayload, surface: PluginShellSur
 function handleUnmount(mountId?: string): void {
   if (mountId && currentMount.value && currentMount.value.mountId !== mountId) return
   mountGeneration += 1
+  suppressAndResetWebMediaSession(mountStageRef.value)
   pluginHostBridge.abortAllPending('Plugin unmounted')
   pluginHostBridge.clearDeviceEventListeners()
   pluginHostBridge.clearExternalReceiverHook()
@@ -578,6 +648,7 @@ const handleWindowResize = () => {
 
 onMounted(() => {
   pluginHostBridge.attachGlobalReceiver()
+  suppressAndResetWebMediaSession(mountStageRef.value)
   applyNativeVisualTokens(theme, getDefaultVisualTokens())
   syncViewportDisplay()
   if (typeof window !== 'undefined') {
@@ -596,6 +667,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  suppressAndResetWebMediaSession(mountStageRef.value)
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', handleWindowResize)
     window.removeEventListener('orientationchange', handleWindowResize)

@@ -620,7 +620,15 @@ describe('plugin-shell local runtime', () => {
     sdk.shell!.close!()
     expect(sentMessages.some(m => m.type === 'plugin.close' && m.payload.mountId === 'm-music')).toBe(true)
 
-    // 4. plugin.unmount 自动清空已注册的 onBack 与胶囊监听
+    // 4. plugin.unmount 自动清空已注册的 onBack、胶囊监听并抑制 Web MediaSession
+    Object.defineProperty(navigator, 'mediaSession', {
+      configurable: true,
+      value: {
+        metadata: { title: 'stale-web-session' },
+        playbackState: 'playing',
+        setActionHandler: vi.fn(),
+      },
+    })
     sdk.navigation!.onBack!(() => true)
     window.__mpPluginHostReceive?.({
       protocol: PLUGIN_HOST_PROTOCOL,
@@ -628,6 +636,11 @@ describe('plugin-shell local runtime', () => {
       type: 'plugin.unmount',
       payload: { mountId: 'm-music' },
     })
+    const mockMs = (navigator as unknown as { mediaSession: { metadata: unknown; playbackState: string } }).mediaSession
+    expect(mockMs.metadata).toBeNull()
+    expect(mockMs.playbackState).toBe('none')
+    mockMs.metadata = { title: 'hijack' }
+    expect(mockMs.metadata).toBeNull()
     sentMessages.length = 0
     window.__mpPluginHostReceive?.({
       protocol: PLUGIN_HOST_PROTOCOL,
