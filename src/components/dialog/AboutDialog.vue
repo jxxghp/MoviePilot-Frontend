@@ -36,8 +36,34 @@ md.use(mdLinkAttributes, {
   },
 })
 
+interface SystemEnvInfo {
+  VERSION?: string
+  FRONTEND_VERSION?: string
+  AUTH_VERSION?: string
+  INDEXER_VERSION?: string
+  CONFIG_DIR?: string
+  TZ?: string
+  USAGE_STATISTIC_SHARE?: boolean
+}
+
+interface ReleaseItem {
+  tag_name: string
+  published_at: string
+  body: string
+}
+
+interface SupportingSiteInfo {
+  name: string
+  url: string
+}
+
+interface UniqueSiteEntry {
+  name: string
+  urls: Array<{ domain: string; url: string }>
+}
+
 // 系统环境变量
-const systemEnv = ref<any>({})
+const systemEnv = ref<SystemEnvInfo>({})
 
 // 系统运行时间的基准秒数和同步时间，用于在弹窗打开后实时递增展示。
 const systemUptimeBaseSeconds = ref<number | null>(null)
@@ -46,26 +72,27 @@ const systemUptimeNow = ref(Date.now())
 let systemUptimeTimer: ReturnType<typeof setInterval> | null = null
 
 // 所有Release
-const allRelease = ref<any>([])
+const allRelease = ref<ReleaseItem[]>([])
 
 // 支持站点
-const supportingSites = ref<any>({})
+const supportingSites = ref<Record<string, SupportingSiteInfo>>({})
 
 // 支持站点折叠状态
 const sitesExpanded = ref(false)
 
 // 去重后的支持站点
 const uniqueSupportingSites = computed(() => {
-  const sitesMap = new Map()
+  const sitesMap = new Map<string, UniqueSiteEntry>()
 
-  Object.entries(supportingSites.value).forEach(([domain, site]: [string, any]) => {
-    if (!sitesMap.has(site.name)) {
+  Object.entries(supportingSites.value).forEach(([domain, site]) => {
+    const existing = sitesMap.get(site.name)
+    if (!existing) {
       sitesMap.set(site.name, {
         name: site.name,
         urls: [{ domain, url: site.url }],
       })
     } else {
-      sitesMap.get(site.name).urls.push({ domain, url: site.url })
+      existing.urls.push({ domain, url: site.url })
     }
   })
 
@@ -98,26 +125,115 @@ const versionStatisticDialog = ref(false)
 // 版本统计加载状态
 const versionStatisticLoading = ref(false)
 
+interface VersionStatisticRow {
+  version: string
+  count: number
+}
+
+interface ActiveUsersStatistic {
+  today?: number
+  last_7_days?: number
+  last_30_days?: number
+}
+
+interface UsageVersionStatistic {
+  total_users?: number
+  app_total_users?: number
+  active_users?: ActiveUsersStatistic
+  backend_versions?: VersionStatisticRow[]
+  frontend_versions?: VersionStatisticRow[]
+  app_versions?: VersionStatisticRow[]
+  ios_app_versions?: VersionStatisticRow[]
+  android_app_versions?: VersionStatisticRow[]
+  harmony_app_versions?: VersionStatisticRow[]
+  updated_at?: string
+}
+
 // 版本统计数据
-const versionStatistic = ref<any>({})
+const versionStatistic = ref<UsageVersionStatistic>({})
 
 const MIN_VISIBLE_VERSION_INSTALLS = 10
 
 /** 过滤安装实例过少的版本，避免在版本统计中展示孤立记录。 */
-function filterVersionStatistics(items: unknown) {
+function filterVersionStatistics(items: unknown): VersionStatisticRow[] {
   if (!Array.isArray(items)) return []
 
-  return items.filter(item => Number(item?.count || 0) >= MIN_VISIBLE_VERSION_INSTALLS)
+  return items
+    .map(item => {
+      const record = (typeof item === 'object' && item !== null ? item : {}) as Record<string, unknown>
+
+      return {
+        version: String(record.version ?? '').trim(),
+        count: Number(record.count || 0),
+      }
+    })
+    .filter(item => item.version.length > 0 && item.count >= MIN_VISIBLE_VERSION_INSTALLS)
 }
 
-// 后端版本统计
+/** 统一各渠道 App 版本名称并合并 iOS / Android / HarmonyOS 全渠道安装统计。 */
+function mergeAppChannelVersions(stat: UsageVersionStatistic | null | undefined): VersionStatisticRow[] {
+  if (!stat) return []
+  const sourceGroups = Array.isArray(stat.app_versions)
+    ? [stat.app_versions]
+    : [stat.ios_app_versions, stat.android_app_versions, stat.harmony_app_versions]
+
+  const merged = new Map<string, number>()
+
+  for (const group of sourceGroups) {
+    if (!Array.isArray(group)) continue
+    for (const item of group) {
+      const count = Number(item?.count || 0)
+      if (!Number.isFinite(count) || count <= 0) continue
+      const normalizedVersion = String(item?.version ?? '')
+        .trim()
+        .replace(/^v(?=\d)/i, '')
+
+      if (!normalizedVersion || normalizedVersion.toLowerCase() === 'unknown') continue
+      merged.set(normalizedVersion, (merged.get(normalizedVersion) ?? 0) + count)
+    }
+  }
+
+  return Array.from(merged.entries())
+    .map(([version, count]) => ({ version, count }))
+    .sort((a, b) => b.count - a.count || a.version.localeCompare(b.version))
+}
+
+// 主程序版本统计
 const backendVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.backend_versions))
 
-// 前端版本统计
-const frontendVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.frontend_versions))
+// 全渠道 App 版本合并结果（未过滤，用于总安装数计算）
+const allAppVersionStatistics = computed(() => mergeAppChannelVersions(versionStatistic.value))
 
-// iOS App 按匿名安装统计，沿用版本最少安装量展示规则。
-const iosAppVersionStatistics = computed(() => filterVersionStatistics(versionStatistic.value?.ios_app_versions))
+// 全渠道 App 安装版本统计（合并后再按最少安装量过滤）
+const appVersionStatistics = computed(() => filterVersionStatistics(allAppVersionStatistics.value))
+
+// App 累计安装量
+const totalAppInstalls = computed(() => {
+  const explicitTotal = Number(versionStatistic.value?.app_total_users)
+  if (Number.isFinite(explicitTotal) && explicitTotal > 0) return explicitTotal
+
+  return allAppVersionStatistics.value.reduce((sum, item) => sum + item.count, 0)
+})
+
+const backendVisibleTotal = computed(() => backendVersionStatistics.value.reduce((sum, item) => sum + item.count, 0))
+const appVisibleTotal = computed(() => appVersionStatistics.value.reduce((sum, item) => sum + item.count, 0))
+const backendMaxCount = computed(() => Math.max(0, ...backendVersionStatistics.value.map(item => item.count)))
+const appMaxCount = computed(() => Math.max(0, ...appVersionStatistics.value.map(item => item.count)))
+
+/** 计算版本在当前面板中的进度条宽度百分比。 */
+function resolveVersionBarPercent(count: number, maxCount: number) {
+  if (!maxCount || count <= 0) return 0
+
+  return Math.max(4, Math.min(100, Math.round((count / maxCount) * 100)))
+}
+
+/** 格式化单个版本占可见总量的百分比文本。 */
+function formatVersionShare(count: number, total: number) {
+  if (!total || count <= 0) return '0%'
+  const ratio = (count / total) * 100
+
+  return `${ratio.toFixed(1)}%`
+}
 
 // 活跃用户统计
 const activeUsers = computed(() => versionStatistic.value?.active_users ?? {})
@@ -238,7 +354,7 @@ async function queryVersionStatistic() {
   if (!systemEnv.value.USAGE_STATISTIC_SHARE) return
   versionStatisticLoading.value = true
   try {
-    const statistic = await api.get<{ [key: string]: any } | null>('system/usage/statistic')
+    const statistic = await api.get<UsageVersionStatistic | null>('system/usage/statistic')
     versionStatistic.value = statistic ?? {}
   } catch (error) {
     console.log(error)
@@ -257,7 +373,7 @@ async function showVersionStatisticDialog() {
 // 查询系统环境变量
 async function querySystemEnv() {
   try {
-    systemEnv.value = (await getSharedConfiguration<{ [key: string]: any } | null>('system/env')) ?? {}
+    systemEnv.value = (await getSharedConfiguration<SystemEnvInfo | null>('system/env')) ?? {}
   } catch (error) {
     console.log(error)
   }
@@ -277,8 +393,14 @@ async function querySystemUptime() {
 /** 只展示主程序正式版本，避免独立工具 Release 混入历史及最新版本判断。 */
 async function queryAllRelease() {
   try {
-    const releases = (await api.get<any[] | null>('system/versions')) ?? []
-    allRelease.value = releases.filter(release => /^v\d+\.\d+\.\d+(?:-\d+)?$/.test(release?.tag_name ?? ''))
+    const releases = (await api.get<Array<Partial<ReleaseItem>> | null>('system/versions')) ?? []
+    allRelease.value = releases
+      .map(release => ({
+        tag_name: release?.tag_name ?? '',
+        published_at: release?.published_at ?? '',
+        body: release?.body ?? '',
+      }))
+      .filter(release => /^v\d+\.\d+\.\d+(?:-\d+)?$/.test(release.tag_name))
 
     // 最新版本
     latestRelease.value = allRelease.value[0]?.tag_name ?? ''
@@ -608,103 +730,123 @@ onBeforeUnmount(() => {
         <VCardText class="markdown-body" v-html="releaseDialogBody" />
       </VCard>
     </VDialog>
-    <VDialog v-if="versionStatisticDialog" v-model="versionStatisticDialog" width="680" scrollable max-height="85vh">
+    <VDialog v-if="versionStatisticDialog" v-model="versionStatisticDialog" width="760" scrollable max-height="85vh">
       <VCard>
         <VCardItem>
           <VDialogCloseBtn @click="versionStatisticDialog = false" />
-          <VCardTitle>
-            <VIcon icon="mdi-chart-bar" class="me-2" />
+          <VCardTitle class="d-flex align-center">
+            <VIcon icon="mdi-chart-bar" class="me-2" color="primary" />
             {{ t('setting.about.versionStatisticTitle') }}
           </VCardTitle>
         </VCardItem>
         <VDivider />
         <VProgressLinear v-if="versionStatisticLoading" indeterminate color="primary" />
-        <VCardText>
+        <VCardText class="pt-4 pb-5">
           <div class="version-stat-summary">
-            <div>
+            <div class="version-stat-metric">
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.totalInstallUsers') }}</div>
-              <div class="version-stat-number">{{ formatVersionStatisticNumber(versionStatistic.total_users) }}</div>
+              <div class="version-stat-number text-primary">
+                {{ formatVersionStatisticNumber(versionStatistic.total_users) }}
+              </div>
             </div>
-            <div>
+            <div class="version-stat-metric">
+              <div class="text-caption text-medium-emphasis">{{ t('setting.about.totalAppInstalls') }}</div>
+              <div class="version-stat-number text-info">
+                {{ formatVersionStatisticNumber(totalAppInstalls) }}
+              </div>
+            </div>
+            <div class="version-stat-metric">
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.activeToday') }}</div>
               <div class="version-stat-number">{{ formatVersionStatisticNumber(activeUsers.today) }}</div>
             </div>
-            <div>
+            <div class="version-stat-metric">
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.active7Days') }}</div>
               <div class="version-stat-number">{{ formatVersionStatisticNumber(activeUsers.last_7_days) }}</div>
             </div>
-            <div>
+            <div class="version-stat-metric">
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.active30Days') }}</div>
               <div class="version-stat-number">{{ formatVersionStatisticNumber(activeUsers.last_30_days) }}</div>
             </div>
           </div>
-          <div class="mt-5">
-            <div class="text-subtitle-2 mb-2">{{ t('setting.about.backendVersionStatistic') }}</div>
-            <VTable density="compact">
-              <thead>
-                <tr>
-                  <th>{{ t('setting.about.version') }}</th>
-                  <th class="text-end">{{ t('setting.about.users') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in backendVersionStatistics" :key="`backend-${item.version}`">
-                  <td>
-                    <code>{{ item.version }}</code>
-                  </td>
-                  <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
-                </tr>
-                <tr v-if="!backendVersionStatistics.length">
-                  <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
-                </tr>
-              </tbody>
-            </VTable>
+
+          <div class="version-stat-panels mt-5">
+            <section class="version-stat-panel">
+              <header class="version-stat-panel__header">
+                <div class="d-flex align-center gap-2">
+                  <VIcon icon="mdi-server-network" size="18" color="primary" />
+                  <span class="text-subtitle-2 font-weight-bold">{{ t('setting.about.backendVersionStatistic') }}</span>
+                </div>
+                <VChip size="x-small" variant="tonal" color="primary">
+                  {{ formatVersionStatisticNumber(backendVisibleTotal) }}
+                </VChip>
+              </header>
+              <div v-if="backendVersionStatistics.length" class="version-stat-list">
+                <div v-for="item in backendVersionStatistics" :key="`backend-${item.version}`" class="version-stat-row">
+                  <div class="version-stat-row__meta">
+                    <div class="d-flex align-center gap-2 min-w-0">
+                      <code class="version-stat-code truncate">{{ item.version }}</code>
+                      <VChip
+                        v-if="systemEnv.VERSION && item.version === systemEnv.VERSION"
+                        size="x-small"
+                        color="primary"
+                        variant="tonal"
+                      >
+                        {{ t('setting.about.currentTag') }}
+                      </VChip>
+                    </div>
+                    <div class="version-stat-row__numbers">
+                      <span class="font-weight-medium">{{ formatVersionStatisticNumber(item.count) }}</span>
+                      <span class="version-stat-share">{{ formatVersionShare(item.count, backendVisibleTotal) }}</span>
+                    </div>
+                  </div>
+                  <div class="version-stat-bar">
+                    <div
+                      class="version-stat-bar__fill version-stat-bar__fill--primary"
+                      :style="{ width: `${resolveVersionBarPercent(item.count, backendMaxCount)}%` }"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div v-else class="version-stat-empty text-medium-emphasis">
+                {{ t('setting.about.noVersionStatisticData') }}
+              </div>
+            </section>
+
+            <section class="version-stat-panel">
+              <header class="version-stat-panel__header">
+                <div class="d-flex align-center gap-2">
+                  <VIcon icon="mdi-cellphone-link" size="18" color="info" />
+                  <span class="text-subtitle-2 font-weight-bold">{{ t('setting.about.appVersionStatistic') }}</span>
+                </div>
+                <VChip size="x-small" variant="tonal" color="info">
+                  {{ formatVersionStatisticNumber(appVisibleTotal) }}
+                </VChip>
+              </header>
+              <div v-if="appVersionStatistics.length" class="version-stat-list">
+                <div v-for="item in appVersionStatistics" :key="`app-${item.version}`" class="version-stat-row">
+                  <div class="version-stat-row__meta">
+                    <code class="version-stat-code truncate">{{ item.version }}</code>
+                    <div class="version-stat-row__numbers">
+                      <span class="font-weight-medium">{{ formatVersionStatisticNumber(item.count) }}</span>
+                      <span class="version-stat-share">{{ formatVersionShare(item.count, appVisibleTotal) }}</span>
+                    </div>
+                  </div>
+                  <div class="version-stat-bar">
+                    <div
+                      class="version-stat-bar__fill version-stat-bar__fill--info"
+                      :style="{ width: `${resolveVersionBarPercent(item.count, appMaxCount)}%` }"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div v-else class="version-stat-empty text-medium-emphasis">
+                {{ t('setting.about.noVersionStatisticData') }}
+              </div>
+            </section>
           </div>
-          <div class="mt-5">
-            <div class="text-subtitle-2 mb-2">{{ t('setting.about.frontendVersionStatistic') }}</div>
-            <VTable density="compact">
-              <thead>
-                <tr>
-                  <th>{{ t('setting.about.version') }}</th>
-                  <th class="text-end">{{ t('setting.about.users') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in frontendVersionStatistics" :key="`frontend-${item.version}`">
-                  <td>
-                    <code>{{ item.version }}</code>
-                  </td>
-                  <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
-                </tr>
-                <tr v-if="!frontendVersionStatistics.length">
-                  <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
-                </tr>
-              </tbody>
-            </VTable>
-          </div>
-          <div class="mt-5">
-            <div class="text-subtitle-2 mb-2">{{ t('setting.about.iosAppVersionStatistic') }}</div>
-            <VTable density="compact">
-              <thead>
-                <tr>
-                  <th>{{ t('setting.about.version') }}</th>
-                  <th class="text-end">{{ t('setting.about.users') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in iosAppVersionStatistics" :key="`ios-${item.version}`">
-                  <td>
-                    <code>{{ item.version }}</code>
-                  </td>
-                  <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
-                </tr>
-                <tr v-if="!iosAppVersionStatistics.length">
-                  <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
-                </tr>
-              </tbody>
-            </VTable>
-          </div>
-          <div v-if="versionStatistic.updated_at" class="mt-4 text-caption text-medium-emphasis">
+
+          <div v-if="versionStatistic.updated_at" class="mt-4 d-flex align-center text-caption text-medium-emphasis">
+            <VIcon icon="mdi-clock-outline" size="14" class="me-1" />
             {{ t('setting.about.lastUpdated') }}: {{ versionStatistic.updated_at }}
           </div>
         </VCardText>
@@ -728,14 +870,130 @@ onBeforeUnmount(() => {
 
 .version-stat-summary {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(7.25rem, 1fr));
+}
+
+.version-stat-metric {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.75rem;
+  background-color: rgba(var(--v-theme-on-surface), 0.025);
+  padding-block: 0.75rem;
+  padding-inline: 0.875rem;
 }
 
 .version-stat-number {
-  font-size: 1.5rem;
+  font-size: 1.375rem;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
-  line-height: 2rem;
+  line-height: 1.85rem;
+  margin-block-start: 0.2rem;
+}
+
+.version-stat-panels {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (width >= 640px) {
+  .version-stat-panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.version-stat-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.875rem;
+  background-color: rgba(var(--v-theme-on-surface), 0.02);
+  overflow: hidden;
+}
+
+.version-stat-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding-block: 0.75rem;
+  padding-inline: 1rem;
+}
+
+.version-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-block-size: 21rem;
+  overflow-y: auto;
+  padding-block: 0.875rem;
+  padding-inline: 1rem;
+}
+
+.version-stat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.version-stat-row__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  gap: 0.5rem;
+}
+
+.version-stat-row__numbers {
+  display: flex;
+  flex-shrink: 0;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+  gap: 0.45rem;
+}
+
+.version-stat-share {
+  color: rgba(var(--v-theme-on-surface), 0.56);
+  font-size: 0.75rem;
+  min-inline-size: 2.8rem;
+  text-align: end;
+}
+
+.version-stat-code {
+  border-radius: 0.3rem;
+  background-color: rgba(var(--v-theme-on-surface), 0.06);
+  font-size: 0.8125rem;
+  padding-block: 0.1rem;
+  padding-inline: 0.4rem;
+}
+
+.version-stat-bar {
+  border-radius: 999px;
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+  block-size: 0.375rem;
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.version-stat-bar__fill {
+  border-radius: 999px;
+  block-size: 100%;
+  transition: inline-size 0.25s ease;
+}
+
+.version-stat-bar__fill--primary {
+  background-color: rgb(var(--v-theme-primary));
+}
+
+.version-stat-bar__fill--info {
+  background-color: rgb(var(--v-theme-info));
+}
+
+.version-stat-empty {
+  font-size: 0.85rem;
+  padding-block: 2.25rem;
+  padding-inline: 1rem;
+  text-align: center;
 }
 
 .markdown-body :deep(h1),

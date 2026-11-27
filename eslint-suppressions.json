@@ -85,9 +85,6 @@
     }
   },
   "src/components/dialog/AboutDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 8
-    },
     "vue/no-parsing-error": {
       "count": 1
     },
