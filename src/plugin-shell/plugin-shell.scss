@@ -1,0 +1,432 @@
+/* stylelint-disable custom-property-pattern */
+/* stylelint-disable no-descending-specificity */
+/* stylelint-disable no-duplicate-selectors */
+/* stylelint-disable scss/at-rule-no-unknown */
+
+/* 1. 完整插件兼容基线：复用主站 Vuetify 修正、组件细节修正与语义令牌（不引入主站导航外壳） */
+@use '@core/scss/libs/vuetify/index' as vuetify-lib;
+@use '@core/scss/components' as core-components;
+@use '@core/scss/utilities' as core-utilities;
+@use '@core/scss/misc' as core-misc;
+@use '@core/scss/dark' as core-dark;
+@use 'vuetify/styles' as vuetify;
+@use '@styles/tokens' as tokens;
+@use '@styles/overlay-transitions' as mp-overlay-transitions;
+@use '@styles/responsive-input' as mp-responsive-input;
+@use '@styles/semantic-tonal' as mp-semantic-tonal;
+
+/* 2. Tailwind 基础工具类（保证社区/官方插件与壳组件中的原子类名完整生效） */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 3. 与主站 @core/scss/index 保持一致的基础元素与 Iconify 尺寸约束 */
+a {
+  color: var(--mp-primary-fg);
+  text-decoration: none;
+}
+
+p {
+  margin-block-end: 1rem;
+}
+
+svg.iconify {
+  block-size: 1em;
+  inline-size: 1em;
+}
+
+/* 4. 共享弹窗过渡、移动端两栏响应表单与明度自适应语义高亮 */
+@include mp-overlay-transitions.overlay-transitions;
+@include mp-responsive-input.responsive-input;
+@include mp-semantic-tonal.semantic-tonal;
+
+/* 5. MoviePilot Local Plugin Shell — App Native Skin Layer */
+:root {
+  --mp-safe-top: 0px;
+  --mp-safe-bottom: 0px;
+  --mp-safe-left: 0px;
+  --mp-safe-right: 0px;
+  --mp-accent: #9e7af5;
+  --mp-on-accent: #ffffff;
+  --mp-text-primary: #f5f2ff;
+  --mp-text-secondary: #b8b2cc;
+  --mp-surface-glass: rgba(255, 255, 255, 0.08);
+  --mp-surface-elevated: rgba(48, 43, 66, 0.86);
+  --mp-surface-border: rgba(255, 255, 255, 0.14);
+  --mp-surface-blur: 18px;
+  --mp-solid-surface: #473b52;
+  --mp-field-fill: rgba(255, 255, 255, 0.09);
+  --mp-field-border: rgba(255, 255, 255, 0.14);
+  --mp-chip-fill: rgba(255, 255, 255, 0.09);
+  --mp-chip-border: rgba(255, 255, 255, 0.15);
+  --mp-divider: rgba(255, 255, 255, 0.11);
+  --mp-panel-radius: 24px;
+  --mp-sheet-radius: 28px;
+  --mp-border-width: 0.7px;
+  --mp-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  --app-theme-surface-radius: var(--mp-panel-radius);
+  --app-surface-radius: var(--mp-panel-radius);
+  --app-overlay-radius: var(--mp-sheet-radius);
+  --app-field-radius: 14px;
+  --app-control-radius: 12px;
+  --app-surface-border: var(--mp-border-width) solid var(--mp-surface-border);
+  --app-surface-shadow: none;
+  --app-surface-hover-shadow: none;
+  --mp-motion-duration-page: 180ms;
+  --mp-motion-duration-overlay: 160ms;
+  --mp-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --mp-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* Layer 1: Full-chain root transparency so native dynamic backgrounds show through */
+html,
+body,
+#app,
+.v-application,
+.v-application__wrap,
+.v-main,
+.mp-shell-root,
+.mp-shell-mount-stage,
+[data-mp-shell-transparent-root='true'] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* 确保 App 下发的主/次文字令牌在 Vuetify 主题节点与 Teleport 浮层容器上持续生效 */
+:is(.mp-shell-app, .v-overlay-container) {
+  --mp-fg: var(--mp-text-primary);
+  --mp-muted-fg: var(--mp-text-secondary);
+}
+
+html,
+body {
+  color: var(--mp-text-primary);
+  font-family: var(--mp-font-family);
+  overscroll-behavior-y: auto;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.mp-shell-root::-webkit-scrollbar {
+  display: none;
+}
+
+.mp-shell-root {
+  box-sizing: border-box;
+  min-block-size: 100vh;
+  padding-block: calc(8px + var(--mp-safe-top)) calc(20px + var(--mp-safe-bottom));
+  padding-inline: calc(12px + var(--mp-safe-left)) calc(12px + var(--mp-safe-right));
+}
+
+.mp-shell-scroll {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mp-shell-dialog-close-btn {
+  position: absolute !important;
+  z-index: 10;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+}
+
+.text-moviepilot {
+  background: linear-gradient(120deg, var(--mp-primary-fg), rgb(var(--v-theme-primary)));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Layer 2: 分级玻璃卡片体系——只给一级容器应用玻璃材质，保留语义色与防嵌套套娃边框 */
+.mp-shell-root .v-card:not([class*='bg-'], .v-card--variant-tonal, .v-card--variant-text, .v-card--variant-plain),
+.mp-shell-root .v-sheet:not(.bg-transparent, .v-theme--transparent, [class*='bg-']),
+.mp-shell-root .v-expansion-panel,
+.mp-shell-root .v-list:not(.bg-transparent, [class*='bg-']) {
+  border: var(--mp-border-width) solid var(--mp-surface-border);
+  border-radius: var(--mp-panel-radius) !important;
+  background: var(--mp-surface-glass);
+  box-shadow: none !important;
+  color: var(--mp-text-primary);
+}
+
+.mp-shell-root .v-card:is([class*='bg-'], .v-card--variant-tonal) {
+  border-radius: var(--mp-panel-radius) !important;
+  box-shadow: none !important;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  html:not([data-mp-shell-amoled='true'])
+    .mp-shell-root
+    .v-card:not([class*='bg-'], .v-card--variant-tonal, .v-card--variant-text, .v-card--variant-plain),
+  html:not([data-mp-shell-amoled='true']) .mp-shell-root .v-expansion-panel {
+    backdrop-filter: blur(var(--mp-surface-blur));
+    -webkit-backdrop-filter: blur(var(--mp-surface-blur));
+  }
+}
+
+/* 嵌套在卡片/折叠面板内部的次级容器（含 Teleport 弹窗内嵌套卡片）：取消二次模糊与双层重边框 */
+:is(.mp-shell-root, .v-overlay-container)
+  :is(.v-card, .v-expansion-panel)
+  :is(.v-card, .v-sheet, .v-list, .v-table, .v-data-table) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:is(.mp-shell-root, .v-overlay-container) :is(.v-card, .v-expansion-panel) :is(.v-list, .v-table, .v-data-table) {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+:is(.mp-shell-root, .v-overlay-container)
+  :is(.v-card, .v-expansion-panel)
+  :is(.v-card, .v-sheet):not(.bg-transparent, .v-theme--transparent, [class*='bg-'], .v-card--variant-tonal) {
+  border: var(--mp-border-width) solid var(--mp-divider);
+  border-radius: max(10px, calc(var(--mp-panel-radius) - 4px)) !important;
+  background: var(--mp-field-fill);
+}
+
+/* 卡片高度匹配与主站通用表面类名兼容 */
+:is(.mp-shell-root, .v-overlay-container) .match-height.v-row .v-card {
+  block-size: 100%;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-surface,
+:is(.mp-shell-root, .v-overlay-container) .app-surface-static {
+  border: var(--mp-border-width) solid var(--mp-surface-border);
+  border-radius: var(--mp-panel-radius) !important;
+  background: var(--mp-surface-glass);
+  box-shadow: none !important;
+}
+
+/* 浮层、弹窗与下拉菜单：采用高不透明重磨砂表面保证文字清晰不穿底 */
+.v-overlay__content > .v-card,
+.v-overlay__content > .v-sheet,
+.v-overlay__content > .v-list,
+.v-menu > .v-overlay__content > .v-list,
+.v-menu > .v-overlay__content > .v-card {
+  border: var(--mp-border-width) solid var(--mp-surface-border) !important;
+  border-radius: var(--mp-sheet-radius) !important;
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  background: var(--mp-surface-elevated) !important;
+  color: var(--mp-text-primary);
+}
+
+/* 插件内顶部工具栏默认透明融合原生背景 */
+:is(.mp-shell-root, .v-overlay-container) .v-toolbar:not([class*='bg-']) {
+  background: transparent !important;
+  color: var(--mp-text-primary);
+}
+
+/* Layer 3: App 原生质感表单行（同时覆盖页面主体与 Teleport 弹窗内表单） */
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input {
+  min-block-size: 3.75rem;
+  padding-block: 0.625rem;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--field {
+  --app-responsive-input-value-alignment: start;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--field .v-field,
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--multiline .v-field {
+  border: var(--mp-border-width) solid var(--mp-field-border);
+  border-radius: var(--app-control-radius) !important;
+  background-color: var(--mp-field-fill);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field {
+  background-color: var(--mp-field-fill);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--field .v-field--focused,
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--multiline .v-field--focused {
+  border-color: var(--mp-primary-border);
+  background-color: var(--mp-primary-soft);
+  box-shadow: 0 0 0 2px var(--mp-primary-soft);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--field .v-field__input,
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--multiline .v-field__input {
+  min-block-size: 2.375rem;
+  color: var(--mp-text-primary);
+  padding-block: 0.375rem;
+  padding-inline: 0.75rem;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--multiline .v-field__input {
+  min-block-size: 5rem;
+  padding-block: 0.625rem;
+}
+
+/* 移动端开关与复选框在右栏靠右对齐，贴合 iOS / Android / 鸿蒙原生设置行习惯 */
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--choice .app-responsive-input__control,
+:is(.mp-shell-root, .v-overlay-container) .app-responsive-input--choice .v-input__control {
+  justify-content: flex-end;
+}
+
+/* 开关未选中态与内嵌开关（inset）圆钮对比度，确保开启/关闭状态在深浅模式下均清晰可辨 */
+:is(.mp-shell-root, .v-overlay-container)
+  .v-switch
+  .v-selection-control:not(.v-selection-control--dirty)
+  .v-switch__track {
+  background-color: rgba(255, 255, 255, 0.26);
+  opacity: 1;
+}
+
+:is(.mp-shell-root, .v-overlay-container)
+  .v-switch
+  .v-selection-control:not(.v-selection-control--dirty)
+  .v-switch__thumb,
+:is(.mp-shell-root, .v-overlay-container) .v-switch--inset .v-switch__thumb {
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  color: #18181b;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-switch--inset .v-selection-control--dirty .v-switch__track {
+  opacity: 1;
+}
+
+html[data-mp-shell-theme='light']
+  :is(.mp-shell-root, .v-overlay-container)
+  .v-switch
+  .v-selection-control:not(.v-selection-control--dirty)
+  .v-switch__track {
+  background-color: rgba(24, 24, 27, 0.22);
+}
+
+/* 非响应式（如无 label 或宽屏桌面态）的独立 Vuetify 输入框对齐 App 圆角与填充材质 */
+:is(.mp-shell-root, .v-overlay-container)
+  .v-field:not(
+    .app-responsive-input__native .v-field,
+    .v-field--variant-plain,
+    .v-field--variant-underlined,
+    .v-field--rounded,
+    [class^='rounded-'],
+    [class*=' rounded-']
+  ) {
+  border-radius: var(--app-field-radius);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-field--variant-outlined .v-field__overlay,
+:is(.mp-shell-root, .v-overlay-container) .v-field--variant-filled .v-field__overlay,
+:is(.mp-shell-root, .v-overlay-container) .v-field--variant-solo .v-field__overlay {
+  background-color: var(--mp-field-fill) !important;
+  opacity: 1 !important;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-field__outline {
+  --v-field-border-opacity: 1;
+
+  color: var(--mp-field-border);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-field__input,
+:is(.mp-shell-root, .v-overlay-container) .v-label {
+  color: var(--mp-text-primary);
+}
+
+/* Layer 4: 按钮、提示条、芯片、分割线与表格与 App 几何比例对齐 */
+:is(.mp-shell-root, .v-overlay-container) .v-btn:not(.v-btn--variant-plain, .v-btn--variant-text, .v-btn--flat) {
+  box-shadow: none !important;
+}
+
+:is(.mp-shell-root, .v-overlay-container)
+  .v-btn:not(.v-btn--rounded, .v-btn--flat, .v-btn--icon, [class^='rounded-'], [class*=' rounded-']) {
+  border-radius: var(--app-control-radius);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-btn-group:not(.v-btn-group--variant-plain, .v-btn-group--variant-text) {
+  border-radius: var(--app-control-radius);
+  box-shadow: none !important;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-alert {
+  border-radius: var(--app-control-radius) !important;
+}
+
+/* 默认中性芯片使用原生芯片材质；彩色/tonal 芯片保留自身语义色 */
+:is(.mp-shell-root, .v-overlay-container)
+  .v-chip:not(
+    [class*='bg-'],
+    .v-chip--variant-tonal,
+    .v-chip--variant-flat,
+    .text-primary,
+    .text-success,
+    .text-warning,
+    .text-error,
+    .text-info
+  ) {
+  border: var(--mp-border-width) solid var(--mp-chip-border);
+  background-color: var(--mp-chip-fill);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-divider {
+  border-color: var(--mp-divider) !important;
+  opacity: 1 !important;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-table,
+:is(.mp-shell-root, .v-overlay-container) .v-data-table {
+  background: transparent !important;
+  color: var(--mp-text-primary);
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-table > .v-table__wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-table .v-table__wrapper > table > tbody > tr:not(:last-child) > td,
+:is(.mp-shell-root, .v-overlay-container) .v-table .v-table__wrapper > table > thead > tr > th {
+  border-block-end: var(--mp-border-width) solid var(--mp-divider) !important;
+}
+
+/* 窄屏移动适配收敛 */
+html,
+body,
+.mp-shell-root,
+.mp-shell-mount-stage {
+  max-inline-size: 100vw;
+  overflow-x: hidden;
+}
+
+:is(.mp-shell-root, .v-overlay-container) .v-card-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:is(.mp-shell-root, .v-overlay-container) img {
+  block-size: auto;
+  max-inline-size: 100%;
+}
+
+@media (width <= 767px) {
+  :is(.mp-shell-root, .v-overlay-container) .v-container {
+    padding-inline: 8px !important;
+  }
+
+  .mp-shell-root .v-dialog > .v-overlay__content,
+  .v-dialog > .v-overlay__content {
+    margin: 12px !important;
+    inline-size: calc(100vw - 24px) !important;
+    max-inline-size: calc(100vw - 24px) !important;
+  }
+
+  :is(.mp-shell-root, .v-overlay-container) .v-row {
+    margin-inline: -6px;
+  }
+
+  :is(.mp-shell-root, .v-overlay-container) .v-row > [class*='v-col'] {
+    padding-inline: 6px;
+  }
+}

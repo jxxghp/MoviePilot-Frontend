@@ -1,0 +1,317 @@
+/* stylelint-disable no-descending-specificity */
+/* stylelint-disable no-duplicate-selectors */
+
+// 小屏录入控件统一为左侧说明、右侧操作的紧凑行；桌面端由适配器直接渲染 Vuetify 原组件。
+// 主站与本地联邦插件壳共用同一份样式契约，避免两端表单行为漂移。
+@mixin responsive-input {
+  .app-responsive-input {
+    display: grid;
+    min-block-size: 4.5rem;
+    min-inline-size: 0;
+    padding-block: 0.75rem;
+    align-items: center;
+    column-gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(7rem, var(--app-responsive-input-control-width, 42%));
+  }
+
+  .app-responsive-input__meta,
+  .app-responsive-input__control {
+    min-inline-size: 0;
+  }
+
+  .app-responsive-input__label {
+    display: block;
+    color: var(--mp-fg);
+    cursor: default;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .app-responsive-input__hint {
+    margin-block-start: 0.25rem;
+    color: var(--mp-muted-fg);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .app-responsive-input__control {
+    display: flex;
+    align-items: center;
+  }
+
+  .app-responsive-input__native {
+    inline-size: 100%;
+    margin: 0;
+  }
+
+  .app-responsive-input__native .v-input__control,
+  .app-responsive-input__native .v-field,
+  .app-responsive-input__native .v-field__field,
+  .app-responsive-input__native .v-field__input {
+    min-inline-size: 0;
+  }
+
+  // 移动录入行隐藏字段内部的装饰图标，避免挤压右栏中的实际内容。
+  .app-responsive-input__native .v-field__prepend-inner,
+  .app-responsive-input__native .v-field__append-inner,
+  .app-responsive-input__native .v-field__clearable {
+    display: none;
+  }
+
+  // 清除控件与具备按钮语义的末端操作仍需可用；下拉箭头仅重复整字段操作，不单独展示。
+  .app-responsive-input__native .v-field__clearable,
+  .app-responsive-input__native
+    .v-field__append-inner:has(
+      button,
+      [role='button']:not(.v-select__menu-icon, .v-autocomplete__menu-icon, .v-combobox__menu-icon)
+    ) {
+    display: inline-flex;
+  }
+
+  .app-responsive-input--field .v-field,
+  .app-responsive-input--multiline .v-field {
+    border-radius: var(--app-control-radius) !important;
+    background-color: transparent;
+    column-gap: 0.25rem;
+    transition:
+      background-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field {
+    background-color: transparent;
+  }
+
+  .app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field__input::placeholder {
+    color: var(--mp-muted-fg);
+    opacity: 1;
+  }
+
+  .app-responsive-input--field .v-field__outline,
+  .app-responsive-input--field .v-field__overlay,
+  .app-responsive-input--multiline .v-field__outline,
+  .app-responsive-input--multiline .v-field__overlay {
+    display: none;
+  }
+
+  .app-responsive-input--field .v-field__input,
+  .app-responsive-input--multiline .v-field__input {
+    min-block-size: 2.75rem;
+    padding: 0.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+  }
+
+  // 左右布局的单行字段将值放在右栏中央；整行字段会在移动端规则中恢复左对齐。
+  .app-responsive-input--field .v-field__input {
+    justify-content: var(--app-responsive-input-value-alignment, center);
+    text-align: var(--app-responsive-input-value-alignment, center);
+  }
+
+  // 移动端单行字段内容超出可视宽度时保持一行并显示省略号。
+  .app-responsive-input--field .v-field__input {
+    overflow: hidden;
+    flex-wrap: nowrap;
+  }
+
+  .app-responsive-input--field
+    :is(
+      input.v-field__input,
+      .v-field__input > input,
+      .v-select__selection,
+      .v-select__selection-text,
+      .v-autocomplete__selection,
+      .v-autocomplete__selection-text,
+      .v-combobox__selection,
+      .v-combobox__selection-text
+    ) {
+    overflow: hidden;
+    min-inline-size: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-responsive-input--field :is(input.v-field__input, .v-field__input > input),
+  .app-responsive-input--field :is(input.v-field__input, .v-field__input > input)::placeholder {
+    text-align: var(--app-responsive-input-value-alignment, center);
+  }
+
+  .app-responsive-input--field
+    .app-responsive-input__native:is(.v-select--single, .v-autocomplete--single, .v-combobox--single)
+    :is(.v-select__selection, .v-autocomplete__selection, .v-combobox__selection) {
+    inline-size: 100%;
+    justify-content: var(--app-responsive-input-value-alignment, center);
+    text-align: var(--app-responsive-input-value-alignment, center);
+  }
+
+  .app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
+    .v-field__input {
+    overflow: visible;
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+  }
+
+  .app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
+    :is(
+      .v-select__selection,
+      .v-select__selection-text,
+      .v-autocomplete__selection,
+      .v-autocomplete__selection-text,
+      .v-combobox__selection,
+      .v-combobox__selection-text
+    ) {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple) .v-chip {
+    max-inline-size: 100%;
+  }
+
+  .app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
+    .v-chip__content {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-responsive-input--field .v-field--focused,
+  .app-responsive-input--multiline .v-field--focused {
+    background-color: var(--mp-primary-soft);
+    box-shadow: inset 0 0 0 1px var(--mp-primary-border);
+  }
+
+  .app-responsive-input--multiline {
+    row-gap: 0.5rem;
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-responsive-input--multiline .app-responsive-input__control {
+    inline-size: 100%;
+  }
+
+  .app-responsive-input--multiline .v-field__input {
+    min-block-size: 5.5rem;
+    align-items: start;
+    text-align: start;
+  }
+
+  .app-responsive-input--choice .app-responsive-input__control,
+  .app-responsive-input--choice .v-input__control,
+  .app-responsive-input--group .v-selection-control-group {
+    justify-content: center;
+  }
+
+  .app-responsive-input--choice .v-input__control {
+    display: flex;
+  }
+
+  .app-responsive-input--choice .v-selection-control {
+    flex: 0 0 auto;
+    min-block-size: 2.75rem;
+  }
+
+  .app-responsive-input--range .v-input__control {
+    min-inline-size: 0;
+  }
+
+  .app-responsive-input--range .v-slider {
+    padding-block: 0.375rem;
+  }
+
+  .app-responsive-input__native .v-input__details {
+    padding-inline: 0.5rem 0;
+  }
+
+  .app-responsive-input__native .v-messages__message:empty {
+    display: none;
+  }
+
+  .app-responsive-input__native
+    .v-input__details:has(> .v-messages > .v-messages__message:empty):not(
+      :has(> .v-messages > .v-messages__message:not(:empty))
+    ):not(:has(> :not(.v-messages))) {
+    display: none;
+  }
+
+  .app-responsive-input__native .v-field--error {
+    background-color: var(--mp-destructive-soft);
+    box-shadow: inset 0 0 0 1px rgb(var(--v-theme-error));
+  }
+
+  .app-responsive-input--disabled .app-responsive-input__meta {
+    opacity: var(--v-disabled-opacity);
+  }
+
+  // 进入移动录入模式的控件强制独占一行，避免原 VCol 小于 12 列时两栏布局被再次压缩。
+  @media (width < 960px) {
+    .v-row > :is(.v-col, [class*='v-col-']):has(.app-responsive-input) {
+      flex: 0 0 100%;
+      max-inline-size: 100%;
+    }
+
+    // 移动录入行自身已经提供纵向留白，移除 VCol 纵向 gutter 避免堆叠字段间距过大。
+    .v-row > :is(.v-col, [class*='v-col-']):has(> .app-responsive-input) {
+      padding-block: 0;
+    }
+
+    // 从第二个录入项开始绘制顶部线；表单内允许字段包装，表单外仅匹配浅层结构以避免穿透嵌套卡片。
+    .app-responsive-input ~ .app-responsive-input,
+    .v-form .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) .app-responsive-input,
+    .v-form .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child .app-responsive-input,
+    .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > .app-responsive-input,
+    .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > * > .app-responsive-input,
+    .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > .app-responsive-input,
+    .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > * > .app-responsive-input {
+      border-block-start: 1px solid var(--mp-list-row-divider);
+    }
+
+    // 表单顶层在桌面也占满 12 格的字段改为上下两行，避免把嵌套 md=12 字段误判为整行字段。
+    .v-form
+      > .v-row
+      > :is(
+        .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not(
+            [class*='v-col-xl-']
+          ):not([class*='v-col-xxl-']),
+        .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not(
+            [class*='v-col-xxl-']
+          ),
+        .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
+      )
+      > :is(.app-responsive-input--field, .app-responsive-input--range) {
+      --app-responsive-input-value-alignment: start;
+
+      row-gap: 0.5rem;
+      align-items: start;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .v-form
+      > .v-row
+      > :is(
+        .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not(
+            [class*='v-col-xl-']
+          ):not([class*='v-col-xxl-']),
+        .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not(
+            [class*='v-col-xxl-']
+          ),
+        .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
+      )
+      > :is(.app-responsive-input--field, .app-responsive-input--range)
+      .app-responsive-input__control {
+      inline-size: 100%;
+    }
+  }
+
+  @media (hover: hover) {
+    .app-responsive-input--field .v-field:hover,
+    .app-responsive-input--multiline .v-field:hover {
+      background-color: var(--mp-list-row-hover);
+    }
+  }
+}

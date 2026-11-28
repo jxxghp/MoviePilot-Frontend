@@ -1,0 +1,81 @@
+/* stylelint-disable no-descending-specificity */
+
+// 平面、玻璃与原生壳主题统一消费明度自适应语义前景与柔和染色底，避免浅色琥珀发白、深色暗紫与暗红糊底。
+@mixin semantic-tonal {
+  html[data-theme] {
+    .v-btn.v-btn--variant-tonal.text-primary,
+    .v-btn.theme-horizontal-nav__item.v-btn--variant-tonal {
+      border-color: var(--mp-primary-border) !important;
+      background-color: var(--mp-primary-soft) !important;
+      color: var(--mp-primary-fg) !important;
+    }
+
+    .v-btn.v-btn--variant-tonal.text-error {
+      border-color: var(--mp-destructive-border) !important;
+      background-color: var(--mp-destructive-soft) !important;
+      color: var(--mp-destructive-fg) !important;
+    }
+
+    .v-btn.v-btn--variant-tonal.text-success {
+      border-color: var(--mp-success-border) !important;
+      background-color: var(--mp-success-soft) !important;
+      color: var(--mp-success-fg) !important;
+    }
+
+    .v-btn.v-btn--variant-tonal.text-warning {
+      border-color: var(--mp-warning-border) !important;
+      background-color: var(--mp-warning-soft) !important;
+      color: var(--mp-warning-fg) !important;
+    }
+
+    .v-btn.v-btn--variant-tonal.text-info {
+      border-color: var(--mp-info-border) !important;
+      background-color: var(--mp-info-soft) !important;
+      color: var(--mp-info-fg) !important;
+    }
+
+    .v-chip.v-chip--variant-tonal.text-primary {
+      border: 1px solid var(--mp-primary-border) !important;
+      background-color: var(--mp-primary-soft) !important;
+      color: var(--mp-primary-fg) !important;
+    }
+
+    .v-chip.v-chip--variant-outlined.text-primary {
+      color: var(--mp-primary-fg) !important;
+    }
+
+    .v-chip.v-chip--variant-tonal.text-error {
+      border: 1px solid var(--mp-destructive-border) !important;
+      background-color: var(--mp-destructive-soft) !important;
+      color: var(--mp-destructive-fg) !important;
+    }
+
+    .v-chip.v-chip--variant-tonal.text-success {
+      border: 1px solid var(--mp-success-border) !important;
+      background-color: var(--mp-success-soft) !important;
+      color: var(--mp-success-fg) !important;
+    }
+
+    .v-chip.v-chip--variant-tonal.text-warning {
+      border: 1px solid var(--mp-warning-border) !important;
+      background-color: var(--mp-warning-soft) !important;
+      color: var(--mp-warning-fg) !important;
+    }
+
+    .v-chip.v-chip--variant-tonal.text-info {
+      border: 1px solid var(--mp-info-border) !important;
+      background-color: var(--mp-info-soft) !important;
+      color: var(--mp-info-fg) !important;
+    }
+
+    // 已改用语义柔底 --mp-*-soft 时关闭 Vuetify 原生 currentColor underlay，避免双重叠加变浑。
+    .v-chip.v-chip--variant-tonal:is(.text-primary, .text-error, .text-success, .text-warning, .text-info)
+      .v-chip__underlay {
+      opacity: 0 !important;
+    }
+
+    .v-tab.v-tab--selected.text-primary {
+      color: var(--mp-primary-fg) !important;
+    }
+  }
+}

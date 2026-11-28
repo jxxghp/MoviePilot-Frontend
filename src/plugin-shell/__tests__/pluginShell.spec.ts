@@ -1,4 +1,7 @@
-import { defineComponent, h, nextTick, reactive, resolveComponent } from 'vue'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { cwd } from 'node:process'
+import { createApp, defineComponent, h, nextTick, reactive, resolveComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { VIcon } from 'vuetify/components'
@@ -6,6 +9,7 @@ import vuetify from '@/plugins/vuetify'
 import { PluginHostBridgeClient } from '../bridgeClient'
 import PluginShellHost from '../PluginShellHost.vue'
 import { createBridgeScopedApi, normalizeScopedApiPath } from '../scopedApi'
+import { registerPluginShellGlobalComponents } from '../shellComponents'
 import { PLUGIN_HOST_PROTOCOL, PLUGIN_HOST_PROTOCOL_MAJOR, type WebToHostEnvelope } from '../types'
 import { cleanOpaquePluginRoots, getDefaultVisualTokens } from '../visualTheme'
 
@@ -172,18 +176,25 @@ describe('plugin-shell local runtime', () => {
     expect(window.localStorage.getItem('auth')).toBeNull()
     expect(window.localStorage.getItem('user')).toContain('"userName":"admin"')
 
-    // 实时切换浅色主题不刷新页面
+    // 实时切换浅色主题不刷新页面，同时同步主站语义变量与圆角令牌
     window.__mpPluginHostReceive?.({
       protocol: PLUGIN_HOST_PROTOCOL,
       major: PLUGIN_HOST_PROTOCOL_MAJOR,
       type: 'theme.update',
       payload: {
-        visualTokens: { ...getDefaultVisualTokens(), mode: 'light', accentHex: '#47A3FA' },
+        visualTokens: { ...getDefaultVisualTokens(), mode: 'light', accentHex: '#47A3FA', panelRadiusPx: 20 },
       },
     })
     await nextTick()
     expect(document.documentElement.dataset.mpShellTheme).toBe('light')
+    expect(document.documentElement.getAttribute('data-theme')).toBe('glass')
+    expect(document.documentElement.getAttribute('data-glass-color-scheme')).toBe('light')
     expect(document.documentElement.style.getPropertyValue('--mp-accent')).toBe('#47A3FA')
+    expect(document.documentElement.style.getPropertyValue('--app-surface-radius')).toBe('20px')
+    expect(document.documentElement.style.getPropertyValue('--app-control-radius')).toBe('13px')
+    expect(document.documentElement.style.getPropertyValue('--mp-list-row-divider')).toBe('rgba(255, 255, 255, 0.11)')
+    expect(vuetify.theme.themes.value.glass.colors['surface-bright']).toBe('#FFFFFF')
+    expect(vuetify.theme.themes.value.glass.colors['on-surface-bright']).toBe('#18181B')
 
     // 卸载回到空闲态
     window.__mpPluginHostReceive?.({
@@ -746,5 +757,32 @@ describe('plugin-shell local runtime', () => {
     expect(sentMessages.find(m => m.type === 'nav.backResult')?.payload.handled).toBe(false)
 
     wrapper.unmount()
+  })
+
+  it('registers lightweight shell global components and wires full shared SCSS baseline', () => {
+    const app = createApp(defineComponent({ render: () => null }))
+    registerPluginShellGlobalComponents(app)
+    for (const name of [
+      'VDialogCloseBtn',
+      'DialogCloseBtn',
+      'VPageContentTitle',
+      'VScrollToTopBtn',
+      'VCronField',
+      'VPathField',
+      'PerfectScrollbar',
+    ]) {
+      expect(app.component(name)).toBeDefined()
+    }
+
+    const shellStyles = readFileSync(resolve(cwd(), 'src/plugin-shell/plugin-shell.scss'), 'utf8')
+    expect(shellStyles).toContain("@use '@core/scss/libs/vuetify/index'")
+    expect(shellStyles).toContain("@use '@core/scss/components'")
+    expect(shellStyles).toContain("@use '@styles/tokens'")
+    expect(shellStyles).toContain('@include mp-responsive-input.responsive-input;')
+    expect(shellStyles).toContain('@include mp-overlay-transitions.overlay-transitions;')
+    expect(shellStyles).toContain('@include mp-semantic-tonal.semantic-tonal;')
+    expect(shellStyles).toContain('@tailwind utilities;')
+    expect(shellStyles).toContain(':is(.mp-shell-root, .v-overlay-container) .app-responsive-input')
+    expect(shellStyles).toContain(':is(.mp-shell-root, .v-overlay-container) .v-switch--inset .v-switch__thumb')
   })
 })
