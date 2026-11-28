@@ -3,6 +3,7 @@ import { vNativeCardMenu, nativeCardAction, type NativeCardMenuBinding } from '@
 import api from '@/api'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 const SubscribeActivityDialog = defineAsyncComponent(() => import('./SubscribeActivityDialog.vue'))
+const SubscribeOwnershipDialog = defineAsyncComponent(() => import('./SubscribeOwnershipDialog.vue'))
 import { Subscribe } from '@/api/types'
 import { formatDateDifference } from '@core/utils/formatters'
 import { useDisplay } from 'vuetify'
@@ -146,8 +147,35 @@ function viewActivity(item: Subscribe) {
   openSharedDialog(SubscribeActivityDialog, { subscription: item, history: true }, {}, { closeOn: ['close'] })
 }
 
+/** 完成历史与活动订阅以各自的记录类型提交。 */
+function reviewOwnership(item: Subscribe) {
+  if (!item.ownership_revision) return
+  openSharedDialog(
+    SubscribeOwnershipDialog,
+    { subscription: item, kind: 'history' },
+    {
+      saved: () => {
+        for (const list of [historyList.value, currData.value]) {
+          const record = list.find(record => record.id === item.id)
+          if (record) {
+            record.ownership_pending = false
+            record.ownership_revision = null
+          }
+        }
+      },
+    },
+  )
+}
+
 // 弹出菜单
 const dropdownItems = ref([
+  {
+    title: t('subscriptionOwnership.title'),
+    value: 4,
+    color: '',
+    pendingOnly: true,
+    props: { prependIcon: 'mdi-account-check-outline', click: reviewOwnership },
+  },
   {
     title: t('subscriptionActivity.title'),
     value: 3,
@@ -174,13 +202,17 @@ const dropdownItems = ref([
   },
 ])
 
+function ownershipMenu(item: Subscribe) {
+  return dropdownItems.value.filter(menu => !menu.pendingOnly || item.ownership_revision)
+}
+
 /** 历史订阅仍传原记录给原回调，不把历史 ID 当成正在订阅的 ID。 */
 function nativeHistoryMenu(item: Subscribe): NativeCardMenuBinding {
   return {
     key: item.id,
     title: item.name,
     items: () =>
-      dropdownItems.value.map(menu =>
+      ownershipMenu(item).map(menu =>
         nativeCardAction(menu.value, {
           title: menu.title,
           icon: menu.props.prependIcon,
@@ -256,7 +288,7 @@ function getMediaTypeText(type: string | undefined) {
                         <VMenu activator="parent" close-on-content-click>
                           <VList>
                             <VListItem
-                              v-for="(menu, i) in dropdownItems"
+                              v-for="(menu, i) in ownershipMenu(item)"
                               :key="i"
                               :base-color="menu.color"
                               @click="menu.props.click(item)"

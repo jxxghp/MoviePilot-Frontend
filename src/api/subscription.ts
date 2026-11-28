@@ -55,3 +55,29 @@ export function unfollowSubscriber(shareUid: string): Promise<null> {
     params: { share_uid: shareUid },
   })
 }
+
+/** 管理员当前可以选择的目标账号。 */
+export interface SubscriptionOwnerAccount {
+  id: number
+  name: string
+  revision: string
+}
+
+/** 查询用于人工核对的有效账号及其当前版本。 */
+export function listSubscriptionOwnerAccounts(): Promise<SubscriptionOwnerAccount[]> {
+  return api.get('subscribe/ownership/accounts', { feedback: 'silent' })
+}
+
+/** 确认管理员已核对的订阅和目标账号。 */
+export function confirmSubscriptionOwner(
+  kind: 'active' | 'history',
+  id: number,
+  revision: string,
+  account: SubscriptionOwnerAccount,
+): Promise<null> {
+  return api.put(
+    `subscribe/ownership/${kind}/${id}`,
+    { revision, account_id: account.id, account_revision: account.revision },
+    { feedback: 'silent' },
+  )
+}

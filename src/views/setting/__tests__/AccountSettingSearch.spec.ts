@@ -110,7 +110,7 @@ describe('AccountSettingSearch', () => {
     await waitFor(() => expect(screen.getByRole('checkbox', { name: '多名称资源搜索' })).toBeChecked())
 
     await fireEvent.update(screen.getByLabelText('下载任务标签'), 'UPDATED')
-    await fireEvent.update(screen.getByLabelText('远程搜索自动下载用户'), '84')
+    expect(screen.queryByLabelText('远程搜索自动下载用户')).toBeNull()
     await fireEvent.click(screen.getByRole('checkbox', { name: '多名称资源搜索' }))
     await fireEvent.click(screen.getByRole('checkbox', { name: '下载站点字幕' }))
 
@@ -122,7 +122,6 @@ describe('AccountSettingSearch', () => {
       expect(mocks.apiPost).toHaveBeenNthCalledWith(3, 'system/env', {
         SEARCH_MULTIPLE_NAME: false,
         DOWNLOAD_SUBTITLE: false,
-        AUTO_DOWNLOAD_USER: '84',
         TORRENT_TAG: 'UPDATED',
       })
     })

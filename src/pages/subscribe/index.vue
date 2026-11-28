@@ -914,6 +914,7 @@ onMounted(() => {
         <VFab
           v-if="!subscribeBatchState.enabled && showSubscribeHistoryAction"
           icon="mdi-history"
+          :aria-label="t('dialog.subscribeHistory.title', { type: subType })"
           color="info"
           variant="tonal"
           appear

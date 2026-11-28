@@ -1,5 +1,5 @@
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
-import type { ChannelMemberUpdate } from '@/api/authorization'
+import type { ChannelMemberBatchRequest, ChannelMemberUpdate } from '@/api/authorization'
 import ChannelAuthorizationDialog from '@/components/dialog/ChannelAuthorizationDialog.vue'
 import { NativeLayoutAdapter } from '@/native/layout'
 import { NativeSheetAdapter } from '@/native/sheet'
@@ -328,5 +328,158 @@ describe('ChannelAuthorizationDialog', () => {
     await fireEvent.update(screen.getByRole('textbox', { name: '搜索昵称或用户 ID' }), '20002')
     expect(screen.queryByText('10001')).not.toBeInTheDocument()
     expect(screen.getByText('20002')).toBeInTheDocument()
+  })
+})
+
+describe('渠道授权删除与批量操作', () => {
+  it('待审批可直接删除，仅提交当前版本，不修改其他成员', async () => {
+    const member = createChannelMember()
+    const removed = vi.fn()
+    server.use(
+      authorizationListHandler([
+        member,
+        createChannelMember({ id: 'other', display_name: '小红', sender_id: '20002' }),
+      ]),
+      http.delete(authorizationApiUrls.member(member.id), async ({ request }) => {
+        removed(await request.json())
+        return apiJson(null)
+      }),
+    )
+    await renderDialog()
+    await fireEvent.click(await screen.findByRole('button', { name: '删除 小明' }))
+    await waitFor(() =>
+      expect(removed).toHaveBeenCalledWith({ expected_updated_at: member.updated_at, confirm_approved: false }),
+    )
+    await waitFor(() => expect(screen.queryByRole('button', { name: '删除 小明' })).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '删除 小红' })).toBeInTheDocument()
+  })
+
+  it('已授权删除必须二次确认，取消不会发送请求', async () => {
+    const member = createChannelMember({ status: 'approved' })
+    const removed = vi.fn()
+    server.use(
+      authorizationListHandler([member]),
+      http.delete(authorizationApiUrls.member(member.id), async ({ request }) => {
+        removed(await request.json())
+        return apiJson(null)
+      }),
+    )
+    await renderDialog()
+    await fireEvent.click(await screen.findByRole('tab', { name: '已授权 (1)' }))
+    await fireEvent.click(screen.getByRole('button', { name: '删除 小明' }))
+    expect(await screen.findByText('删除渠道授权')).toBeInTheDocument()
+    expect(screen.getByText(/将撤销这些已授权成员的访问/)).toBeInTheDocument()
+    expect(removed).not.toHaveBeenCalled()
+    await fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.getByRole('button', { name: '删除 小明' })).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '删除 小明' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    await waitFor(() =>
+      expect(removed).toHaveBeenCalledWith({ expected_updated_at: member.updated_at, confirm_approved: true }),
+    )
+    await waitFor(() => expect(screen.queryByRole('button', { name: '删除 小明' })).not.toBeInTheDocument())
+  })
+
+  it('批量通过审批可统一选择权限，提交稳定 ID 与版本', async () => {
+    const members = [
+      createChannelMember(),
+      createChannelMember({ id: 'second', display_name: '小红', sender_id: '20002' }),
+    ]
+    const changed = vi.fn()
+    server.use(
+      authorizationListHandler(members),
+      http.post(authorizationApiUrls.list + 'batch', async ({ request }) => {
+        const payload = (await request.json()) as ChannelMemberBatchRequest
+        changed(payload)
+        return apiJson({
+          members: members.map(member => ({ ...member, status: 'approved', scopes: payload.scopes })),
+          deleted_ids: [],
+        })
+      }),
+    )
+    await renderDialog()
+    await fireEvent.click(await screen.findByRole('checkbox', { name: '全选当前结果' }))
+    await fireEvent.click(screen.getByRole('button', { name: '批量操作' }))
+    await fireEvent.click(await screen.findByText('批量通过审批', { selector: '.v-list-item-title' }))
+    expect(await screen.findByText(/批量通过统一授予普通成员角色/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '定时任务' })).not.toBeChecked()
+    await fireEvent.click(screen.getByRole('checkbox', { name: '下载' }))
+    await fireEvent.click(screen.getByRole('checkbox', { name: '定时任务' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    await waitFor(() =>
+      expect(changed).toHaveBeenCalledWith({
+        action: 'approve',
+        members: members.map(member => ({ id: member.id, expected_updated_at: member.updated_at })),
+        scopes: ['search', 'subscribe', 'schedule'],
+        confirm_approved: false,
+      }),
+    )
+    expect(await screen.findByRole('tab', { name: '已授权 (2)' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '待审批 (0)' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['pending', '批量拒绝', 'reject', 'rejected', '待审批 (1)'],
+    ['approved', '批量停用', 'disable', 'disabled', '已授权 (1)'],
+  ] as const)('按状态提供 %s 的批量动作并保留未改动权限', async (status, title, action, target, tab) => {
+    const member = createChannelMember({ status })
+    const changed = vi.fn()
+    server.use(
+      authorizationListHandler([member]),
+      http.post(authorizationApiUrls.list + 'batch', async ({ request }) => {
+        changed(await request.json())
+        return apiJson({ members: [{ ...member, status: target }], deleted_ids: [] })
+      }),
+    )
+    await renderDialog()
+    await fireEvent.click(await screen.findByRole('tab', { name: tab }))
+    await fireEvent.click(screen.getByRole('checkbox', { name: '全选当前结果' }))
+    await fireEvent.click(screen.getByRole('button', { name: '批量操作' }))
+    await fireEvent.click(await screen.findByText(title, { selector: '.v-list-item-title' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '确认' }))
+    await waitFor(() =>
+      expect(changed).toHaveBeenCalledWith({
+        action,
+        members: [{ id: member.id, expected_updated_at: member.updated_at }],
+        confirm_approved: false,
+      }),
+    )
+    expect(await screen.findByRole('tab', { name: '停用 / 拒绝 (1)' })).toBeInTheDocument()
+  })
+
+  it('搜索和切换状态会清除选择，避免对隐藏成员批量处理', async () => {
+    server.use(
+      authorizationListHandler([
+        createChannelMember(),
+        createChannelMember({ id: 'other', display_name: '小红', sender_id: '20002' }),
+      ]),
+    )
+    await renderDialog()
+    await fireEvent.click(await screen.findByRole('checkbox', { name: '选择 小明' }))
+    expect(screen.getByText('已选 1 条')).toBeInTheDocument()
+    await fireEvent.update(screen.getByRole('textbox', { name: '搜索昵称或用户 ID' }), '小红')
+    expect(screen.getByText('已选 0 条')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '批量操作' })).toBeDisabled()
+    await fireEvent.click(screen.getByRole('checkbox', { name: '全选当前结果' }))
+    await fireEvent.click(screen.getByRole('tab', { name: '已授权 (0)' }))
+    await fireEvent.click(screen.getByRole('tab', { name: '待审批 (2)' }))
+    expect(screen.getByText('已选 0 条')).toBeInTheDocument()
+  })
+
+  it('批量删除失败保留列表和确认框，不显示假成功', async () => {
+    const member = createChannelMember({ status: 'disabled' })
+    server.use(
+      authorizationListHandler([member]),
+      http.post(authorizationApiUrls.list + 'batch', () => apiFailureJson('成员已更新，请刷新')),
+    )
+    await renderDialog()
+    await fireEvent.click(await screen.findByRole('tab', { name: '停用 / 拒绝 (1)' }))
+    await fireEvent.click(screen.getByRole('checkbox', { name: '全选当前结果' }))
+    await fireEvent.click(screen.getByRole('button', { name: '批量操作' }))
+    await fireEvent.click(await screen.findByText('批量删除', { selector: '.v-list-item-title' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '确认' }))
+    expect((await screen.findAllByText('成员已更新，请刷新')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: '确认' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '停用 / 拒绝 (1)' })).toBeInTheDocument()
   })
 })

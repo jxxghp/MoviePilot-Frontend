@@ -16,7 +16,7 @@ const AccountSettingSite = defineAsyncComponent(() => import('@/views/setting/Ac
 const AccountSettingRule = defineAsyncComponent(() => import('@/views/setting/AccountSettingRule.vue'))
 const AccountSettingSearch = defineAsyncComponent(() => import('@/views/setting/AccountSettingSearch.vue'))
 const AccountSettingSubscribe = defineAsyncComponent(() => import('@/views/setting/AccountSettingSubscribe.vue'))
-const AccountSettingNotification = defineAsyncComponent(() => import('@/views/setting/AccountSettingNotification.vue'))
+const AccountSettingMessaging = defineAsyncComponent(() => import('@/views/setting/AccountSettingMessaging.vue'))
 
 const visitedTabs = ref(new Set<string>())
 
@@ -27,7 +27,7 @@ const settingTabComponents = [
   { value: 'rule', component: AccountSettingRule },
   { value: 'search', component: AccountSettingSearch },
   { value: 'subscribe', component: AccountSettingSubscribe },
-  { value: 'notification', component: AccountSettingNotification },
+  { value: 'messaging', component: AccountSettingMessaging },
 ]
 const settingTabValues = new Set(settingTabComponents.map(item => item.value))
 
@@ -43,6 +43,7 @@ function markTabVisited(tab: string) {
 /** 从路由查询参数提取一个存在于当前设置页的标签值。 */
 function validRouteTab(value: unknown): string | null {
   const tab = Array.isArray(value) ? value[0] : value
+  if (tab === 'notification' || tab === 'interaction') return 'messaging'
   return typeof tab === 'string' && settingTabValues.has(tab) ? tab : null
 }
 

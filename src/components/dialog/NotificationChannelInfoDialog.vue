@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import { manageNotificationChannel, rotateAppPushInstance } from '@/api/manage'
 import { stripLegacyChannelAuthorization } from '@/api/authorization'
 import { NotificationConf } from '@/api/types'
@@ -34,6 +35,28 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  // 单独创建共享连接时使用同一套平台表单。
+  connectionOnly: {
+    type: Boolean,
+    default: false,
+  },
+  // 二次编辑只提交平台表单中允许保留身份的字段。
+  editableConnectionFields: {
+    type: Array as PropType<string[]>,
+    default: undefined,
+  },
+  // 共享连接保存后使用稳定 ID 管理扫码登录。
+  /** 共享管理页通过能力打开平台登录表单。 */
+  loginManagement: Boolean,
+  clawBotLoginOnly: {
+    type: Boolean,
+    default: false,
+  },
+  /** 由连接设置处理提交和关闭。 */
+  managedSubmit: Boolean,
+  removableDraft: Boolean,
+  saving: Boolean,
+  suspendFocus: Boolean,
   // 单个通知
   notification: {
     type: Object as PropType<NotificationConf>,
@@ -47,7 +70,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['update:modelValue', 'close', 'change', 'done'])
+const emit = defineEmits(['update:modelValue', 'close', 'change', 'done', 'remove'])
 
 // 提示框
 const $toast = useToast()
@@ -248,6 +271,9 @@ async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null, g
 
 /** 组装微信客服状态接口所需的请求参数。 */
 function getWechatClawBotRequestParams(extraParams: Record<string, unknown> = {}) {
+  if (props.clawBotLoginOnly || props.loginManagement) {
+    return { source: props.notification.id, saved_connection: true, ...extraParams }
+  }
   const config = notificationInfo.value.config || {}
   // 配置身份优先于显示名称；名称仅作为旧配置尚未归一化时的明确读取回退。
   const source = notificationInfo.value.id || notificationInfo.value.name
@@ -284,7 +310,10 @@ function openNotificationInfoDialog() {
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = true
-  if (notificationInfo.value.type === 'wechatclawbot') {
+  if (
+    notificationInfo.value.type === 'wechatclawbot' &&
+    (!props.connectionOnly || props.clawBotLoginOnly || props.loginManagement)
+  ) {
     fetchWechatClawBotStatus({
       autoGenerateQrcode: true,
       autoRefreshExpired: true,
@@ -316,6 +345,10 @@ async function enableWebPushNotifications() {
   }
 }
 
+function isConnectionFieldLocked(field: string) {
+  return props.editableConnectionFields !== undefined && !props.editableConnectionFields.includes(field)
+}
+
 /** 保存通知渠道编辑结果并通知父级刷新。 */
 function saveNotificationInfo() {
   // 为空不保存，跳出警告框
@@ -335,7 +368,7 @@ function saveNotificationInfo() {
   notificationInfo.value.name = normalizedName
   ensureWechatConfigDefaults(notificationInfo.value)
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
-  notificationInfoDialog.value = false
+  if (!props.managedSubmit) notificationInfoDialog.value = false
   emit('change', notificationInfo.value, props.notification.id)
   emit('done')
 }
@@ -545,6 +578,9 @@ onMounted(() => {
     v-if="notificationInfoDialog"
     v-model="notificationInfoDialog"
     scrollable
+    :persistent="saving"
+    :retain-focus="!suspendFocus"
+    :transition="managedSubmit ? false : undefined"
     max-width="40rem"
     :fullscreen="!display.mdAndUp.value"
   >
@@ -553,32 +589,23 @@ onMounted(() => {
         <template #prepend>
           <VIcon icon="mdi-cog" class="me-2" />
         </template>
-        <VCardTitle>{{ t('common.config') }}</VCardTitle>
+        <VCardTitle>{{ t(connectionOnly ? 'channelSettings.configurationTitle' : 'common.config') }}</VCardTitle>
         <VCardSubtitle>{{ props.notification.name }}</VCardSubtitle>
+        <template v-if="!saving" #append>
+          <div class="d-flex align-center ga-1">
+            <slot name="header-actions" />
+            <IconBtn v-if="removableDraft" :aria-label="t('common.delete')" @click="emit('remove')">
+              <VIcon icon="mdi-delete-outline" />
+            </IconBtn>
+            <DialogCloseBtn v-model="notificationInfoDialog" inner-class="position-relative" />
+          </div>
+        </template>
       </VCardItem>
-      <VDialogCloseBtn v-model="notificationInfoDialog" />
       <VDivider />
       <VCardText>
-        <p
-          v-if="
-            [
-              'telegram',
-              'wechat',
-              'wechatclawbot',
-              'feishu',
-              'qqbot',
-              'discord',
-              'slack',
-              'vocechat',
-              'synologychat',
-            ].includes(notificationInfo.type)
-          "
-          class="text-caption text-medium-emphasis mb-4"
-        >
-          {{ t('channelAuthorization.configHint') }}
-        </p>
-        <VForm>
-          <VRow>
+        <slot name="connection-fields" />
+        <VForm :disabled="saving">
+          <VRow v-if="!props.connectionOnly && !(props.clawBotLoginOnly || props.loginManagement)">
             <VCol cols="12" md="6">
               <VSwitch v-model="notificationInfo.enabled" :label="t('notification.enabled')" />
             </VCol>
@@ -610,6 +637,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VSwitch
                 v-model="isWechatBotMode"
+                :disabled="isConnectionFieldLocked('WECHAT_MODE')"
                 :label="t('notification.wechat.useBotMode')"
                 :hint="t('notification.wechat.useBotModeHint')"
                 persistent-hint
@@ -620,6 +648,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_BOT_ID"
+                  :readonly="isConnectionFieldLocked('WECHAT_BOT_ID')"
                   :label="t('notification.wechat.botId')"
                   :hint="t('notification.wechat.botIdHint')"
                   persistent-hint
@@ -629,15 +658,17 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_BOT_SECRET"
+                  :readonly="isConnectionFieldLocked('WECHAT_BOT_SECRET')"
                   :label="t('notification.wechat.botSecret')"
                   :hint="t('notification.wechat.botSecretHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-key"
                 />
               </VCol>
-              <VCol cols="12" md="6">
+              <VCol v-if="!connectionOnly" cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_BOT_CHAT_ID"
+                  :readonly="isConnectionFieldLocked('WECHAT_BOT_CHAT_ID')"
                   :label="t('notification.wechat.botChatId')"
                   :placeholder="t('notification.wechat.botChatIdPlaceholder')"
                   :hint="t('notification.wechat.botChatIdHint')"
@@ -648,6 +679,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_BOT_WS_URL"
+                  :readonly="isConnectionFieldLocked('WECHAT_BOT_WS_URL')"
                   :label="t('notification.wechat.botWsUrl')"
                   :hint="t('notification.wechat.botWsUrlHint')"
                   persistent-hint
@@ -659,6 +691,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_CORPID"
+                  :readonly="isConnectionFieldLocked('WECHAT_CORPID')"
                   :label="t('notification.wechat.corpId')"
                   :hint="t('notification.wechat.corpIdHint')"
                   persistent-hint
@@ -668,6 +701,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_APP_ID"
+                  :readonly="isConnectionFieldLocked('WECHAT_APP_ID')"
                   :label="t('notification.wechat.appId')"
                   :hint="t('notification.wechat.appIdHint')"
                   persistent-hint
@@ -677,6 +711,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_APP_SECRET"
+                  :readonly="isConnectionFieldLocked('WECHAT_APP_SECRET')"
                   :label="t('notification.wechat.appSecret')"
                   :hint="t('notification.wechat.appSecretHint')"
                   persistent-hint
@@ -686,6 +721,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_PROXY"
+                  :readonly="isConnectionFieldLocked('WECHAT_PROXY')"
                   :label="t('notification.wechat.proxy')"
                   :hint="t('notification.wechat.proxyHint')"
                   persistent-hint
@@ -695,6 +731,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_TOKEN"
+                  :readonly="isConnectionFieldLocked('WECHAT_TOKEN')"
                   :label="t('notification.wechat.token')"
                   :hint="t('notification.wechat.tokenHint')"
                   persistent-hint
@@ -704,6 +741,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="notificationInfo.config.WECHAT_ENCODING_AESKEY"
+                  :readonly="isConnectionFieldLocked('WECHAT_ENCODING_AESKEY')"
                   :label="t('notification.wechat.encodingAesKey')"
                   :hint="t('notification.wechat.encodingAesKeyHint')"
                   persistent-hint
@@ -713,46 +751,51 @@ onMounted(() => {
             </template>
           </VRow>
           <VRow v-else-if="notificationInfo.type == 'wechatclawbot'">
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.name"
-                :label="t('notification.name')"
-                :placeholder="t('notification.name')"
-                :hint="t('notification.nameHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-label"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.WECHATCLAWBOT_BASE_URL"
-                :label="t('notification.wechatclawbot.baseUrl')"
-                :hint="t('notification.wechatclawbot.baseUrlHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-web"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.WECHATCLAWBOT_DEFAULT_TARGET"
-                :label="t('notification.wechatclawbot.defaultTarget')"
-                :placeholder="t('notification.wechatclawbot.defaultTargetPlaceholder')"
-                :hint="t('notification.wechatclawbot.defaultTargetHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-account-arrow-right"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="notificationInfo.config.WECHATCLAWBOT_POLL_TIMEOUT"
-                :label="t('notification.wechatclawbot.pollTimeout')"
-                :hint="t('notification.wechatclawbot.pollTimeoutHint')"
-                persistent-hint
-                type="number"
-                prepend-inner-icon="mdi-timer-outline"
-              />
-            </VCol>
-            <VCol cols="12">
+            <template v-if="!(props.clawBotLoginOnly || props.loginManagement)">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.name"
+                  :label="t('notification.name')"
+                  :placeholder="t('notification.name')"
+                  :hint="t('notification.nameHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-label"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.WECHATCLAWBOT_BASE_URL"
+                  :readonly="isConnectionFieldLocked('WECHATCLAWBOT_BASE_URL')"
+                  :label="t('notification.wechatclawbot.baseUrl')"
+                  :hint="t('notification.wechatclawbot.baseUrlHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-web"
+                />
+              </VCol>
+              <VCol v-if="!connectionOnly" cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.WECHATCLAWBOT_DEFAULT_TARGET"
+                  :readonly="isConnectionFieldLocked('WECHATCLAWBOT_DEFAULT_TARGET')"
+                  :label="t('notification.wechatclawbot.defaultTarget')"
+                  :placeholder="t('notification.wechatclawbot.defaultTargetPlaceholder')"
+                  :hint="t('notification.wechatclawbot.defaultTargetHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-arrow-right"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.WECHATCLAWBOT_POLL_TIMEOUT"
+                  :readonly="isConnectionFieldLocked('WECHATCLAWBOT_POLL_TIMEOUT')"
+                  :label="t('notification.wechatclawbot.pollTimeout')"
+                  :hint="t('notification.wechatclawbot.pollTimeoutHint')"
+                  persistent-hint
+                  type="number"
+                  prepend-inner-icon="mdi-timer-outline"
+                />
+              </VCol>
+            </template>
+            <VCol v-if="!props.connectionOnly || props.clawBotLoginOnly || props.loginManagement" cols="12">
               <VCard variant="tonal" class="pa-4">
                 <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-3">
                   <div>
@@ -809,7 +852,9 @@ onMounted(() => {
                   </VCol>
                   <VCol cols="12" md="7">
                     <VAlert variant="tonal" :type="wechatClawBotStatus?.connected ? 'success' : 'info'" class="mb-3">
-                      <div class="text-body-2">{{ t('notification.wechatclawbot.scanHint') }}</div>
+                      <div v-if="!(props.clawBotLoginOnly || props.loginManagement)" class="text-body-2">
+                        {{ t('notification.wechatclawbot.scanHint') }}
+                      </div>
                       <div v-if="wechatClawBotStatus?.account_id" class="mt-2">
                         {{ t('notification.wechatclawbot.accountId') }}: {{ wechatClawBotStatus.account_id }}
                       </div>
@@ -849,6 +894,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.FEISHU_APP_ID"
+                :readonly="isConnectionFieldLocked('FEISHU_APP_ID')"
                 :label="t('notification.feishu.appId')"
                 :hint="t('notification.feishu.appIdHint')"
                 persistent-hint
@@ -858,15 +904,17 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.FEISHU_APP_SECRET"
+                :readonly="isConnectionFieldLocked('FEISHU_APP_SECRET')"
                 :label="t('notification.feishu.appSecret')"
                 :hint="t('notification.feishu.appSecretHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.FEISHU_OPEN_ID"
+                :readonly="isConnectionFieldLocked('FEISHU_OPEN_ID')"
                 :label="t('notification.feishu.openId')"
                 :placeholder="t('notification.feishu.openIdPlaceholder')"
                 :hint="t('notification.feishu.openIdHint')"
@@ -874,9 +922,10 @@ onMounted(() => {
                 prepend-inner-icon="mdi-account"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.FEISHU_CHAT_ID"
+                :readonly="isConnectionFieldLocked('FEISHU_CHAT_ID')"
                 :label="t('notification.feishu.chatId')"
                 :placeholder="t('notification.feishu.chatIdPlaceholder')"
                 :hint="t('notification.feishu.chatIdHint')"
@@ -884,18 +933,20 @@ onMounted(() => {
                 prepend-inner-icon="mdi-chat-processing"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.FEISHU_VERIFICATION_TOKEN"
+                :readonly="isConnectionFieldLocked('FEISHU_VERIFICATION_TOKEN')"
                 :label="t('notification.feishu.verificationToken')"
                 :hint="t('notification.feishu.verificationTokenHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-shield-key"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.FEISHU_ENCRYPT_KEY"
+                :readonly="isConnectionFieldLocked('FEISHU_ENCRYPT_KEY')"
                 :label="t('notification.feishu.encryptKey')"
                 :hint="t('notification.feishu.encryptKeyHint')"
                 persistent-hint
@@ -917,24 +968,27 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.TELEGRAM_TOKEN"
+                :readonly="isConnectionFieldLocked('TELEGRAM_TOKEN')"
                 :label="t('notification.telegram.token')"
                 :hint="t('notification.telegram.tokenHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.TELEGRAM_CHAT_ID"
+                :readonly="isConnectionFieldLocked('TELEGRAM_CHAT_ID')"
                 :label="t('notification.telegram.chatId')"
                 :hint="t('notification.telegram.chatIdHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-chat"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.TELEGRAM_TOPIC_ID"
+                :readonly="isConnectionFieldLocked('TELEGRAM_TOPIC_ID')"
                 :label="t('notification.telegram.topicId')"
                 :hint="t('notification.telegram.topicIdHint')"
                 persistent-hint
@@ -944,6 +998,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.API_URL"
+                :readonly="isConnectionFieldLocked('API_URL')"
                 :label="t('notification.telegram.apiUrl')"
                 :placeholder="t('notification.telegram.apiUrlPlaceholder')"
                 :hint="t('notification.telegram.apiUrlHint')"
@@ -966,6 +1021,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.SLACK_OAUTH_TOKEN"
+                :readonly="isConnectionFieldLocked('SLACK_OAUTH_TOKEN')"
                 :label="t('notification.slack.oauthToken')"
                 :placeholder="t('notification.slack.oauthTokenPlaceholder')"
                 :hint="t('notification.slack.oauthTokenHint')"
@@ -976,6 +1032,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.SLACK_APP_TOKEN"
+                :readonly="isConnectionFieldLocked('SLACK_APP_TOKEN')"
                 :label="t('notification.slack.appToken')"
                 :placeholder="t('notification.slack.appTokenPlaceholder')"
                 :hint="t('notification.slack.appTokenHint')"
@@ -983,9 +1040,10 @@ onMounted(() => {
                 prepend-inner-icon="mdi-application"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.SLACK_CHANNEL"
+                :readonly="isConnectionFieldLocked('SLACK_CHANNEL')"
                 :label="t('notification.slack.channel')"
                 :placeholder="t('notification.slack.channelPlaceholder')"
                 :hint="t('notification.slack.channelHint')"
@@ -1008,15 +1066,17 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.DISCORD_BOT_TOKEN"
+                :readonly="isConnectionFieldLocked('DISCORD_BOT_TOKEN')"
                 :label="t('notification.discord.botToken')"
                 :hint="t('notification.discord.botTokenHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key-variant"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.DISCORD_GUILD_ID"
+                :readonly="isConnectionFieldLocked('DISCORD_GUILD_ID')"
                 :label="t('notification.discord.guildId')"
                 :placeholder="t('notification.discord.guildIdPlaceholder')"
                 :hint="t('notification.discord.guildIdHint')"
@@ -1024,9 +1084,10 @@ onMounted(() => {
                 prepend-inner-icon="mdi-pound"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.DISCORD_CHANNEL_ID"
+                :readonly="isConnectionFieldLocked('DISCORD_CHANNEL_ID')"
                 :label="t('notification.discord.channelId')"
                 :placeholder="t('notification.discord.channelIdPlaceholder')"
                 :hint="t('notification.discord.channelIdHint')"
@@ -1049,6 +1110,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.SYNOLOGYCHAT_WEBHOOK"
+                :readonly="isConnectionFieldLocked('SYNOLOGYCHAT_WEBHOOK')"
                 :label="t('notification.synologychat.webhook')"
                 :hint="t('notification.synologychat.webhookHint')"
                 persistent-hint
@@ -1058,6 +1120,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.SYNOLOGYCHAT_TOKEN"
+                :readonly="isConnectionFieldLocked('SYNOLOGYCHAT_TOKEN')"
                 :label="t('notification.synologychat.token')"
                 :hint="t('notification.synologychat.tokenHint')"
                 persistent-hint
@@ -1079,6 +1142,7 @@ onMounted(() => {
             <VCol cols="12">
               <VTextField
                 v-model="notificationInfo.config.DINGTALK_WEBHOOK"
+                :readonly="isConnectionFieldLocked('DINGTALK_WEBHOOK')"
                 :label="t('notification.dingtalk.webhook')"
                 :hint="t('notification.dingtalk.webhookHint')"
                 persistent-hint
@@ -1088,6 +1152,7 @@ onMounted(() => {
             <VCol cols="12">
               <VTextField
                 v-model="notificationInfo.config.DINGTALK_SECRET"
+                :readonly="isConnectionFieldLocked('DINGTALK_SECRET')"
                 :label="t('notification.dingtalk.secret')"
                 :hint="t('notification.dingtalk.secretHint')"
                 persistent-hint
@@ -1110,6 +1175,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.VOCECHAT_HOST"
+                :readonly="isConnectionFieldLocked('VOCECHAT_HOST')"
                 :label="t('notification.vocechat.host')"
                 :hint="t('notification.vocechat.hostHint')"
                 persistent-hint
@@ -1119,15 +1185,17 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.VOCECHAT_API_KEY"
+                :readonly="isConnectionFieldLocked('VOCECHAT_API_KEY')"
                 :label="t('notification.vocechat.apiKey')"
                 :hint="t('notification.vocechat.apiKeyHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.VOCECHAT_CHANNEL_ID"
+                :readonly="isConnectionFieldLocked('VOCECHAT_CHANNEL_ID')"
                 :label="t('notification.vocechat.channelId')"
                 :placeholder="t('notification.vocechat.channelIdPlaceholder')"
                 :hint="t('notification.vocechat.channelIdHint')"
@@ -1150,6 +1218,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.QQ_APP_ID"
+                :readonly="isConnectionFieldLocked('QQ_APP_ID')"
                 :label="t('notification.qqbot.appId')"
                 :hint="t('notification.qqbot.appIdHint')"
                 persistent-hint
@@ -1159,15 +1228,17 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.QQ_APP_SECRET"
+                :readonly="isConnectionFieldLocked('QQ_APP_SECRET')"
                 :label="t('notification.qqbot.appSecret')"
                 :hint="t('notification.qqbot.appSecretHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.QQ_OPENID"
+                :readonly="isConnectionFieldLocked('QQ_OPENID')"
                 :label="t('notification.qqbot.openId')"
                 :placeholder="t('notification.qqbot.openIdPlaceholder')"
                 :hint="t('notification.qqbot.openIdHint')"
@@ -1175,9 +1246,10 @@ onMounted(() => {
                 prepend-inner-icon="mdi-account"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.QQ_GROUP_OPENID"
+                :readonly="isConnectionFieldLocked('QQ_GROUP_OPENID')"
                 :label="t('notification.qqbot.groupOpenId')"
                 :placeholder="t('notification.qqbot.groupOpenIdPlaceholder')"
                 :hint="t('notification.qqbot.groupOpenIdHint')"
@@ -1193,6 +1265,7 @@ onMounted(() => {
             <VCol cols="12">
               <VTextField
                 v-model="notificationInfo.config.PUSH_SERVER_URL"
+                :readonly="isConnectionFieldLocked('PUSH_SERVER_URL')"
                 :label="t('notification.apppush.server')"
                 placeholder="https://push.example.com"
                 :hint="t('notification.apppush.serverHint')"
@@ -1205,6 +1278,7 @@ onMounted(() => {
                   <VExpansionPanelText>
                     <VTextField
                       v-model="notificationInfo.config.PUSH_RELAY_KEY"
+                      :readonly="isConnectionFieldLocked('PUSH_RELAY_KEY')"
                       type="password"
                       autocomplete="new-password"
                       :label="t('notification.apppush.key')"
@@ -1235,9 +1309,10 @@ onMounted(() => {
                 prepend-inner-icon="mdi-label"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol v-if="!connectionOnly" cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.config.WEBPUSH_USERNAME"
+                :readonly="isConnectionFieldLocked('WEBPUSH_USERNAME')"
                 :label="t('notification.webpush.username')"
                 :hint="t('notification.webpush.usernameHint')"
                 persistent-hint
@@ -1285,6 +1360,7 @@ onMounted(() => {
             <VCol cols="12" md="6">
               <VTextField
                 v-model="notificationInfo.type"
+                :readonly="props.editableConnectionFields !== undefined"
                 :label="t('notification.type')"
                 :hint="t('notification.customTypeHint')"
                 persistent-hint
@@ -1303,11 +1379,19 @@ onMounted(() => {
             </VCol>
           </VRow>
         </VForm>
+        <slot name="connection-actions" />
       </VCardText>
-      <VCardActions class="app-dialog-actions">
+      <VCardActions v-if="!(props.clawBotLoginOnly || props.loginManagement)" class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" variant="flat" @click="saveNotificationInfo" prepend-icon="mdi-content-save" class="px-5">
-          {{ t('common.confirm') }}
+        <VBtn
+          color="primary"
+          variant="flat"
+          :loading="saving"
+          @click="saveNotificationInfo"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
+          {{ t(managedSubmit ? 'common.save' : 'common.confirm') }}
         </VBtn>
       </VCardActions>
     </VCard>

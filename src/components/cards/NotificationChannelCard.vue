@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NotificationConf } from '@/api/types'
+import VDialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -24,10 +25,16 @@ const props = defineProps({
     type: Array as PropType<NotificationConf[]>,
     required: true,
   },
+  // 共享连接由设置页打开对应资源的编辑器。
+  managed: Boolean,
+  sortable: Boolean,
+  /** 由连接卡片组提供右上角操作。 */
+  hasOuterAction: Boolean,
+  disabled: Boolean,
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'change', 'done'])
+const emit = defineEmits(['close', 'change', 'done', 'edit'])
 
 // 各通知类型的名称字典
 const notificationTypeNames: { [key: string]: string } = {
@@ -48,6 +55,10 @@ const notificationTypeNames: { [key: string]: string } = {
 
 /** 打开共享通知渠道配置弹窗。 */
 function openNotificationInfoDialog() {
+  if (props.managed) {
+    emit('edit')
+    return
+  }
   openSharedDialog(
     NotificationChannelInfoDialog,
     {
@@ -104,9 +115,18 @@ const sceneCount = computed(() => props.notification.switchs?.length || 0)
 
 <template>
   <VCard
+    :tag="managed ? 'button' : 'div'"
+    :type="managed ? 'button' : undefined"
+    :aria-label="managed ? notification.name : undefined"
+    :disabled="disabled"
     variant="flat"
     class="app-card-shell app-card-colorful mp-setting-card mp-setting-card--interactive"
-    :class="{ 'mp-setting-card--inactive': !props.notification.enabled }"
+    :class="{
+      'mp-setting-card--inactive': !props.notification.enabled,
+      'mp-setting-card--managed-actions': managed && (sortable || hasOuterAction),
+      'mp-setting-card--extra-actions': managed && hasOuterAction,
+      'text-start': managed,
+    }"
     :style="{ '--app-card-accent-rgb': accentRgb }"
     @click="openNotificationInfoDialog"
   >
@@ -124,7 +144,7 @@ const sceneCount = computed(() => props.notification.switchs?.length || 0)
           </span>
         </div>
       </div>
-      <div class="mp-setting-card__actions">
+      <div v-if="!managed" class="mp-setting-card__actions">
         <IconBtn class="mp-setting-card__action cursor-move" :aria-label="t('settingCard.dragSort')" @click.stop>
           <VIcon class="cursor-move" icon="mdi-drag" />
         </IconBtn>
@@ -155,3 +175,12 @@ const sceneCount = computed(() => props.notification.switchs?.length || 0)
     </div>
   </VCard>
 </template>
+
+<style scoped>
+.mp-setting-card--managed-actions .mp-setting-card__heading {
+  padding-inline-end: 4rem;
+}
+.mp-setting-card--extra-actions .mp-setting-card__heading {
+  padding-inline-end: 6rem;
+}
+</style>

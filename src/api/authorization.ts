@@ -53,6 +53,32 @@ export interface ChannelMemberCreate extends ChannelMemberUpdate {
   display_name: string
 }
 
+/** 整批操作只处理显式选择的版本，冲突时整批不提交。 */
+export type ChannelMemberBatchAction = 'approve' | 'reject' | 'disable' | 'delete'
+export interface ChannelMemberBatchRequest {
+  action: ChannelMemberBatchAction
+  members: { id: string; expected_updated_at: number }[]
+  scopes?: ChannelScope[]
+  confirm_approved?: boolean
+}
+export interface ChannelMemberBatchResult {
+  members: ChannelMember[]
+  deleted_ids: string[]
+}
+
+/** 批量通过仅授予普通成员角色，权限由本次操作明确选择。 */
+export function batchChannelAuthorizations(payload: ChannelMemberBatchRequest): Promise<ChannelMemberBatchResult> {
+  return api.post('authorization/batch', payload, { feedback: 'silent' })
+}
+
+/** 删除当前读取版本；已授权记录必须在界面二次确认。 */
+export function deleteChannelAuthorization(member: ChannelMember, confirmApproved = false): Promise<void> {
+  return api.delete(`authorization/${encodeURIComponent(member.id)}`, {
+    data: { expected_updated_at: member.updated_at, confirm_approved: confirmApproved },
+    feedback: 'silent',
+  })
+}
+
 /** 当前网页账号五分钟有效的一次性关联码，不写入浏览器持久化存储。 */
 export interface ChannelBindingData {
   code: string
